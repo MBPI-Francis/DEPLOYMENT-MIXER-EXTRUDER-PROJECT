@@ -16,17 +16,18 @@ class OldRecordsExcelExporter:
         # Ensure 'Date' column is in datetime format for grouping
         self.df['Date'] = pd.to_datetime(self.df['Date'])
 
-
     def _calculate_totals(self, df_subset: pd.DataFrame) -> dict:
-        """Calculates all required totals using the correct decimal hour logic."""
+        """Calculates all required totals for a given subset of old record data."""
         if df_subset.empty:
             return {}
 
+        # --- MODIFIED: Only calculate totals for existing columns ---
         total_output_qty = df_subset['Output QTY'].sum()
 
         total_proc_delta = timedelta()
         for duration_str in df_subset['Processing Duration'].dropna():
             try:
+                # Handle potential empty strings from cleaning
                 if duration_str:
                     hours, minutes = map(int, duration_str.split(':'))
                     total_proc_delta += timedelta(hours=hours, minutes=minutes)
@@ -36,16 +37,14 @@ class OldRecordsExcelExporter:
         proc_total_seconds = total_proc_delta.total_seconds()
         proc_total_hours = int(proc_total_seconds // 3600)
         proc_total_minutes = int((proc_total_seconds % 3600) // 60)
+        proc_decimal_hours = (proc_total_minutes / 60) + proc_total_hours
 
-        # --- THE CORRECTED EXCEL-MIMICKING LOGIC ---
-        proc_decimal_hours = (proc_total_hours % 24) + (proc_total_minutes / 60)
-
+        # Return a dictionary with only the relevant totals
         return {
             "Total Output QTY": f"{total_output_qty:,.2f}",
             "Total Processing Duration (HH:MM)": f"{proc_total_hours}:{proc_total_minutes:02}",
             "Total Processing Duration (Decimal Hours)": f"{proc_decimal_hours:.2f}",
         }
-
 
     def _format_worksheet(self, ws, title: str, totals: dict, num_columns: int):
         """Applies styling and adds title/totals to a worksheet."""
@@ -82,7 +81,7 @@ class OldRecordsExcelExporter:
         column_order = [
             "Date", "Ref No", "MC #", "Product Code", "Lot Number",
             "Processing Start", "Processing End", "Processed By", "Output QTY",
-            "Processing Duration"
+            "Processing Duration" # Moved to the end
         ]
         export_df = self.df[[col for col in column_order if col in self.df.columns]]
 

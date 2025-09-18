@@ -16,16 +16,20 @@ class ExcelExporter:
         # Ensure 'Date' column is in datetime format for grouping
         self.df['Date'] = pd.to_datetime(self.df['Date'])
 
+        # In app/views/mixer_report/exporter.py
+
+        # In app/views/mixer_report/exporter.py
+
     def _calculate_totals(self, df_subset: pd.DataFrame) -> dict:
         """Calculates all required totals for a given subset of data."""
         if df_subset.empty:
             return {}
 
-        # 2. Compute the total Processing OUTPUT and Cleaning QTY.
+        # 1. Compute totals for QTY columns
         total_output_qty = df_subset['Output QTY'].sum()
         total_cleaning_qty = df_subset['Cleaning QTY'].sum()
 
-        # 3. Compute the total Cleaning Durations and Total Processing Durations.
+        # 2. Compute the total timedelta for durations
         total_proc_delta = timedelta()
         for duration_str in df_subset['Processing Duration'].dropna():
             try:
@@ -42,7 +46,7 @@ class ExcelExporter:
             except (ValueError, TypeError):
                 continue
 
-        # Convert total durations back to a readable format
+        # 3. Get the TOTAL hours and the REMAINING minutes for the HH:MM display
         proc_total_seconds = total_proc_delta.total_seconds()
         proc_total_hours = int(proc_total_seconds // 3600)
         proc_total_minutes = int((proc_total_seconds % 3600) // 60)
@@ -51,9 +55,14 @@ class ExcelExporter:
         clean_total_hours = int(clean_total_seconds // 3600)
         clean_total_minutes = int((clean_total_seconds % 3600) // 60)
 
-        # 4. And Also compute this for cleaning time and processing time
-        proc_decimal_hours = (proc_total_minutes / 60) + proc_total_hours
-        clean_decimal_hours = (clean_total_minutes / 60) + clean_total_hours
+        # --- START OF THE DEFINITIVE FIX ---
+        # 4. Replicate the specific Excel formula: =MINUTE(TIME)/60 + HOUR(TIME)
+        #    Excel's HOUR() function uses a modulo-24 operation for values > 24.
+
+        proc_decimal_hours = (proc_total_hours % 24) + (proc_total_minutes / 60)
+        clean_decimal_hours = (clean_total_hours % 24) + (clean_total_minutes / 60)
+
+        # --- END OF THE DEFINITIVE FIX ---
 
         return {
             "Total Output QTY": f"{total_output_qty:,.2f}",

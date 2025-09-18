@@ -47,51 +47,6 @@ def load_stylesheet(widget):
         with open(css_path, "r") as f:
             widget.setStyleSheet(f.read())
 
-# class TimeLineEdit(QLineEdit):
-#     def __init__(self, initial_time=None, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.setInputMask('00:00')
-#         if initial_time and hasattr(initial_time, 'strftime'):
-#             self.setText(initial_time.strftime("%H:%M"))
-#         else:
-#             self.setText("00:00")
-
-# In main.py, replace the existing TimeLineEdit class
-
-# class TimeLineEdit(QLineEdit):
-#     def __init__(self, initial_time=None, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.setInputMask('00:00')
-#         if initial_time and hasattr(initial_time, 'strftime'):
-#             self.setText(initial_time.strftime("%H:%M"))
-#         else:
-#             self.setText("00:00")
-#
-#     def mousePressEvent(self, event):
-#         """
-#         Overrides the default mouse press event. If the current text is the
-#         default "00:00", it clears the field and moves the cursor to the
-#         beginning, making it ready for the user to type the new time.
-#         """
-#         # --- MODIFIED LOGIC ---
-#
-#         # Check if our special condition is met before doing anything.
-#         should_reset_cursor = (event.button() == Qt.MouseButton.LeftButton and self.text() == "00:00")
-#
-#         if should_reset_cursor:
-#             self.clear()
-#
-#         # Always call the base class implementation first. This handles
-#         # standard events like giving the widget focus and the initial
-#         # (but temporary) cursor placement from the click.
-#         super().mousePressEvent(event)
-#
-#         # NOW, if we met our condition, force the cursor to the start.
-#         # This overrides the cursor position that super() may have set.
-#         if should_reset_cursor:
-#             self.setCursorPosition(0)
-
-
 # In main.py, replace the existing TimeLineEdit class
 
 class TimeLineEdit(QLineEdit):
