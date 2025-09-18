@@ -1,0 +1,16 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/">
+    <!--
+      This section defines your application's icons.
+      The 'alias' is the new, simple path you will use in your CSS.
+      The text inside the <file> tag is the real path to the icon from this .qrc file.
+    -->
+    <file alias="icons/chevron-up.svg">app/widgets/widget_icons/chevron-up.svg</file>
+    <file alias="icons/chevron-down.svg">app/widgets/widget_icons/chevron-down.svg</file>
+
+    <!--
+      You can add more resources here in the future!
+      For example: <file alias="images/logo.png">app/assets/images/logo.png</file>
+    -->
+</qresource>
+</RCC>

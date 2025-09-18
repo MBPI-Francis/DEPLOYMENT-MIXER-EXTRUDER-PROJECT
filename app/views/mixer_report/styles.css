@@ -1,0 +1,39 @@
+/* app/views/mixer_report/styles.css */
+
+#MixerReportView {
+    padding: 15px;
+    background-color: #f8f9fa;
+}
+
+QGroupBox#FilterBox {
+    font-size: 14px;
+    font-weight: bold;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+QComboBox, QDateEdit {
+    background-color: white;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    padding: 7px 10px;
+    font-size: 10pt;
+}
+QComboBox:focus, QDateEdit:focus {
+    border-color: #80bdff;
+}
+
+QPushButton#ExportButton {
+    font-size: 10pt;
+    font-weight: bold;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    background-color: #28a745;
+    color: white;
+}
+QPushButton#ExportButton:hover {
+    background-color: #218838;
+}

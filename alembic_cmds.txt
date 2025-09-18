@@ -1,0 +1,20 @@
+alembic init alembic
+
+# makemigrations
+alembic revision --autogenerate -m "you message"
+
+# migrate
+alembic upgrade head
+
+# if upgrading the database
+alembic upgrade <unique number of the migration first 4 letters>
+
+# revision downgrade (go down)
+alembic downgrade -1
+
+
+DROP TYPE categoryenum;
+DROP TYPE statusenum;
+
+# check for type of Enum
+SELECT unnest(enum_range(NULL::department));

@@ -1,0 +1,43 @@
+/* styles/login.css */
+QWidget {
+    background-color: #ffffff;
+    color: #000000;
+    font-family: Segoe UI;
+}
+
+QLineEdit {
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 14px;
+    background-color: #f7f7f7;
+}
+
+QLineEdit:focus {
+    border: 1px solid #0078d7;
+}
+
+QPushButton {
+    background-color: #0078d7;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+QPushButton:hover {
+    background-color: #005a9e;
+}
+
+QPushButton#CreateUserButton {
+    background-color: transparent;
+    color: #0078d7;
+    font-weight: normal;
+    text-align: center;
+}
+
+QPushButton#CreateUserButton:hover {
+    text-decoration: underline;
+}

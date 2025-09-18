@@ -1,0 +1,98 @@
+/* base.css */
+
+/* --- GLOBAL STYLES --- */
+QMainWindow,
+QStackedWidget > QWidget {
+    background-color: #ecf0f1; /* Light grey background */
+}
+
+/* --- NEW: TOP BAR STYLES --- */
+#TopBar {
+    background-color: #ffffff; /* White background for the top bar */
+    border-bottom: 1px solid #dfe6e9; /* Subtle line to separate from content */
+}
+
+/* All buttons in the TopBar */
+#TopBar QPushButton {
+    background-color: transparent;
+    border: none;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+#TopBar QPushButton:hover {
+    background-color: #f1f2f6; /* Very light grey hover */
+}
+
+/* Profile widget on the right */
+#TopBarProfileWidget #TopBarUserLabel {
+    color: #2c3e50;
+    font-size: 14px;
+    font-family: "Segoe UI";
+}
+/* --- END NEW --- */
+
+
+/* Main page content titles and messages */
+QLabel#PageTitle {
+    color: #2c3e50;
+}
+
+QLabel#PageMessage {
+    color: #34495e;
+}
+
+
+/* --- SIDE MENU --- */
+QWidget#SideMenu {
+    background-color: #2c3e50;
+}
+
+/* DELETED: Profile section style is no longer needed */
+/* #SideMenu #qlabel-profile-name { ... } */
+
+
+/* --- SIDE MENU BUTTONS --- */
+#SideMenu QPushButton {
+    background-color: transparent;
+    color: #ecf0f1;
+    border: none;
+    padding: 12px;
+    padding-left: 20px;
+    text-align: left;
+    font-family: "Segoe UI";
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 5px;
+}
+
+#SideMenu QPushButton:hover {
+    background-color: #34495e;
+}
+
+#SideMenu QPushButton:focus {
+    outline: none;
+    border: none;
+}
+
+
+/* --- SIDE MENU HEADERS AND SEPARATORS --- */
+#SideMenu #SectionHeader {
+    color: #95a5a6;
+    font-family: "Segoe UI";
+    font-weight: bold;
+    font-size: 10px;
+    padding-left: 10px;
+    margin-top: 15px;
+    margin-bottom: 5px;
+}
+
+/* --- BOTTOM STATUS BAR --- */
+QStatusBar {
+    color: #2c3e50;
+    font-family: "Segoe UI";
+}
+
+QStatusBar QLabel {
+    color: #2c3e50;
+}

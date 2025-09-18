@@ -1,0 +1,13 @@
+QLabel {
+    margin-bottom: 5px;
+}
+
+QPushButton {
+    border: none;
+    padding: 5px;
+    text-align: left;
+}
+
+QPushButton:hover {
+    text-decoration: underline;
+}

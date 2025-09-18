@@ -1,0 +1,1 @@
+from app.views.mixer_report.main import MixerReportView
