@@ -10,7 +10,14 @@ a = Analysis(
         ('config', 'config'),
         ('constants', 'constants'),
         ('models', 'models'),
-        ('.env', '.')
+        ('.env', '.'),
+
+        # --- THE FIX: Explicitly add the icons folder ---
+        # This tells PyInstaller to copy the 'widget_icons' folder
+        # from 'app/widgets/' in your source code to 'app/widgets/'
+        # inside the final packaged application.
+        ('app/widgets/widget_icons', 'app/widgets/widget_icons')
+        # --- END OF FIX ---
 
     ],
     hiddenimports=[],

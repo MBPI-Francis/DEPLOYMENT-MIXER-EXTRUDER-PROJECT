@@ -1,4 +1,4 @@
-# app/views/mixer_report/main.py
+# app/views/mixer_records/main.py
 
 import os
 import time
@@ -247,14 +247,28 @@ class MixerRecordsView(QWidget):
         self.addAction(refresh_action)
 
     def _load_prerequisites_and_data(self):
+        """
+        Loads all initial data and handles the main table records.
+        This version safely handles cases where database queries might return None.
+        """
         session = self.Session()
         try:
-            self.machine_list = [m.name for m in get_active_machines(session)]
+            # --- START OF MODIFICATION ---
+            # Safely get the list of active machines
+            active_machines = get_active_machines(session)
+            # If the function returns None, default to an empty list to prevent a crash
+            self.machine_list = [m.name for m in active_machines] if active_machines is not None else []
+            # --- END OF MODIFICATION ---
+
             self.editor_initial_data = get_editor_initial_data(session)
             self.full_data = get_mixer_report_data(session, self.current_filters)
             self.populate_table(self.full_data)
+
         except Exception as e:
-            QMessageBox.critical(self, "Load Error", f"Could not load initial data: {e}")
+            # Provide a more detailed error message for debugging
+            import traceback
+            error_details = traceback.format_exc()
+            QMessageBox.critical(self, "Load Error", f"Could not load initial data:\n\n{e}\n\n{error_details}")
         finally:
             session.close()
 
@@ -379,6 +393,13 @@ class MixerRecordsView(QWidget):
     def populate_table(self, data: pd.DataFrame):
         self.table.setSortingEnabled(False)
         self.table.setRowCount(0)
+
+        # --- NEW: Safety check to prevent crashes ---
+        if data is None or data.empty:
+            self.table.setSortingEnabled(True)
+            return # Exit the function if there is no data to display
+        # --- END NEW ---
+
         self.table.setRowCount(len(data))
         visible_columns = [self.table.horizontalHeaderItem(i).text() for i in range(self.table.columnCount())]
         numeric_cols = {"Ref No", "Output QTY", "Cleaning QTY"}
@@ -406,12 +427,19 @@ class MixerRecordsView(QWidget):
         self.table.resizeColumnsToContents()
         self.table.setSortingEnabled(True)
 
+
     def show_remarks(self, remarks_text: str):
         dialog = RemarksViewerDialog(remarks_text, self)
         dialog.exec()
 
     def open_filter_dialog(self):
-        dialog = FilterDialog(self.machine_list, self.editor_initial_data, self.current_filters, self)
+        dialog = FilterDialog(self.machine_list,
+                              self.editor_initial_data,
+                              self.current_filters,
+                              self)
+
+        dialog.perform_search_requested.connect(self.on_dialog_search_requested)
+
         if dialog.exec():
             self.current_filters = dialog.get_filters()
             self.load_data()

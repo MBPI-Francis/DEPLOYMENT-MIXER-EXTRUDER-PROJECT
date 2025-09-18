@@ -149,3 +149,38 @@ class TempMixerDetail(Base):
 
     # Relationship back to the temp header
     header: Mapped["TempMixerHeader"] = relationship("TempMixerHeader", back_populates="details")
+
+
+# --- Model for the header table for imported data ---
+class OldMixerHeader(Base):
+    __tablename__ = "old_tbl_mixer_headers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    reference_no: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP, nullable=False, default=datetime.utcnow
+    )
+    details: Mapped[list["OldMixerDetail"]] = relationship(
+        "OldMixerDetail", back_populates="header", cascade="all, delete-orphan"
+    )
+
+
+# --- Model for the detail table for imported data ---
+class OldMixerDetail(Base):
+    __tablename__ = "old_tbl_mixer_details"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    header_id: Mapped[int] = mapped_column(ForeignKey("old_tbl_mixer_headers.id"), nullable=False)
+    machine_id: Mapped[int | None] = mapped_column(ForeignKey("tbl_mixer_machines.id"), nullable=True)
+    product_code: Mapped[str | None] = mapped_column(String(100))
+    lot_no: Mapped[str | None] = mapped_column(String(100))
+    time_start: Mapped[time | None] = mapped_column(Time)
+    time_end: Mapped[time | None] = mapped_column(Time)
+    operator: Mapped[str | None] = mapped_column(String(100))
+    quantity: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP, nullable=False, default=datetime.utcnow
+    )
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default='false')
+    header: Mapped["OldMixerHeader"] = relationship("OldMixerHeader", back_populates="details")

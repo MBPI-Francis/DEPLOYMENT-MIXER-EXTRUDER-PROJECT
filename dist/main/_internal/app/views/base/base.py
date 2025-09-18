@@ -22,6 +22,7 @@ from .status_bar import BottomStatusBar
 from ..mixer_form import MixerFormMainView
 from ..mixer_machine.main import MixerMachineMainView
 from app.features.sync_legacy_db import SyncController
+from ..mixer_old_records.main_view import MixerOldRecordsView
 
 
 class Base(QMainWindow):
@@ -109,6 +110,7 @@ class Base(QMainWindow):
         """Adds all pages to the stack and sets up the status bar."""
         self.add_stack_page("Mixer Machines", MixerMachineMainView(session_factory=self.Session))
         self.add_stack_page("Mixer Form", MixerFormMainView(session_factory=self.Session))
+        self.add_stack_page("Mixer Old Records", MixerOldRecordsView(session_factory=self.Session))
         self.add_stack_page("Mixer Report", MixerReportView(session_factory=self.Session))
         self.add_stack_page("Extruder Form", ExtruderFormView(session_factory=self.Session))
         self.add_stack_page("Extruder Report", ExtruderReportView(session_factory=self.Session))

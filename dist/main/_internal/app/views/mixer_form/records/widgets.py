@@ -1,7 +1,6 @@
-# app/views/mixer_report/widgets.py
 import os
 import pandas as pd
-# app/views/mixer_report/widgets.py
+# app/views/mixer_form/widgets/widgets.py
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QDialogButtonBox, QLineEdit,
@@ -19,7 +18,6 @@ from app.database.legacy_ops import search_all_raw_materials, search_all_lot_num
 from app.validators.lot_validator import LotNumberValidator
 from app.widgets import ModifiedComboBox
 from app.widgets.smart_combo_box import SmartComboBox
-from app.widgets.workers import LiveSearchWorker
 
 
 # (Keep the other classes like RemarksViewerDialog, RestoreDialog, etc., as they are)
@@ -30,8 +28,9 @@ class FilterDialog(QDialog):
     A dedicated, user-friendly dialog for filtering report data.
     FINAL WORKING VERSION.
     """
+    perform_search_requested = pyqtSignal(object, object, str)
 
-    def __init__(self, machine_list: list, initial_data: dict,current_filters: dict, parent=None):
+    def __init__(self, machine_list: list, initial_data: dict, current_filters: dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Filter Mixer Report")
         self.setObjectName("FilterDialog")
@@ -45,8 +44,7 @@ class FilterDialog(QDialog):
         form_layout.setSpacing(15) # A bit more spacing for a cleaner look
 
         # --- Create all filter widgets ---
-        self.date_from = QDateEdit(calendarPopup=True,
-                                   date=current_filters.get("date_from", QDate.currentDate().addMonths(-1)))
+        self.date_from = QDateEdit(calendarPopup=True)
         self.date_to = QDateEdit(calendarPopup=True, date=current_filters.get("date_to", QDate.currentDate()))
         self.ref_no = QLineEdit(str(current_filters.get("ref_no", "")))
 
@@ -57,21 +55,25 @@ class FilterDialog(QDialog):
         #     self.mc_name.setCurrentText(current_filters["mc_name"])
 
         self.mc_name = SmartComboBox()
-        self.mc_name.populate_initial(machine_list)
-
-
+        self.mc_name.populate_initial(["All"] + machine_list)
+        self.mc_name.setCurrentText(current_filters.get("mc_name", ""))
 
         # self.product_code = QLineEdit(current_filters.get("product_code", ""))
         self.product_code = SmartComboBox()
         self.product_code.populate_initial(initial_data.get("product_codes", []))
+        self.product_code.setCurrentText(current_filters.get("product_code", ""))
+
         self.lot_number = SmartComboBox()
         self.lot_number.populate_initial(initial_data.get("lot_numbers", []))
+        self.lot_number.setCurrentText(current_filters.get("lot_number", ""))
+
         # self.lot_number = QLineEdit(current_filters.get("lot_number", ""))
         self.processed_by = QLineEdit(current_filters.get("processed_by", ""))
         # self.cleaning_rm = QLineEdit(current_filters.get("cleaning_rm", ""))
 
         self.cleaning_rm = SmartComboBox()
         self.cleaning_rm.populate_initial(initial_data.get("raw_materials", []))
+        self.cleaning_rm.setCurrentText(current_filters.get("cleaning_rm", ""))
 
 
         self.output_from = QDoubleSpinBox(buttonSymbols=QDoubleSpinBox.ButtonSymbols.NoButtons, maximum=self.MAX_QTY, value=current_filters.get("output_qty_from", 0.0))
@@ -127,6 +129,17 @@ class FilterDialog(QDialog):
 
         main_layout.addLayout(button_layout)
         # --- MODIFICATION END ---
+
+        self._connect_live_search()
+
+    def _connect_live_search(self):
+        """Connects signals to the DELEGATION handler."""
+        self.product_code.full_search_requested.connect(
+            lambda term: self.perform_search_requested.emit(self.product_code, search_all_product_codes, term)
+        )
+        self.lot_number.full_search_requested.connect(
+            lambda term: self.perform_search_requested.emit(self.lot_number, search_all_lot_numbers, term)
+        )
 
 
     def get_filters(self) -> dict:
@@ -431,35 +444,43 @@ class EditRecordDialog(QDialog):
         # --- END MODIFICATION ---
 
         # --- (Existing widget creation is unchanged) ---
-        self.mc_name = SmartComboBox();
-        self.mc_name.set_mandatory(True);
-        self.mc_name.populate_initial(machine_list);
+        self.mc_name = SmartComboBox()
+        self.mc_name.set_mandatory(True)
+        self.mc_name.populate_initial(machine_list)
         self.mc_name.setCurrentText(str(record_data.get("MC #", "")))
-        self.product_code = SmartComboBox();
-        self.product_code.set_mandatory(True);
-        self.product_code.populate_initial(initial_data.get("product_codes", []));
+        self.product_code = SmartComboBox()
+        self.product_code.set_mandatory(True)
+        self.product_code.populate_initial(initial_data.get("product_codes", []))
         self.product_code.setCurrentText(str(record_data.get("Product Code", "")))
 
-        self.lot_number = SmartComboBox();
-        self.lot_number.set_mandatory(True);
-        self.lot_number.populate_initial(initial_data.get("lot_numbers", []));
+        self.lot_number = SmartComboBox()
+        self.lot_number.set_mandatory(True)
+        self.lot_number.populate_initial(initial_data.get("lot_numbers", []))
         self.lot_number.setCurrentText(str(record_data.get("Lot Number", "")))
-        self.processed_by = QLineEdit(str(record_data.get("Processed By", "")))
+
+
+
+        self.processed_by = SmartComboBox()
+        self.processed_by.set_mandatory(True)
+        self.processed_by.populate_initial(initial_data.get("operators", []))
+        self.processed_by.setCurrentText(str(record_data.get("Processed By", "")))
+
+
         self.process_start = QTimeEdit(
-            time=QTime.fromString(str(record_data.get("Processing Start", "00:00")), "HH:mm"));
+            time=QTime.fromString(str(record_data.get("Processing Start", "00:00")), "HH:mm"))
         self.process_start.setDisplayFormat("HH:mm")
-        self.process_end = QTimeEdit(time=QTime.fromString(str(record_data.get("Processing End", "00:00")), "HH:mm"));
+        self.process_end = QTimeEdit(time=QTime.fromString(str(record_data.get("Processing End", "00:00")), "HH:mm"))
         self.process_end.setDisplayFormat("HH:mm")
         self.output_qty = QDoubleSpinBox(maximum=999999, decimals=2, value=float(record_data.get("Output QTY", 0.0)))
-        self.cleaning_rm = SmartComboBox();
-        self.cleaning_rm.populate_initial(initial_data.get("raw_materials", []));
+        self.cleaning_rm = SmartComboBox()
+        self.cleaning_rm.populate_initial(initial_data.get("raw_materials", []))
         self.cleaning_rm.setCurrentText(str(record_data.get("Cleaning RM", "")))
         self.cleaning_qty = QDoubleSpinBox(maximum=999999, decimals=2,
                                            value=float(record_data.get("Cleaning QTY", 0.0)))
         self.cleaning_start = QTimeEdit(
-            time=QTime.fromString(str(record_data.get("Cleaning Start", "00:00")), "HH:mm"));
+            time=QTime.fromString(str(record_data.get("Cleaning Start", "00:00")), "HH:mm"))
         self.cleaning_start.setDisplayFormat("HH:mm")
-        self.cleaning_end = QTimeEdit(time=QTime.fromString(str(record_data.get("Cleaning End", "00:00")), "HH:mm"));
+        self.cleaning_end = QTimeEdit(time=QTime.fromString(str(record_data.get("Cleaning End", "00:00")), "HH:mm"))
         self.cleaning_end.setDisplayFormat("HH:mm")
         self.remarks = QTextEdit(str(record_data.get("Remarks", "")))
 

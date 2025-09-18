@@ -83,10 +83,11 @@ class LotNumberValidator:
 
     def validate_lot_entry(self, user_input: str, product_code: str) -> Tuple[bool, str]:
         """
-        Validates the user's input string against the pre-built pool of valid lots.
+        Validates the user's input string, which can contain single lots, ranges,
+        or multiple entries separated by semicolons, against the pre-built pool of valid lots.
 
         Args:
-            user_input: The lot number or range entered by the user.
+            user_input: The lot number(s) entered by the user (e.g., "1001AM", "1005AM-1007AM", or "1005AM-1007AM; 1109AB-1115AB").
             product_code: The product code being validated against, used for error messages.
 
         Returns:
@@ -94,25 +95,31 @@ class LotNumberValidator:
         """
         user_input = user_input.strip()
         if not user_input:
-            # This case is handled in the main UI, but we keep it for robustness.
+            # This case is typically handled by the UI, but included for robustness.
             return False, "Lot Number cannot be empty."
 
-        parsed_input = self._parse_lot_string(user_input)
-        if not parsed_input:
-            return False, f"Lot Number '{user_input}' has an invalid format. Expected format is '1234AM' or '1234AM-5678AM'."
+        # Split the input by semicolons to handle multiple entries and remove empty parts.
+        lot_entries = [entry.strip() for entry in user_input.split(';') if entry.strip()]
 
-        start, end, suffix = parsed_input
+        all_required_lots = set()
 
-        missing_lots = []
-        for i in range(start, end + 1):
-            current_lot = f"{i}{suffix}"
-            if current_lot not in self._valid_lot_pool:
-                missing_lots.append(current_lot)
+        # First, parse all entries to check for format errors and gather all required lots.
+        for entry in lot_entries:
+            parsed_input = self._parse_lot_string(entry)
+            if not parsed_input:
+                return False, f"Lot Number part '{entry}' has an invalid format. Expected format is '1234AM' or '1234AM-5678AM'."
+
+            start, end, suffix = parsed_input
+            for i in range(start, end + 1):
+                all_required_lots.add(f"{i}{suffix}")
+
+        # Find which of the required lots are not in the valid pool.
+        missing_lots = sorted(list(all_required_lots - self._valid_lot_pool))
 
         if not missing_lots:
             return True, "OK"
         else:
-            # --- THIS IS THE MODIFIED, MORE SPECIFIC ERROR MESSAGE ---
+            # Generate a specific error message listing all missing lots.
             missing_lots_str = ', '.join(missing_lots)
             error_msg = f"Lot Number(s) '{missing_lots_str}' do not exist for the specified Product Code '{product_code}'."
             return False, error_msg

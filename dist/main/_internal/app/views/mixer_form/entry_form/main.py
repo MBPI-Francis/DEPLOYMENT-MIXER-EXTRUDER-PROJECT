@@ -21,6 +21,7 @@ import qtawesome as qta
 from app.validators.lot_validator import LotNumberValidator
 # --- Corrected Imports ---
 from app.widgets import ModifiedComboBox
+from app.widgets.lot_combo_box import LotComboBox
 from app.widgets.smart_combo_box import SmartComboBox # Import our new widget
 from app.database.legacy_ops import (
     get_initial_lot_numbers, get_initial_product_codes,
@@ -46,6 +47,8 @@ def load_stylesheet(widget):
         with open(css_path, "r") as f:
             widget.setStyleSheet(f.read())
 
+# In main.py, replace the existing TimeLineEdit class
+
 class TimeLineEdit(QLineEdit):
     def __init__(self, initial_time=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -54,6 +57,38 @@ class TimeLineEdit(QLineEdit):
             self.setText(initial_time.strftime("%H:%M"))
         else:
             self.setText("00:00")
+
+    def mousePressEvent(self, event):
+        """
+        Overrides the mouse press event for better usability.
+        - If the text is "00:00", it clears the field.
+        - If the field contains no user-entered digits (i.e., it's "00:00" or empty "__:__"),
+          it places the cursor at the beginning, ready for typing.
+        """
+        if event.button() != Qt.MouseButton.LeftButton:
+            # For non-left clicks, just do the default behavior.
+            super().mousePressEvent(event)
+            return
+
+        # Check the state of the text *before* any actions are taken.
+        was_default = (self.text() == "00:00")
+
+        # The field is considered "empty" if the user hasn't entered any digits.
+        # After clear(), the text() is '  :  ', which has no digits.
+        is_empty_of_input = not any(char.isdigit() for char in self.text())
+
+        # Let the base class handle the standard click action first (e.g., setting focus).
+        super().mousePressEvent(event)
+
+        # Now, perform our custom actions based on the state we saved.
+        if was_default:
+            # If the text was the default "00:00", clear it now.
+            self.clear()
+
+        # If the field was either the default OR was already empty,
+        # force the cursor to the beginning.
+        if was_default or is_empty_of_input:
+            self.setCursorPosition(0)
 
 class FormattedDoubleSpinBox(QDoubleSpinBox):
     def __init__(self, *args, **kwargs):
@@ -150,7 +185,7 @@ class DetailRowWidget(QWidget):
         self.product_code_edit = SmartComboBox()
         self.product_code_edit.set_mandatory(True)
 
-        self.lot_no_edit = SmartComboBox()
+        self.lot_no_edit = LotComboBox()
         self.lot_no_edit.set_mandatory(True)
 
         self.lot_count_spin = QDoubleSpinBox(minimum=0, maximum=999999, decimals=0)
@@ -297,19 +332,32 @@ class DetailRowWidget(QWidget):
             cleaning_qty=self.clean_qty_spin.value(),
             remarks=self._remarks_text
         )
-    
+
     def _calculate_lot_count(self, text: str, target_spinbox: QSpinBox):
-        text = text.strip().upper()
-        numbers = re.findall(r'(\d+)', text)
-        count = 1
-        if '-' in text and len(numbers) == 2:
-            try:
-                start, end = int(numbers[0]), int(numbers[1])
-                if end >= start:
-                    count = (end - start) + 1
-            except (ValueError, IndexError):
-                count = 1
-        target_spinbox.setValue(count)
+        total_count = 0
+        # Split by semicolon for multiple entries, and filter out any empty strings.
+        lot_entries = [entry.strip() for entry in text.split(';') if entry.strip()]
+
+        for entry in lot_entries:
+            entry = entry.upper()
+            numbers = re.findall(r'(\d+)', entry)
+
+            # Case 1: Handle ranges like "1005AM-1007AM"
+            if '-' in entry and len(numbers) == 2:
+                try:
+                    start, end = int(numbers[0]), int(numbers[1])
+                    if end >= start:
+                        total_count += (end - start) + 1
+                    # If end < start, it's an invalid range, so we add 0.
+                except (ValueError, IndexError):
+                    # Malformed range (e.g., "100-XYZ"), add 0.
+                    pass
+            # Case 2: Handle single entries like "1005AM" that are not ranges.
+            elif numbers:
+                total_count += 1
+            # Case 3: Malformed entries with no numbers are ignored (add 0).
+
+        target_spinbox.setValue(total_count)
 
 
 class MixerEntryFormView(QWidget):
@@ -325,6 +373,12 @@ class MixerEntryFormView(QWidget):
         self.initial_raw_materials = []
         self.processed_by_names = []
         self.live_search_worker = None
+
+        # --- NEW: Status Indicator Members ---
+        self.save_status_icon = None
+        self.save_status_label = None
+        self._is_dirty = False  # To track unsaved changes
+        # --- END NEW ---
 
 
         self.setObjectName("MixerFormModule")
@@ -385,10 +439,28 @@ class MixerEntryFormView(QWidget):
         staged_layout = QVBoxLayout(self.staged_group)
         table_toolbar_layout = QHBoxLayout()
         self.add_row_button = QPushButton("Add New Detail Row")
+
+        # --- NEW: Save Status Indicator ---
+        self.save_status_icon = QLabel()
+        self.save_status_label = QLabel()
+        status_layout = QHBoxLayout()
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        status_layout.setSpacing(5)
+        status_layout.addWidget(self.save_status_icon)
+        status_layout.addWidget(self.save_status_label)
+        # --- END NEW ---
+
+
         self.save_draft_button = QPushButton("Save Draft")
         self.save_draft_button.setObjectName("PrimaryButton")
         table_toolbar_layout.addWidget(self.add_row_button)
         table_toolbar_layout.addStretch()
+
+        # --- NEW: Add status layout to toolbar ---
+        table_toolbar_layout.addLayout(status_layout)
+        table_toolbar_layout.addSpacing(15)  # Add some space before the button
+        # --- END NEW ---
+
         table_toolbar_layout.addWidget(self.save_draft_button)
         details_container = QWidget()
         details_container.setObjectName("DetailsContainer")
@@ -448,6 +520,11 @@ class MixerEntryFormView(QWidget):
         self.save_draft_button.clicked.connect(self._handle_save_draft)
         self.clear_form_button.clicked.connect(self._handle_clear_draft)
         self.save_all_button.clicked.connect(self._handle_finalize)
+
+        # --- NEW: Connect header widgets to dirty marker ---
+        self.date_input.dateChanged.connect(self._mark_dirty)
+        self.time_start_input.textChanged.connect(self._mark_dirty)
+        self.time_end_input.textChanged.connect(self._mark_dirty)
 
     def _setup_shortcuts(self):
         """Creates and connects QAction shortcuts for the entire widget."""
@@ -509,6 +586,7 @@ class MixerEntryFormView(QWidget):
     def _handle_add_row(self):
         # When adding a new row, it will also be populated with the master lists
         self._add_row_widget()
+        self._mark_dirty() # Manually adding a row is an unsaved change
 
     def _handle_delete_row(self, row_widget: DetailRowWidget):
         if row_widget.detail_id:
@@ -521,6 +599,7 @@ class MixerEntryFormView(QWidget):
                     delete_staged_detail(session, row_widget.detail_id)
                     self.detail_rows.remove(row_widget)
                     row_widget.deleteLater()
+                    self._mark_dirty() # Deleting a saved row is an unsaved change
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"Could not delete item: {e}")
                 finally:
@@ -528,6 +607,7 @@ class MixerEntryFormView(QWidget):
         else:
             self.detail_rows.remove(row_widget)
             row_widget.deleteLater()
+            self._mark_dirty() # Deleting a new row is an unsaved change
     
     def _clear_all_rows(self):
         for widget in self.detail_rows:
@@ -581,13 +661,11 @@ class MixerEntryFormView(QWidget):
             self.staged_group.setTitle("Production Details (Shift+Enter to add new row, Ctrl+D to delete focused row)")
             print("Form ready.")
 
-            
-
     def _load_draft_and_populate_rows(self, session: sessionmaker):
         """Loads the user's draft and populates all detail rows."""
         self._clear_all_rows()
         draft = get_user_draft(session, self.user_id)
-        
+
         if draft and draft.details:
             self.ref_no_input.setText(str(draft.reference_no).zfill(6))
             if draft.date: self.date_input.setDate(QDate(draft.date))
@@ -595,9 +673,15 @@ class MixerEntryFormView(QWidget):
             if draft.time_end: self.time_end_input.setText(draft.time_end.strftime("%H:%M"))
             for detail in sorted(draft.details, key=lambda d: d.created_at):
                 self._add_row_widget(detail)
+            # --- NEW: Set status after loading ---
+            self._is_dirty = False
+            self._update_save_status('saved')
         else:
             self._fetch_and_set_next_ref_no()
             self._add_row_widget()
+            # --- NEW: Set status for a new form ---
+            self._is_dirty = False
+            self._update_save_status('initial')
 
 
     @pyqtSlot()
@@ -660,6 +744,7 @@ class MixerEntryFormView(QWidget):
             lambda term: self.on_full_search_requested(row_widget.clean_rm_code_edit, search_all_raw_materials, term)
         )
         row_widget.delete_requested.connect(self._handle_delete_row)
+        self._connect_row_signals(row_widget) # Connect signals for dirty tracking
 
         # 5. Add the fully prepared widget to the layout.
         self.details_layout.addWidget(row_widget)
@@ -701,34 +786,6 @@ class MixerEntryFormView(QWidget):
         self.live_search_worker.deleteLater()
         self.live_search_worker = None # Set the attribute back to None.
 
-
-    def _populate_combo_with_trick(self, combo: QComboBox, items: List[str]):
-        """
-        Populates a QComboBox efficiently using the signal blocking technique.
-        """
-        # Get the model for the completer
-        completer_model = combo.completer().model()
-        if not isinstance(completer_model, QStringListModel):
-            completer_model = QStringListModel()
-            combo.completer().setModel(completer_model)
-        
-        # --- THE "BOSS'S TRICK" ---
-        combo.blockSignals(True)
-        
-        # Preserve current text
-        current_text = combo.currentText()
-        
-        # Clear and add items efficiently
-        combo.clear()
-        combo.addItems(items)
-        
-        # Update the completer's model as well
-        completer_model.setStringList(items)
-        
-        # Restore text and unblock
-        combo.setCurrentText(current_text)
-        combo.blockSignals(False)
-        # --- END OF TRICK ---
 
     def _validate_form_data(self) -> bool:
         """
@@ -832,31 +889,41 @@ class MixerEntryFormView(QWidget):
         finally:
             session.close()
 
-
-
-    def _handle_save_draft(self): # Simplified
+    def _handle_save_draft(self):  # Simplified
         """Reads all data, validates, and syncs with the database."""
-
-        # --- NEW: Call the validator first ---
         if not self._validate_form_data():
-            return # Stop the save if validation fails
-        
-        session = self.Session()
+            return
 
+        # --- NEW: Update status during save operation ---
+        self._update_save_status('saving')
+        QApplication.processEvents()  # Ensure UI updates immediately
+        # --- END NEW ---
+
+        session = self.Session()
         try:
             header_data, details_data = self._gather_data_from_ui()
             if not details_data:
                 QMessageBox.warning(self, "Empty Draft", "Cannot save an empty draft.")
+                self._update_save_status('initial')
                 return
+
             sync_draft(session, self.user_id, header_data, details_data)
             QMessageBox.information(self, "Draft Saved", "Your progress has been saved.")
+
+            # --- NEW: Update status after successful save ---
+            self._is_dirty = False
+            self._update_save_status('saved')
+
         except ValidationError as e:
             QMessageBox.warning(self, "Validation Error", f"Could not save draft:\n{e}")
+            self._update_save_status('unsaved')  # Revert status on failure
         except Exception as e:
             QMessageBox.critical(self, "Database Error", f"An error occurred: {e}")
+            self._update_save_status('unsaved')  # Revert status on failure
         finally:
             if session.is_active:
                 session.close()
+
 
     # def _handle_finalize(self):
         
@@ -932,17 +999,72 @@ class MixerEntryFormView(QWidget):
                 clear_user_draft(session, self.user_id)
             finally:
                 session.close()
-        
+
         self._clear_all_rows()
         self._fetch_and_set_next_ref_no()
         self.date_input.setDate(QDate.currentDate())
         self.time_start_input.setText("00:00")
         self.time_end_input.setText("00:00")
         self._add_row_widget()
+        # --- NEW: Reset status after clearing form ---
+        self._is_dirty = False
+        self._update_save_status('initial')
 
     def showEvent(self, event):
         """Loads data only the first time the widget is shown."""
         super().showEvent(event)
         if not hasattr(self, '_initial_data_loaded'):
             self._initial_data_loaded = True
+            # --- NEW: Set initial status before loading ---
+            self._update_save_status('initial')
             self._load_initial_data()
+
+
+# In class MixerEntryFormView:
+
+    def _update_save_status(self, status: str):
+        """Updates the save status icon and text."""
+        if status == 'saved':
+            icon = qta.icon("fa5s.check-circle", color="#28a745")
+            text = "Draft saved"
+            tooltip = "All changes are saved to your draft."
+        elif status == 'unsaved':
+            icon = qta.icon("fa5s.exclamation-circle", color="#ffc107")
+            text = "Unsaved changes"
+            tooltip = "You have changes that have not been saved."
+        elif status == 'saving':
+            icon = qta.icon("fa5s.spinner", color="#007bff", animation=qta.Spin(self))
+            text = "Saving..."
+            tooltip = "Saving your draft..."
+        else:  # 'initial' or cleared state
+            icon = qta.icon("fa5s.info-circle", color="#6c757d")
+            text = "Ready"
+            tooltip = "Form is ready for input."
+
+        if self.save_status_icon:
+            self.save_status_icon.setPixmap(icon.pixmap(16, 16))
+            self.save_status_label.setText(text)
+            self.save_status_label.setToolTip(tooltip)
+            self.save_status_icon.setToolTip(tooltip)
+
+    def _mark_dirty(self, *args, **kwargs):
+        """Marks the form as having unsaved changes."""
+        if not self._is_dirty:
+            self._is_dirty = True
+            self._update_save_status('unsaved')
+
+    def _connect_row_signals(self, row_widget: DetailRowWidget):
+        """Connects all relevant signals from a detail row to the dirty marker."""
+        row_widget.machine_combo.currentIndexChanged.connect(self._mark_dirty)
+        row_widget.product_code_edit.currentTextChanged.connect(self._mark_dirty)
+        row_widget.lot_no_edit.currentTextChanged.connect(self._mark_dirty)
+        row_widget.lot_count_spin.valueChanged.connect(self._mark_dirty)
+        row_widget.proc_start_time.textChanged.connect(self._mark_dirty)
+        row_widget.proc_end_time.textChanged.connect(self._mark_dirty)
+        row_widget.processed_by_edit.currentTextChanged.connect(self._mark_dirty)
+        row_widget.output_qty_spin.valueChanged.connect(self._mark_dirty)
+        row_widget.clean_start_time.textChanged.connect(self._mark_dirty)
+        row_widget.clean_end_time.textChanged.connect(self._mark_dirty)
+        row_widget.clean_rm_code_edit.currentTextChanged.connect(self._mark_dirty)
+        row_widget.clean_qty_spin.valueChanged.connect(self._mark_dirty)
+        row_widget.remarks_button.clicked.connect(self._mark_dirty)
