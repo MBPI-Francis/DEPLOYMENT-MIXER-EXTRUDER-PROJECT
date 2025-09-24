@@ -12,3 +12,9 @@ from .ProdDatabase import (TblFormula01,
                            TblProd01)
 
 from .RawMaterials import RawMaterials
+
+from .ExtruderConfig import (ExtruderMachine,
+                             Zone,
+                             Resin,
+                             ResinParams,
+                             ProcessingParams)
