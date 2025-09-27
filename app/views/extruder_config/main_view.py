@@ -4,7 +4,7 @@ import os
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget
 from sqlalchemy.orm import sessionmaker
 from typing import Type
-from . import ExtruderMachineView, ExtruderResinView, ExtruderProcessingParamsView
+from . import ExtruderMachineView, ExtruderSettingsView, ExtruderProcessingParamsView
 
 
 # Import the two child widgets we will place in the tabs
@@ -68,7 +68,7 @@ class ExtruderConfigView(QWidget):
 
         # Create an instance for the tabs
         self.extruder_machine_tab = ExtruderMachineView(session_factory=self.Session)
-        self.extruder_resin_tab = ExtruderResinView(session_factory=self.Session)
+        self.extruder_resin_tab = ExtruderSettingsView(session_factory=self.Session)
         self.processing_params_tab = ExtruderProcessingParamsView(session_factory=self.Session)
 
 

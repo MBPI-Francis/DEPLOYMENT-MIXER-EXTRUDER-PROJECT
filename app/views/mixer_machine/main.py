@@ -55,8 +55,9 @@ class PasswordConfirmationDialog(QDialog):
         form_layout.addRow(QLabel("Please enter your password to proceed:"), self.password_input)
 
         confirm_button = QPushButton("Confirm")
+        confirm_button.setObjectName("PrimaryButton")
         cancel_button = QPushButton("Cancel")
-        confirm_button.setObjectName("SuccessButton")
+        cancel_button.setObjectName("SecondaryButton")
 
         button_layout = QHBoxLayout()
         button_layout.addStretch()
@@ -89,7 +90,9 @@ class CreateMachineDialog(QDialog):
         self.setModal(True)
         self.name_input = QLineEdit()
         self.save_button = QPushButton("Save Machine")
+        self.save_button.setObjectName("PrimaryButton")
         self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setObjectName("SecondaryButton")
         self.save_button.setEnabled(False)
         layout = QFormLayout(self)
         layout.addRow("Machine Name:", self.name_input)
@@ -161,7 +164,10 @@ class UpdateMachineDialog(QDialog):
         self.setModal(True)
         self.name_input = QLineEdit()
         self.save_button = QPushButton("Save Changes")
+        self.save_button.setObjectName("PrimaryButton")
         self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setObjectName("SecondaryButton")
+
         self.save_button.setEnabled(False)
         layout = QFormLayout(self)
         layout.addRow("Machine Name:", self.name_input)
@@ -247,7 +253,9 @@ class RestoreMachineDialog(QDialog):
         self.select_all_checkbox = QCheckBox("Select All")
 
         restore_button = QPushButton("Restore Selected")
+        restore_button.setObjectName("PrimaryButton")
         cancel_button = QPushButton("Cancel")
+        cancel_button.setObjectName("SecondaryButton")
         restore_button.setObjectName("SuccessButton")
 
         button_layout = QHBoxLayout()
@@ -348,11 +356,12 @@ class MixerMachineMainView(QWidget):
         # ... (Top layout with filters and buttons remains unchanged) ...
         top_layout = QHBoxLayout()
         filter_layout = QHBoxLayout()
-        self.name_filter_input = QLineEdit()
-        self.name_filter_input.setPlaceholderText("Filter by name...")
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Filter by name...")
+        self.search_input.setClearButtonEnabled(True)
 
         filter_layout.addWidget(QLabel("Filter:"))
-        filter_layout.addWidget(self.name_filter_input)
+        filter_layout.addWidget(self.search_input)
         self.add_button = QPushButton("Add New Machine")
         self.restore_button = QPushButton("Restore Deleted")
         self.add_button.setObjectName("PrimaryButton")
@@ -386,7 +395,7 @@ class MixerMachineMainView(QWidget):
         """Central place to connect all widget signals to slots."""
         self.add_button.clicked.connect(self._handle_add)
         self.restore_button.clicked.connect(self._handle_restore)
-        self.name_filter_input.textChanged.connect(self._apply_filters)
+        self.search_input.textChanged.connect(self._apply_filters)
 
         # NEW: Connect the signal for the custom context menu
         self.table.customContextMenuRequested.connect(self.show_table_context_menu)
@@ -447,7 +456,7 @@ class MixerMachineMainView(QWidget):
 
     def _apply_filters(self):
         """Show/hide table rows based on filter criteria."""
-        name_filter = self.name_filter_input.text().lower()
+        name_filter = self.search_input.text().lower()
 
         for row in range(self.table.rowCount()):
             name_match = name_filter in self.table.item(row, 1).text().lower()

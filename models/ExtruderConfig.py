@@ -24,7 +24,8 @@ class Resin(Base, AuditMixin):
 
     id = Column(SmallInteger, primary_key=True, autoincrement=True)
     # Added unique=True and index=True for data integrity and performance
-    name = Column(String(50), nullable=False, unique=True, index=True)
+    abbreviation = Column(String(10), nullable=True, unique=True, index=True)
+    name = Column(String(100), nullable=False, unique=True, index=True)
 
     # Relationship to child table
     resin_params = relationship("ResinParams", back_populates="resin", cascade="all, delete-orphan")

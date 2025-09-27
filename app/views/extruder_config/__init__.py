@@ -1,3 +1,3 @@
 from .extruder_machine.main import ExtruderMachineView
-from .resins.main import ExtruderResinView
+from .extruder_settings.main import ExtruderSettingsView
 from .processing_params.main import ExtruderProcessingParamsView
