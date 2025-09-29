@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget
 from sqlalchemy.orm import sessionmaker
 from typing import Type
 from . import ExtruderMachineView, ExtruderSettingsView, ExtruderProcessingParamsView
+from .resin_params.main import ResinParamsView
 
 
 # Import the two child widgets we will place in the tabs
@@ -69,6 +70,7 @@ class ExtruderConfigView(QWidget):
         # Create an instance for the tabs
         self.extruder_machine_tab = ExtruderMachineView(session_factory=self.Session)
         self.extruder_resin_tab = ExtruderSettingsView(session_factory=self.Session)
+        self.resin_params_tab = ResinParamsView(session_factory=self.Session)
         self.processing_params_tab = ExtruderProcessingParamsView(session_factory=self.Session)
 
 
@@ -79,6 +81,7 @@ class ExtruderConfigView(QWidget):
         # As requested, you can easily comment out this line to hide the records tab
         self.tab_widget.addTab(self.extruder_machine_tab, "Extruder Machine")
         self.tab_widget.addTab(self.extruder_resin_tab, "Extruder Settings")
+        self.tab_widget.addTab(self.resin_params_tab, "Resin Parameters")
         self.tab_widget.addTab(self.processing_params_tab, "Processing Parameters")
 
 

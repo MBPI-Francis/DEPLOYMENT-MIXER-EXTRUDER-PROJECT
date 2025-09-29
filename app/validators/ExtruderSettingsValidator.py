@@ -15,3 +15,10 @@ class ZoneValidator(BaseModel):
 class RestoreValidator(BaseModel):
     """Validates a list of IDs for a restore operation."""
     item_ids: List[int] = Field(..., min_items=1)
+
+
+class ResinParamsValidator(BaseModel):
+    """Validates data for creating or updating Resin Parameters."""
+    resin_id: int
+    motor_rpm: constr(strip_whitespace=True, min_length=1, max_length=50)
+    feed_rate: constr(strip_whitespace=True, min_length=1, max_length=50)
