@@ -194,10 +194,15 @@ class ResinParamsPanelHandlers:
         num_selected = len(selected_rows)
         if num_selected == 0: return
         menu = QMenu(self)
+
         if num_selected == 1:
             edit_action = QAction(qta.icon("fa5s.edit", color="#007bff"), f"Edit {self.config['name_singular']}", self)
+
             menu.addAction(edit_action)
+
             edit_action.triggered.connect(lambda: self.table.editItem(self.table.item(selected_rows[0].row(), self.KEY_TO_INDEX['resin_name'])))
+
+
         delete_text = f"Delete {num_selected} selected items"
         delete_action = QAction(qta.icon("fa5s.trash-alt", color="#dc3545"), delete_text, self)
         menu.addAction(delete_action)

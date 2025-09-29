@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 
+from . import ops
 # NOTE: This file has NO dependency on ops.py. It is a pure UI component.
 # This makes it more reusable and stable.
 from ....validators.ExtruderSettingsValidator import RestoreValidator
@@ -66,27 +67,38 @@ class ComboBoxDelegate(QStyledItemDelegate):
 
 
 class ConfirmationDialog(QDialog):
-    def __init__(self, message: str, parent=None):
+    """The 'Type YES' confirmation dialog you specifically requested."""
+
+    def __init__(self, parent=None, message: str = ""):
         super().__init__(parent)
         self.setWindowTitle("Confirm Action")
         self.setMinimumWidth(450)
         self.setModal(True)
+
         layout = QVBoxLayout(self)
         self.message_label = QLabel(message)
         self.message_label.setWordWrap(True)
         self.instructions_label = QLabel("To proceed, please type <b>YES</b> in the box below.")
-        self.confirm_input = QLineEdit(placeholderText="Type YES to confirm")
+        self.confirm_input = QLineEdit()
+        self.confirm_input.setPlaceholderText("Type YES to confirm")
+        self.confirm_input.setObjectName("ConfirmInput")
+
         self.proceed_button = QPushButton("Proceed")
         self.proceed_button.setEnabled(False)
+        self.proceed_button.setObjectName("PrimaryButton")
         self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setObjectName("SecondaryButton")
+
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         button_layout.addWidget(self.cancel_button)
         button_layout.addWidget(self.proceed_button)
+
         layout.addWidget(self.message_label)
         layout.addWidget(self.instructions_label)
         layout.addWidget(self.confirm_input)
         layout.addLayout(button_layout)
+
         self.confirm_input.textChanged.connect(lambda text: self.proceed_button.setEnabled(text == "YES"))
         self.proceed_button.clicked.connect(self.accept)
         self.cancel_button.clicked.connect(self.reject)
@@ -94,15 +106,71 @@ class ConfirmationDialog(QDialog):
 
 class RestoreDialog(QDialog):
     operation_successful = pyqtSignal()
-
-    def __init__(self, session_factory: Callable, get_deleted_func: Callable, restore_func: Callable, parent=None):
+    def __init__(self, session_factory: Callable, parent=None):
         super().__init__(parent)
         self.Session = session_factory
-        self.get_deleted_func = get_deleted_func
-        self.restore_func = restore_func
         self.setWindowTitle("Restore Deleted Parameters")
         self.setMinimumSize(600, 400)
-        # ... (The rest of this dialog is correct and unchanged)
+        self.setModal(True)
+        # ... (The rest of this dialog's logic is the same as in the extruder_settings module)
+        layout = QVBoxLayout(self)
+        self.table = QTableWidget(0, 5, self) # ID, Resin, RPM, Feed Rate
+        self.table.setHorizontalHeaderLabels(["", "ID", "Resin", "Motor RPM", "Feed Rate"])
+        self.table.setColumnHidden(1, True)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.select_all_checkbox = QCheckBox("Select All")
+        restore_button = QPushButton("Restore Selected")
+        restore_button.setObjectName("SuccessButton")
+        cancel_button = QPushButton("Cancel")
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.select_all_checkbox)
+        button_layout.addStretch()
+        button_layout.addWidget(cancel_button)
+        button_layout.addWidget(restore_button)
+        layout.addWidget(self.table)
+        layout.addLayout(button_layout)
+        restore_button.clicked.connect(self._on_restore)
+        cancel_button.clicked.connect(self.reject)
+        self.select_all_checkbox.stateChanged.connect(lambda state: self._toggle_all(state == Qt.CheckState.Checked.value))
+
+    def open(self):
+        self._populate_table()
+        self.exec()
+    def _populate_table(self):
+        self.table.setRowCount(0)
+        session = self.Session()
+        try:
+            for row, result in enumerate(ops.get_deleted_resin_params(session)):
+                param, resin_name = result
+                self.table.insertRow(row)
+                chk = QTableWidgetItem()
+                chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+                chk.setCheckState(Qt.CheckState.Unchecked)
+                self.table.setItem(row, 0, chk)
+                self.table.setItem(row, 1, QTableWidgetItem(str(param.id)))
+                self.table.setItem(row, 2, QTableWidgetItem(resin_name))
+                self.table.setItem(row, 3, QTableWidgetItem(param.motor_rpm))
+                self.table.setItem(row, 4, QTableWidgetItem(param.feed_rate))
+        finally:
+            session.close()
+
+    def _toggle_all(self, checked):
+        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+        for row in range(self.table.rowCount()): self.table.item(row, 0).setCheckState(state)
+
+    def _on_restore(self):
+        ids = [int(self.table.item(r, 1).text()) for r in range(self.table.rowCount()) if self.table.item(r, 0).checkState() == Qt.CheckState.Checked]
+        if not ids:
+            QMessageBox.warning(self, "No Selection", "Please select at least one parameter to restore.")
+            return
+        session = self.Session()
+        try:
+            ops.restore_resin_params(session, RestoreValidator(item_ids=ids))
+            QMessageBox.information(self, "Success", "Selected parameters have been restored.")
+            self.operation_successful.emit()
+            self.accept()
+        finally:
+            session.close()
 
 
 class ResinParamsManagementPanel(QGroupBox):

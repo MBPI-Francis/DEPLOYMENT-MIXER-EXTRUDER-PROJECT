@@ -50,6 +50,8 @@ class ResinParamsView(QWidget, ResinParamsPanelHandlers):
             'delete_many_func': ops.soft_delete_resin_params,
             'check_exists_func': ops.check_resin_param_exists,
             'validator': ResinParamsValidator,
+            'name_singular': "Resin",
+            'name_plural': "Resins",
             'get_deleted_func': ops.get_deleted_resin_params,  # <-- ADDED
             'restore_func': ops.restore_resin_params,  # <-- ADDED
         }

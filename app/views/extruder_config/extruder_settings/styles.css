@@ -108,9 +108,10 @@ QTableWidget::item {
 }
 
 /* Selected Row/Item - but NOT when an editor is active inside it */
-QTableWidget::item:selected:!active {
-    background-color: #007bff;
-    color: white;
+
+QTableWidget::item:selected {
+    background-color: #cfe2ff;
+    color: #000;
 }
 
 /* This targets the QLineEdit *inside* the table cell during editing */
