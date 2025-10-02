@@ -1,40 +1,48 @@
+# app/views/extruder_config/processing_params/main.py
+
 import os
-from typing import Type, Callable
+from typing import Type
 
-from PyQt6.QtGui import QAction, QKeySequence
-from sqlalchemy.orm import sessionmaker, Session
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem,
-    QHeaderView, QAbstractItemView, QMenu, QMessageBox, QFileDialog, QLineEdit, QLabel,
-    QApplication, QDialog, QProgressBar
-)
-from PyQt6.QtCore import Qt, pyqtSlot, QPropertyAnimation, QTimer, QThread, pyqtSignal, QDate
-import pandas as pd
-import qtawesome as qta
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView
+from sqlalchemy.orm import sessionmaker
 
-from app.widgets.smart_combo_box import SmartComboBox
-from models import User
+from .handlers import ProcessingParamsHandlers
 
 
 class ExtruderProcessingParamsView(QWidget):
-    def __init__(self, session_factory: Type[Session], parent=None):
+    def __init__(self, session_factory: Type[sessionmaker], parent=None):
         super().__init__(parent)
+        self.setObjectName("ProcessingParamsModule")
 
-        self.main_layout = QVBoxLayout()
-        self.mixer_label = QLabel("Processing Parameters")
-        self.Session = session_factory
+        main_layout = QVBoxLayout(self)
 
-        self.main_layout.addWidget(self.mixer_label)
-        self.setLayout(self.main_layout)
-        self.add_details()
+        # --- Top Bar ---
+        top_bar_layout = QHBoxLayout()
+        # Search bar will go here in a later step
+        top_bar_layout.addStretch()
+        self.create_button = QPushButton("＋ Create New Parameter Set")
+        self.create_button.setObjectName("PrimaryButton")
+        # Refresh and Restore buttons will go here
+        top_bar_layout.addWidget(self.create_button)
 
-    def add_details(self):
-        try:
-            session = self.Session()
-            model = User
+        # --- Main Table ---
+        self.table = QTableWidget()
+        self.table.setColumnCount(2)  # For now: Machine Name, Created By
+        self.table.setHorizontalHeaderLabels(["Machine Name", "Created By"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 
-            instance = session.query(model).all()
+        main_layout.addLayout(top_bar_layout)
+        main_layout.addWidget(self.table)
 
+        # --- Setup Handler ---
+        self.handler = ProcessingParamsHandlers(parent_view=self)
+        self.handler.Session = session_factory
+        self.handler.setup_handlers(config={})
 
-        finally:
-            session.close()
+    def create_item(self, text):
+        """Helper to create a non-editable table item."""
+        item = QTableWidgetItem(text)
+        item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        return item

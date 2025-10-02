@@ -1,0 +1,29 @@
+/* app/views/extruder_config/processing_params/styles.css */
+
+/* Style for the machine name input in the create dialog */
+#machineNameInput {
+    font-size: 24px;
+    font-weight: bold;
+    padding: 10px;
+    border: 1px solid #dee2e6; /* A very light border for definition */
+    border-radius: 8px;
+    background-color: #f8f9fa; /* Slightly off-white background */
+    color: #212529;
+}
+#machineNameInput:focus {
+    border-color: #80bdff; /* Highlight on focus */
+}
+
+/* General button styles */
+QPushButton#PrimaryButton {
+    background-color: #007bff;
+    color: white;
+    border: 1px solid #0069d9;
+    font-size: 14px;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-weight: bold;
+}
+QPushButton#PrimaryButton:hover {
+    background-color: #0069d9;
+}
