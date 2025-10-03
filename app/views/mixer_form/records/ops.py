@@ -71,9 +71,36 @@ def get_mixer_report_data(session: Session, filters: dict) -> pd.DataFrame:
     if filters:
         if "date_from" in filters and "date_to" in filters: conditions.append(
             mh.date.between(filters["date_from"], filters["date_to"]))
-        if filters.get("product_code"): conditions.append(md.product_code.ilike(f'%{filters["product_code"]}%'))
-        if filters.get("lot_number"): conditions.append(md.lot_no.ilike(f'%{filters["lot_number"]}%'))
-        # ... (add other filters as they were before) ...
+        if filters.get("product_code"):
+            conditions.append(md.product_code.ilike(f'%{filters["product_code"]}%'))
+
+        if filters.get("lot_number"):
+            conditions.append(md.lot_no.ilike(f'%{filters["lot_number"]}%'))
+
+        if filters.get("processed_by"):
+            conditions.append(md.processed_by.ilike(f'%{filters["processed_by"]}%'))
+
+        if filters.get("cleaning_rm"):
+            conditions.append(md.cleaning_rm_code.ilike(f'%{filters["cleaning_rm"]}%'))
+
+        if filters.get("mc_name"):
+            conditions.append(mm.name == filters["mc_name"])
+
+        if filters.get("ref_no"):
+            conditions.append(mh.reference_no == filters["ref_no"])
+
+        if filters.get("output_qty_from") is not None:
+            conditions.append(md.output_qty >= filters["output_qty_from"])
+
+        if filters.get("output_qty_to") is not None:
+            conditions.append(md.output_qty <= filters["output_qty_to"])
+
+        # Add filters for the Cleaning Quantity range.
+        if filters.get("cleaning_qty_from") is not None:
+            conditions.append(md.cleaning_qty >= filters["cleaning_qty_from"])
+
+        if filters.get("cleaning_qty_to") is not None:
+            conditions.append(md.cleaning_qty <= filters["cleaning_qty_to"])
     if conditions:
         query = query.where(and_(*conditions))
 

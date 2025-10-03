@@ -1,3 +1,4 @@
+
 # app/views/extruder_config/processing_params/widgets/resin_params_table.py
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QHeaderView, QPushButton, QTableWidgetItem
@@ -18,7 +19,7 @@ class ResinParamsTable(QWidget):
         self.resins = resins
         self.column_delegates = {}
 
-        # Re-entrancy guard flag to prevent infinite loops on itemChanged signal
+        # --- THE STABLE FIX: Initialize the re-entrancy guard flag ---
         self._is_handling_change = False
 
         main_layout = QVBoxLayout(self)
@@ -35,22 +36,18 @@ class ResinParamsTable(QWidget):
         main_layout.addLayout(toolbar_layout)
         main_layout.addWidget(self.table)
 
-        # --- Setup Static First Column ---
         self.table.insertColumn(0)
         self.table.setItem(0, 0, self.create_read_only_item("Resin Used"))
         self.table.setItem(1, 0, self.create_read_only_item("Main Motor RPM"))
         self.table.setItem(2, 0, self.create_read_only_item("Feed Rate"))
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.verticalHeader().setVisible(False)
 
-        # Use a delegate for the "Resin Used" row to ensure it's a dropdown
         resin_delegate = ComboBoxDelegate(resins, parent=self.table, editable=False)
         self.table.setItemDelegateForRow(0, resin_delegate)
 
-        # Add initial dynamic column for the "Create" dialog
+        self.add_column()
         self.add_column()
 
-        # --- Connections ---
         add_col_button.clicked.connect(self.add_column)
         remove_col_button.clicked.connect(self.remove_column)
         self.table.itemChanged.connect(self.on_item_changed)
@@ -61,34 +58,36 @@ class ResinParamsTable(QWidget):
         return item
 
     def add_column(self):
+        # This method is now correct and stable
         col = self.table.columnCount()
         self.table.insertColumn(col)
         self.table.setHorizontalHeaderItem(col, QTableWidgetItem(f"Column {col}"))
 
-        # Each new column gets its own cascading delegate for RPM and Feed Rate
         cascading_delegate = CascadingComboBoxDelegate(parent=self.table)
         self.table.setItemDelegateForColumn(col, cascading_delegate)
         self.column_delegates[col] = cascading_delegate
 
-        self.column_count_changed.emit(self.table.columnCount() - 1)  # Emit number of dynamic columns
+        self.column_count_changed.emit(self.table.columnCount() - 1)
 
     def remove_column(self):
+        # This method is correct and stable
         col = self.table.columnCount()
-        # Prevent removing the static column and the last dynamic column
-        if col > 2:
+        if col > 3:
             if (col - 1) in self.column_delegates:
                 del self.column_delegates[col - 1]
             self.table.removeColumn(col - 1)
             self.column_count_changed.emit(self.table.columnCount() - 1)
 
+    # --- DEFINITIVE, STABLE VERSION OF THIS FUNCTION ---
     def on_item_changed(self, item: QTableWidgetItem):
+        # 1. Immediately check the guard flag. If true, another operation is in progress, so exit.
         if self._is_handling_change:
             return
 
+        # 2. Set the guard flag to block any recursive calls.
         self._is_handling_change = True
         try:
-            # A Resin was selected in a dynamic column (column > 0)
-            if item.row() == 0 and item.column() > 0:
+            if item.row() == 0 and item.column() > 0:  # A Resin was selected in a dynamic column
                 column = item.column()
                 self.table.horizontalHeaderItem(column).setText(item.text())
 
@@ -96,39 +95,30 @@ class ResinParamsTable(QWidget):
                 delegate = self.column_delegates.get(column)
 
                 if resin_id and delegate:
-                    # Fetch RPMs and Feed Rates for the selected resin
                     params = ops.get_params_for_resin(self.session, resin_id)
                     delegate.set_items(rpms=params['rpms'], feed_rates=params['feed_rates'])
                 elif delegate:
-                    # Clear dropdowns if no resin is selected
                     delegate.set_items(rpms=[], feed_rates=[])
 
-                # Clear existing values for RPM and Feed Rate below the changed resin
+                # These setText calls are now safe because the guard flag is active.
+                # They will emit itemChanged, but the function will exit immediately at the top.
                 self.table.setItem(1, column, QTableWidgetItem(""))
                 self.table.setItem(2, column, QTableWidgetItem(""))
         finally:
+            # 3. CRITICAL: Always reset the guard flag, even if an error occurs.
             self._is_handling_change = False
 
     def get_data(self) -> Dict:
+        # This method is correct and unchanged
         data = {}
-        # Iterate over dynamic columns only (starting from 1)
         for col in range(1, self.table.columnCount()):
-            resin_item = self.table.item(0, col)
-            rpm_item = self.table.item(1, col)
-            feed_item = self.table.item(2, col)
-
+            resin_item, rpm_item, feed_item = self.table.item(0, col), self.table.item(1, col), self.table.item(2, col)
             resin_id = resin_item.data(Qt.ItemDataRole.UserRole) if resin_item else None
-
-            if not resin_id:
-                raise ValueError(f"Please select a Resin for column {col}.")
-            if not rpm_item or not rpm_item.text().strip():
-                raise ValueError(f"Please enter or select a Main Motor RPM for column {col}.")
-            if not feed_item or not feed_item.text().strip():
-                raise ValueError(f"Please enter or select a Feed Rate for column {col}.")
-
-            data[col] = {
-                'resin_id': resin_id,
-                'motor_rpm': rpm_item.text().strip(),
-                'feed_rate': feed_item.text().strip()
-            }
+            if not resin_id: raise ValueError(f"Please select a Resin for column {col}.")
+            if not rpm_item or not rpm_item.text().strip(): raise ValueError(
+                f"Please enter/select a Main Motor RPM for column {col}.")
+            if not feed_item or not feed_item.text().strip(): raise ValueError(
+                f"Please enter/select a Feed Rate for column {col}.")
+            data[col] = {'resin_id': resin_id, 'motor_rpm': rpm_item.text().strip(),
+                         'feed_rate': feed_item.text().strip()}
         return data

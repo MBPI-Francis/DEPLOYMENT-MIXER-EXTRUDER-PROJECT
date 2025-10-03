@@ -1,6 +1,4 @@
-from collections import defaultdict
-
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from sqlalchemy import and_, distinct
 from typing import List, Dict, Any
 
@@ -115,78 +113,3 @@ def get_params_for_resin(session: Session, resin_id: int) -> Dict[str, List[str]
         'rpms': [rpm for rpm, in rpms],
         'feed_rates': [rate for rate, in feed_rates]
     }
-
-# --- NEW: Function to fetch details for the Edit Dialog ---
-def get_processing_set_details(session: Session, machine_id: int) -> Dict[str, Any]:
-    """
-    Fetches all details for a given machine_id to populate the edit dialog.
-    """
-    machine = session.get(ExtruderMachine, machine_id)
-    if not machine:
-        return {}
-
-    # Fetches all related processing parameters
-    params = (
-        session.query(ProcessingParams)
-        .filter(ProcessingParams.machine_id == machine_id)
-        .options(
-            joinedload(ProcessingParams.resin_params).joinedload(ResinParams.resin),
-            joinedload(ProcessingParams.zone)
-        )
-        .all()
-    )
-
-    # Group the parameters by resin, which corresponds to a column in the dialog
-    resin_params_map = defaultdict(lambda: {'temps': {}})
-    for p in params:
-        rp_id = p.resin_params_id
-        resin_params_map[rp_id]['resin_id'] = p.resin_params.resin_id
-        resin_params_map[rp_id]['motor_rpm'] = p.resin_params.motor_rpm
-        resin_params_map[rp_id]['feed_rate'] = p.resin_params.feed_rate
-        resin_params_map[rp_id]['temps'][p.zone_id] = p.temp_value
-
-    return {
-        "machine_name": machine.name,
-        "resin_params_data": list(resin_params_map.values())
-    }
-
-# --- NEW: Function to update an existing record set ---
-def update_processing_parameter_set(session: Session, machine_id: int, data: Dict[str, Any], user_id: int):
-    """
-    Updates a parameter set by deleting the old parameters and creating new ones.
-    """
-    machine = session.get(ExtruderMachine, machine_id)
-    if not machine:
-        raise ValueError(f"Machine with ID {machine_id} not found.")
-
-    # 1. Update machine name
-    machine.name = data['machine_name']
-    # You might want to set an 'updated_by_id' field here if you have one
-    # machine.updated_by_id = user_id
-
-    # 2. Delete all existing parameters for this machine
-    processing_params_to_delete = session.query(ProcessingParams).filter_by(machine_id=machine_id).all()
-    resin_params_ids_to_delete = {p.resin_params_id for p in processing_params_to_delete}
-    for p in processing_params_to_delete:
-        session.delete(p)
-    if resin_params_ids_to_delete:
-        session.query(ResinParams).filter(ResinParams.id.in_(resin_params_ids_to_delete)).delete(synchronize_session=False)
-    session.flush()
-
-    # 3. Re-create all parameters from the submitted data (using same logic as create)
-    column_to_resin_param_id = {}
-    for col_idx, resin_param_data in data['resin_params'].items():
-        new_resin_param = ResinParams(
-            resin_id=resin_param_data['resin_id'], motor_rpm=resin_param_data['motor_rpm'],
-            feed_rate=resin_param_data['feed_rate'], created_by_id=user_id)
-        session.add(new_resin_param)
-        session.flush()
-        column_to_resin_param_id[col_idx] = new_resin_param.id
-
-    for temp_data in data['temperatures']:
-        resin_param_id = column_to_resin_param_id.get(temp_data['col_idx'])
-        if not resin_param_id: continue
-        new_processing_param = ProcessingParams(
-            machine_id=machine.id, resin_params_id=resin_param_id, zone_id=temp_data['zone_id'],
-            temp_value=temp_data['temp_value'], created_by_id=user_id)
-        session.add(new_processing_param)
