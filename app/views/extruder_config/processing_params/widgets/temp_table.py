@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QPu
 from PyQt6.QtCore import pyqtSlot, Qt
 from typing import List, Dict
 
-from .delegates import DynamicComboBoxDelegate, NumericDelegate
+from .delegates import CascadingComboBoxDelegate, NumericDelegate, ComboBoxDelegate
 
 
 class TempTable(QWidget):
@@ -35,8 +35,8 @@ class TempTable(QWidget):
         self.table.insertColumn(0)
         self.table.setHorizontalHeaderLabels(["Zone"])
 
-        self.table.setItemDelegateForColumn(0, DynamicComboBoxDelegate(zones, self.table))
-
+        zone_delegate = ComboBoxDelegate(zones, parent=self.table, editable=False)
+        self.table.setItemDelegateForColumn(0, zone_delegate)
 
         self.numeric_delegate = NumericDelegate(self.table)
 

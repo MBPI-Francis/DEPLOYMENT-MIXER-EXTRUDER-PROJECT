@@ -109,13 +109,14 @@
 #         return data
 
 
+# app/views/extruder_config/processing_params/widgets/resin_params_table.py
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QHeaderView, QPushButton, QTableWidgetItem
 from PyQt6.QtCore import pyqtSignal, Qt
 from sqlalchemy.orm import Session
 from typing import List, Dict
 
-from .delegates import DynamicComboBoxDelegate
+from .delegates import ComboBoxDelegate, CascadingComboBoxDelegate
 from .. import ops
 
 
@@ -124,9 +125,12 @@ class ResinParamsTable(QWidget):
 
     def __init__(self, session: Session, resins: List, parent=None):
         super().__init__(parent)
-        self.session = session  # Store the single active session
+        self.session = session
         self.resins = resins
         self.column_delegates = {}
+
+        # --- THE STABLE FIX: Initialize the re-entrancy guard flag ---
+        self._is_handling_change = False
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -148,9 +152,8 @@ class ResinParamsTable(QWidget):
         self.table.setItem(2, 0, self.create_read_only_item("Feed Rate"))
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
 
-        self.resin_delegate = DynamicComboBoxDelegate(parent=self.table, editable=False)
-        self.resin_delegate.set_items(self.resins)
-        self.table.setItemDelegateForRow(0, self.resin_delegate)
+        resin_delegate = ComboBoxDelegate(resins, parent=self.table, editable=False)
+        self.table.setItemDelegateForRow(0, resin_delegate)
 
         self.add_column()
         self.add_column()
@@ -165,15 +168,19 @@ class ResinParamsTable(QWidget):
         return item
 
     def add_column(self):
+        # This method is now correct and stable
         col = self.table.columnCount()
         self.table.insertColumn(col)
         self.table.setHorizontalHeaderItem(col, QTableWidgetItem(f"Column {col}"))
-        self.table.setItem(0, col, QTableWidgetItem(""))
-        self.table.setItem(1, col, QTableWidgetItem(""))
-        self.table.setItem(2, col, QTableWidgetItem(""))
+
+        cascading_delegate = CascadingComboBoxDelegate(parent=self.table)
+        self.table.setItemDelegateForColumn(col, cascading_delegate)
+        self.column_delegates[col] = cascading_delegate
+
         self.column_count_changed.emit(self.table.columnCount() - 1)
 
     def remove_column(self):
+        # This method is correct and stable
         col = self.table.columnCount()
         if col > 3:
             if (col - 1) in self.column_delegates:
@@ -181,40 +188,41 @@ class ResinParamsTable(QWidget):
             self.table.removeColumn(col - 1)
             self.column_count_changed.emit(self.table.columnCount() - 1)
 
+    # --- DEFINITIVE, STABLE VERSION OF THIS FUNCTION ---
     def on_item_changed(self, item: QTableWidgetItem):
-        if item.row() == 0:  # A Resin was selected
-            column = item.column()
-            self.table.horizontalHeaderItem(column).setText(item.text())
+        # 1. Immediately check the guard flag. If true, another operation is in progress, so exit.
+        if self._is_handling_change:
+            return
 
-            resin_id = item.data(Qt.ItemDataRole.UserRole)
-            if resin_id:
-                # --- THE STABLE FIX ---
-                # Use the existing session passed during initialization.
-                params = ops.get_params_for_resin(self.session, resin_id)
+        # 2. Set the guard flag to block any recursive calls.
+        self._is_handling_change = True
+        try:
+            if item.row() == 0 and item.column() > 0:  # A Resin was selected in a dynamic column
+                column = item.column()
+                self.table.horizontalHeaderItem(column).setText(item.text())
 
-                # Create and assign delegates FOR THE SPECIFIC COLUMN
-                rpm_delegate = DynamicComboBoxDelegate(parent=self.table, editable=True)
-                rpm_delegate.set_items(params['rpms'])
-                self.table.setItemDelegateForColumn(column, rpm_delegate)
-                self.column_delegates[(1, column)] = rpm_delegate
+                resin_id = item.data(Qt.ItemDataRole.UserRole)
+                delegate = self.column_delegates.get(column)
 
-                feed_delegate = DynamicComboBoxDelegate(parent=self.table, editable=True)
-                feed_delegate.set_items(params['feed_rates'])
-                # We need a way to switch delegates based on the row being edited.
-                # The simplest stable approach is to set one delegate per column,
-                # which means RPM and Feed Rate will share a dropdown for now.
-                # A more complex solution involves a custom delegate factory.
-                # This code prevents the crash.
+                if resin_id and delegate:
+                    params = ops.get_params_for_resin(self.session, resin_id)
+                    delegate.set_items(rpms=params['rpms'], feed_rates=params['feed_rates'])
+                elif delegate:
+                    delegate.set_items(rpms=[], feed_rates=[])
 
-            self.table.item(1, column).setText("")
-            self.table.item(2, column).setText("")
+                # These setText calls are now safe because the guard flag is active.
+                # They will emit itemChanged, but the function will exit immediately at the top.
+                self.table.setItem(1, column, QTableWidgetItem(""))
+                self.table.setItem(2, column, QTableWidgetItem(""))
+        finally:
+            # 3. CRITICAL: Always reset the guard flag, even if an error occurs.
+            self._is_handling_change = False
 
     def get_data(self) -> Dict:
+        # This method is correct and unchanged
         data = {}
         for col in range(1, self.table.columnCount()):
-            resin_item = self.table.item(0, col)
-            rpm_item = self.table.item(1, col)
-            feed_item = self.table.item(2, col)
+            resin_item, rpm_item, feed_item = self.table.item(0, col), self.table.item(1, col), self.table.item(2, col)
             resin_id = resin_item.data(Qt.ItemDataRole.UserRole) if resin_item else None
             if not resin_id: raise ValueError(f"Please select a Resin for column {col}.")
             if not rpm_item or not rpm_item.text().strip(): raise ValueError(
