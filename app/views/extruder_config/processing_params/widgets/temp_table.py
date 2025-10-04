@@ -25,35 +25,27 @@ class TempTable(QWidget):
         self.table = QTableWidget()
         self.table.verticalHeader().setVisible(False)
 
-        # --- Setup Static First Column for Zones ---
         self.table.insertColumn(0)
         self.table.setHorizontalHeaderLabels(["Zone"])
         zone_delegate = ComboBoxDelegate(zones, parent=self.table, editable=False)
         self.table.setItemDelegateForColumn(0, zone_delegate)
 
-        # Delegate for all subsequent temperature value columns
         self.numeric_delegate = NumericDelegate(self.table)
 
         main_layout.addLayout(toolbar_layout)
         main_layout.addWidget(self.table)
 
-        # --- Connections ---
         add_row_button.clicked.connect(self.add_row)
         remove_row_button.clicked.connect(self.remove_row)
 
-        # Add one initial row
-        self.add_row()
+    def clear_rows(self):
+        """Removes all rows from the table."""
+        self.table.setRowCount(0)
 
     @pyqtSlot(int)
     def on_column_count_changed(self, dynamic_col_count: int):
-        """
-        Slot to sync the number of columns with the resin params table.
-        The total columns = 1 (for Zone) + dynamic_col_count.
-        """
         total_cols = 1 + dynamic_col_count
         self.table.setColumnCount(total_cols)
-
-        # Apply the numeric delegate to all dynamic columns (from index 1 onward)
         for col in range(1, total_cols):
             self.table.setItemDelegateForColumn(col, self.numeric_delegate)
 
@@ -66,16 +58,13 @@ class TempTable(QWidget):
 
     def get_data(self) -> List[Dict]:
         data = []
-        if self.table.rowCount() == 0:
+        if self.table.rowCount() == 0 and self.table.columnCount() > 1:
             raise ValueError("Please add at least one temperature zone.")
-
         for row in range(self.table.rowCount()):
             zone_item = self.table.item(row, 0)
             if not zone_item or zone_item.data(Qt.ItemDataRole.UserRole) is None:
                 raise ValueError(f"Please select a Zone for temperature row {row + 1}.")
             zone_id = zone_item.data(Qt.ItemDataRole.UserRole)
-
-            # Iterate over DYNAMIC columns (1 and onward)
             for col in range(1, self.table.columnCount()):
                 temp_item = self.table.item(row, col)
                 if not temp_item or not temp_item.text().strip():
@@ -84,10 +73,5 @@ class TempTable(QWidget):
                     temp_value = float(temp_item.text())
                 except (ValueError, TypeError):
                     raise ValueError(f"Invalid temperature '{temp_item.text()}'. Please use numbers only.")
-
-                data.append({
-                    'zone_id': zone_id,
-                    'col_idx': col,  # Maps temp value to the correct resin column
-                    'temp_value': temp_value
-                })
+                data.append({'zone_id': zone_id, 'col_idx': col, 'temp_value': temp_value})
         return data

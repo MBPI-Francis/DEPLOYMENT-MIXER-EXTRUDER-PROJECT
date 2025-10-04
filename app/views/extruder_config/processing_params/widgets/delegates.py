@@ -3,8 +3,11 @@
 from PyQt6.QtWidgets import QStyledItemDelegate, QComboBox, QLineEdit
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QDoubleValidator
-from typing import List, Dict
+from typing import List
 
+
+# The incorrect import "from .resin_params_table import ResinParamsTable" has been REMOVED.
+# This file now has NO KNOWLEDGE of any specific table, which resolves the circular import.
 
 class ComboBoxDelegate(QStyledItemDelegate):
     def __init__(self, items: List, parent=None, editable=False):
@@ -15,12 +18,14 @@ class ComboBoxDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
         editor = QComboBox(parent)
         editor.setEditable(self.is_editable)
-        if self.is_editable: editor.lineEdit().setPlaceholderText("Select or type...")
+        if self.is_editable:
+            editor.lineEdit().setPlaceholderText("Select or type...")
         if self.items:
-            if isinstance(self.items[0], str):
+            if self.items and isinstance(self.items[0], str):
                 editor.addItems(self.items)
-            elif isinstance(self.items[0], tuple):
-                for item_id, display_name in self.items: editor.addItem(display_name, userData=item_id)
+            elif self.items and isinstance(self.items[0], tuple):
+                for item_id, display_name in self.items:
+                    editor.addItem(display_name, userData=item_id)
         return editor
 
     def setEditorData(self, editor, index):
