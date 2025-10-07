@@ -35,6 +35,9 @@ class EditProcessingParamsDialog(QDialog):
         self.machine_name_combo.setEditable(True)
         self.machine_name_combo.setObjectName("machineNameInput")
 
+        all_machines = ops.get_all_machine_names(session)
+        self.machine_name_combo.addItems(all_machines)
+
         self.resin_params_table = ResinParamsTable(session=self.session, resins=self.all_resins)
         self.temp_table = TempTable(self.all_zones)
 

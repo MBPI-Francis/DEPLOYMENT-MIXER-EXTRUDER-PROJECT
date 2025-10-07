@@ -17,11 +17,17 @@ class ExtruderProcessingParamsView(QWidget):
 
         main_layout = QVBoxLayout(self)
 
-        # --- Top Bar ---
         top_bar_layout = QHBoxLayout()
         top_bar_layout.addStretch()
+
+        # --- BUTTONS: CREATE AND RESTORE button ---
+        self.restore_button = QPushButton("Restore Deleted")
+        self.restore_button.setObjectName("RestoreButton")  # For styling
+
         self.create_button = QPushButton("＋ Create New Parameter Set")
         self.create_button.setObjectName("PrimaryButton")
+
+        top_bar_layout.addWidget(self.restore_button)
         top_bar_layout.addWidget(self.create_button)
 
         # --- Main Table ---

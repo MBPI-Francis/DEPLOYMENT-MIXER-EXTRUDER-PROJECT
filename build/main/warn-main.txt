@@ -68,7 +68,7 @@ missing module named mysql - imported by sqlalchemy.dialects.mysql.mysqlconnecto
 missing module named asyncmy - imported by sqlalchemy.dialects.mysql.asyncmy (delayed)
 missing module named pymysql - imported by sqlalchemy.dialects.mysql.aiomysql (delayed)
 missing module named 'PyQt6.QtDataVisualization' - imported by qtpy.QtDataVisualization (conditional, optional)
-missing module named pydantic.BaseModel - imported by pydantic (conditional), pydantic._internal._typing_extra (conditional), pydantic._internal._import_utils (delayed, conditional), pydantic._internal._core_utils (delayed), pydantic.deprecated.copy_internals (delayed, conditional), app.validators.mixer_form_validators (top-level), app.validators.mixer_machine_validators (top-level)
+missing module named pydantic.BaseModel - imported by pydantic (conditional), pydantic._internal._typing_extra (conditional), pydantic._internal._import_utils (delayed, conditional), pydantic._internal._core_utils (delayed), pydantic.deprecated.copy_internals (delayed, conditional), app.validators.mixer_form_validators (top-level), app.validators.mixer_machine_validators (top-level), app.validators.ExtruderMachineValidator (top-level), app.validators.ExtruderSettingsValidator (top-level)
 missing module named cython - imported by scipy._lib._testutils (optional), fontTools.varLib.iup (optional), fontTools.misc.bezierTools (optional), pydantic.v1.version (optional)
 missing module named email_validator - imported by pydantic.networks (delayed, conditional, optional), pydantic.v1.networks (delayed, conditional, optional), pydantic.v1._hypothesis_plugin (optional)
 missing module named toml - imported by pydantic.v1.mypy (delayed, conditional, optional)
