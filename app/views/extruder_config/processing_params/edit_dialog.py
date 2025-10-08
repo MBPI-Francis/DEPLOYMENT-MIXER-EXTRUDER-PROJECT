@@ -1,8 +1,9 @@
 # app/views/extruder_config/processing_params/edit_dialog.py
-
+import os
 import traceback
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QMessageBox, QTableWidgetItem
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QMessageBox, QTableWidgetItem, \
+    QLabel
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 
@@ -14,10 +15,16 @@ from . import ops
 class EditProcessingParamsDialog(QDialog):
     def __init__(self, session: Session, machine_id: int, parent=None):
         super().__init__(parent)
+
+        style_path = os.path.join(os.path.dirname(__file__), 'styles.css')
+        with open(style_path, 'r') as f:
+            self.setStyleSheet(f.read())
+
+
         self.session = session
         self.machine_id = machine_id
 
-        self.setWindowTitle("Edit Processing Parameter Set")
+        self.setWindowTitle("Edit Machine Settings")
         self.setWindowFlags(
             self.windowFlags() | Qt.WindowType.Dialog | Qt.WindowType.WindowMinimizeButtonHint |
             Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint
@@ -33,25 +40,45 @@ class EditProcessingParamsDialog(QDialog):
         main_layout = QVBoxLayout(self)
         self.machine_name_combo = QComboBox()
         self.machine_name_combo.setEditable(True)
-        self.machine_name_combo.setObjectName("machineNameInput")
+        self.machine_name_combo.setObjectName("MachineComboBox")
+        self.machine_name_combo.setFixedWidth(300)
 
         all_machines = ops.get_all_machine_names(session)
         self.machine_name_combo.addItems(all_machines)
 
-        self.resin_params_table = ResinParamsTable(session=self.session, resins=self.all_resins)
+        # --- THIS IS THE NEW WIDGET ---
+        # 1. Create the descriptive QLabel with HTML for bolding.
+        description_text = (
+            "Modify the configuration for this machine, or <b>transfer</b> this entire configuration "
+            "by selecting a different, available machine name from the list above. "
+            "Use the add/remove buttons to alter the structure, then click <b>'Save Changes'</b> to save your modifications."
+        )
+        description_label = QLabel(description_text)
+
+        # 2. Set its objectName to apply the new style from the CSS file.
+        description_label.setObjectName("DescriptionLabel")
+        description_label.setWordWrap(True)  # Ensure the text wraps if the dialog is narrow
+
+
+
+        self.resin_params_table = ResinParamsTable(session=self.session,
+                                                   resins=self.all_resins,
+                                                   machine_combobox=self.machine_name_combo)
         self.temp_table = TempTable(self.all_zones)
 
         button_layout = QHBoxLayout()
-        self.save_button = QPushButton("Update Parameter Set")
+        self.save_button = QPushButton("Save Changes")
         self.cancel_button = QPushButton("Cancel")
         self.save_button.setObjectName("PrimaryButton")
+        self.cancel_button.setObjectName("SecondaryButton")
         button_layout.addStretch()
         button_layout.addWidget(self.cancel_button)
         button_layout.addWidget(self.save_button)
 
-        main_layout.addWidget(self.machine_name_combo)
+        # main_layout.addWidget(self.machine_name_combo)
         main_layout.addWidget(self.resin_params_table, stretch=1)
         main_layout.addWidget(self.temp_table, stretch=2)
+        main_layout.addWidget(description_label) # Add the new label here
         main_layout.addLayout(button_layout)
 
         # --- Connections ---

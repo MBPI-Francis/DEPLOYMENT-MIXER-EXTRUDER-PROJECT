@@ -1,5 +1,5 @@
 # app/views/extruder_config/processing_params/view_dialog.py
-
+import os
 import traceback
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QMessageBox, QTableWidgetItem
@@ -17,10 +17,15 @@ class ViewProcessingParamsDialog(QDialog):
 
     def __init__(self, session: Session, machine_id: int, parent=None):
         super().__init__(parent)
+
+        style_path = os.path.join(os.path.dirname(__file__), '..', 'styles.css')
+        with open(style_path, 'r') as f:
+            self.setStyleSheet(f.read())
+
         self.session = session
         self.machine_id = machine_id
 
-        self.setWindowTitle("View Processing Parameter Set")
+        self.setWindowTitle("View Machine Settings")
         self.setWindowFlags(
             self.windowFlags() | Qt.WindowType.Dialog | Qt.WindowType.WindowMinimizeButtonHint |
             Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint
@@ -33,14 +38,16 @@ class ViewProcessingParamsDialog(QDialog):
 
         main_layout = QVBoxLayout(self)
         self.machine_name_combo = QComboBox()
-        self.machine_name_combo.setObjectName("machineNameInput")
+        self.machine_name_combo.setObjectName("MachineComboBox")
+        self.machine_name_combo.setFixedWidth(300)
 
         self.resin_params_table = ResinParamsTable(session=self.session, resins=self.all_resins)
         self.temp_table = TempTable(self.all_zones)
 
         button_layout = QHBoxLayout()
-        self.edit_button = QPushButton("Edit")
+        self.edit_button = QPushButton("Edit Machine Settings")
         self.close_button = QPushButton("Close")
+        self.close_button.setObjectName("SecondaryButton")
         self.edit_button.setObjectName("PrimaryButton")
         button_layout.addStretch()
         button_layout.addWidget(self.close_button)

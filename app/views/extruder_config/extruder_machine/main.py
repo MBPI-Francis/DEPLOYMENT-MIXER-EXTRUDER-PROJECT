@@ -309,7 +309,7 @@ class ExtruderMachineView(QWidget):
         filter_layout.addWidget(self.search_input)
 
         self.add_button = QPushButton("Add New Machine")
-        self.restore_button = QPushButton("Restore Deleted")
+        self.restore_button = QPushButton("Restore")
         self.add_button.setObjectName("PrimaryButton")
         self.restore_button.setObjectName("SecondaryButton")
 

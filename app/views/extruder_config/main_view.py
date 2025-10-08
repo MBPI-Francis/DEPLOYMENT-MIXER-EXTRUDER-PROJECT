@@ -79,10 +79,10 @@ class ExtruderConfigView(QWidget):
 
         # --- Add Widgets as Tabs ---
         # As requested, you can easily comment out this line to hide the records tab
-        self.tab_widget.addTab(self.extruder_machine_tab, "Extruder Machine")
-        self.tab_widget.addTab(self.extruder_resin_tab, "Extruder Settings")
-        self.tab_widget.addTab(self.resin_params_tab, "Resin Parameters")
-        self.tab_widget.addTab(self.processing_params_tab, "Processing Parameters")
+        self.tab_widget.addTab(self.extruder_machine_tab, "Extruder Machines")
+        self.tab_widget.addTab(self.extruder_resin_tab, "Zones/Resins List")
+        self.tab_widget.addTab(self.resin_params_tab, "Resin Settings")
+        self.tab_widget.addTab(self.processing_params_tab, "Machine Settings")
 
 
 

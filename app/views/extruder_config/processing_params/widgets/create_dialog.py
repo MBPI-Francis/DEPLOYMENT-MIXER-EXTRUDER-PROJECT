@@ -72,7 +72,7 @@ import os
 # app/views/extruder_config/processing_params/widgets/create_dialog.py
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QLabel
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 
@@ -85,8 +85,11 @@ class CreateProcessingParamsDialog(QDialog):
     def __init__(self, session: Session, parent=None):
         super().__init__(parent)
 
+        style_path = os.path.join(os.path.dirname(__file__), '..', 'styles.css')
+        with open(style_path, 'r') as f:
+            self.setStyleSheet(f.read())
 
-        self.setWindowTitle("Create New Processing Parameter Set")
+        self.setWindowTitle("Create New Machine Settings")
         self.setWindowFlags(
             self.windowFlags() | Qt.WindowType.Dialog | Qt.WindowType.WindowMinimizeButtonHint |
             Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint
@@ -104,25 +107,43 @@ class CreateProcessingParamsDialog(QDialog):
         self.machine_name_combo.setEditable(True)
         self.machine_name_combo.addItems(all_machines)
         self.machine_name_combo.lineEdit().setPlaceholderText("Select or Create a Machine Name...")
-        self.machine_name_combo.setObjectName("machineNameInput")
+        self.machine_name_combo.setObjectName("MachineComboBox")
+        self.machine_name_combo.setFixedWidth(300)
 
-        self.resin_params_table = ResinParamsTable(session=session, resins=all_resins)
+        # --- THIS IS THE NEW WIDGET ---
+        # 1. Create the descriptive QLabel with HTML for bolding.
+        description_text = (
+            "Create a new standard setting for this machine. Add one or more "
+            "<b>Resin Settings</b> (with their RPM and Feed Rate) and the corresponding "
+            "<b>Zone Temperatures</b> below."
+        )
+        description_label = QLabel(description_text)
+
+        # 2. Set its objectName to apply the new style from the CSS file.
+        description_label.setObjectName("DescriptionLabel")
+        description_label.setWordWrap(True)  # Ensure the text wraps if the dialog is narrow
+
+
+        self.resin_params_table = ResinParamsTable(session=session, resins=all_resins, machine_combobox=self.machine_name_combo)
         self.temp_table = TempTable(all_zones)
 
         # Add a default row to the temperature table
         self.temp_table.add_row()
 
         button_layout = QHBoxLayout()
-        self.save_button = QPushButton("Save Parameter Set")
+        self.save_button = QPushButton("Save Machine Settings")
         self.cancel_button = QPushButton("Cancel")
         self.save_button.setObjectName("PrimaryButton")
+        self.cancel_button.setObjectName("SecondaryButton")
         button_layout.addStretch()
         button_layout.addWidget(self.cancel_button)
         button_layout.addWidget(self.save_button)
 
-        main_layout.addWidget(self.machine_name_combo)
+        # main_layout.addWidget(self.machine_name_combo)
+
         main_layout.addWidget(self.resin_params_table, stretch=1)
         main_layout.addWidget(self.temp_table, stretch=2)
+        main_layout.addWidget(description_label) # Add the new label here
         main_layout.addLayout(button_layout)
 
         # First, connect the signal for any *future* changes (like clicking the "Add Column" button)

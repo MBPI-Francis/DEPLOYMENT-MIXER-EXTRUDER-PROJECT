@@ -85,17 +85,35 @@ QLineEdit:focus {
     border-color: #80bdff;
 }
 
-/* --- Context Menu Styling --- */
+/* --- Modern Context Menu Styles --- */
 QMenu {
-    background-color: white;
+    background-color: #ffffff;
     border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 5px;
     color: #212529;
+    /* Optional: add a subtle shadow to make it "pop" */
+    /* This requires a custom class and is more advanced */
 }
 
+QMenu::item {
+    padding: 8px 25px;
+    border-radius: 4px;
+}
+
+/* Highlighted item in the context menu */
 QMenu::item:selected {
-    background-color: #007bff;
+    background-color: #007bff; /* Match the primary selection color */
     color: white;
 }
+
+/* A separator line in the menu */
+QMenu::separator {
+    height: 1px;
+    background: #e9ecef;
+    margin: 5px 0px;
+}
+
 /* --- Main Action Button Styling --- */
 QPushButton {
     padding: 8px 15px;
@@ -135,3 +153,9 @@ QPushButton#DangerButton {
     border-color: #dc3545;
 }
 QPushButton#DangerButton:hover { background-color: #c82333; border-color: #bd2130;}
+
+QPushButton#PrimaryButton:disabled {
+    background-color: #e9ecef;  /* A very light, muted gray */
+    color: #6c757d;             /* Muted gray text for low contrast */
+    border-color: #dee2e6;       /* A soft border to match */
+}

@@ -52,7 +52,7 @@ class SideMenu:
         # layout.addWidget(extruder_label)
         #
 
-        self.btn_extruder_config = self._create_menu_button("Extruder Config", "fa5s.file-alt")
+        self.btn_extruder_config = self._create_menu_button("Extruder Configurations", "fa5s.file-alt")
         layout.addWidget(self.btn_extruder_config )
 
 

@@ -31,7 +31,7 @@ class ExtruderProcessingParamsView(QWidget):
         self.restore_button = QPushButton("Restore")
         self.restore_button.setObjectName("SecondaryButton")
 
-        self.create_button = QPushButton("＋ Create New Parameter Set")
+        self.create_button = QPushButton("＋ Add Machine Settings")
         self.create_button.setObjectName("PrimaryButton")
 
         top_bar_layout.addWidget(self.restore_button)

@@ -130,7 +130,7 @@ from .. import ops
 class ResinParamsTable(QWidget):
     column_count_changed = pyqtSignal(int)
 
-    def __init__(self, session: Session, resins: List, parent=None):
+    def __init__(self, session: Session, resins: List, machine_combobox=None, parent=None):
         super().__init__(parent)
         self.session = session
         self.resins = resins
@@ -142,7 +142,10 @@ class ResinParamsTable(QWidget):
 
         toolbar_layout = QHBoxLayout()
         self.add_col_button = QPushButton("＋ Add Resin Column")
+        self.add_col_button.setObjectName("PrimaryButton")
         self.remove_col_button = QPushButton("－ Remove Last Column")
+        self.remove_col_button.setObjectName("DangerButton")
+        toolbar_layout.addWidget(machine_combobox)
         toolbar_layout.addStretch()
         toolbar_layout.addWidget(self.remove_col_button)
         toolbar_layout.addWidget(self.add_col_button)

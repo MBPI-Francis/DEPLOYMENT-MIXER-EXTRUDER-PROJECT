@@ -75,6 +75,7 @@ class RestoreDialog(QDialog):
         restore_button = QPushButton("Restore Selected")
         restore_button.setObjectName("SuccessButton")
         cancel_button = QPushButton("Cancel")
+        cancel_button.setObjectName("SecondaryButton")
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.select_all_checkbox)
         button_layout.addStretch()

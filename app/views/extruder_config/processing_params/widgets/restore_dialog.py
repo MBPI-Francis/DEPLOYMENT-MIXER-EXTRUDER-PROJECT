@@ -1,4 +1,5 @@
 # app/views/extruder_config/processing_params/restore_dialog.py
+import os
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -12,6 +13,12 @@ from .. import ops
 class RestoreDialog(QDialog):
     def __init__(self, session: Session, parent=None):
         super().__init__(parent)
+
+        style_path = os.path.join(os.path.dirname(__file__), '..', 'styles.css')
+        with open(style_path, 'r') as f:
+            self.setStyleSheet(f.read())
+
+
         self.session = session
         self.selected_machine_id = None  # Property to store the result
 
@@ -28,6 +35,7 @@ class RestoreDialog(QDialog):
         button_layout = QHBoxLayout()
         self.restore_button = QPushButton("Restore")
         self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setObjectName("SecondaryButton")
         self.restore_button.setObjectName("PrimaryButton")
         button_layout.addStretch()
         button_layout.addWidget(self.cancel_button)

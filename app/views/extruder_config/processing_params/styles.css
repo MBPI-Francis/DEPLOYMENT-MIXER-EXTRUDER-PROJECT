@@ -160,15 +160,22 @@ QMenu {
     border-radius: 6px;
     padding: 5px;
     color: #212529;
+    /* Optional: add a subtle shadow to make it "pop" */
+    /* This requires a custom class and is more advanced */
 }
+
 QMenu::item {
     padding: 8px 25px;
     border-radius: 4px;
 }
+
+/* Highlighted item in the context menu */
 QMenu::item:selected {
-    background-color: #007bff;
+    background-color: #007bff; /* Match the primary selection color */
     color: white;
 }
+
+/* A separator line in the menu */
 QMenu::separator {
     height: 1px;
     background: #e9ecef;
@@ -187,13 +194,80 @@ QLineEdit:focus, QComboBox:focus {
     border-color: #80bdff;
 }
 
-/* Style the dropdown arrow of a ComboBox */
 QComboBox::drop-down {
-    border: none;
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 25px;
+    border-left-width: 1px;
+    border-left-color: #ced4da;
+    border-left-style: solid;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #f8f9fa, stop: 1 #e9ecef);
 }
 QComboBox::down-arrow {
-    image: url(down_arrow.png); /* You would need an icon for this */
+    image: url(app/widgets/widget_icons/chevron-down.svg);
     width: 12px;
     height: 12px;
-    margin-right: 10px;
+}
+QComboBox::down-arrow:on { top: 1px; }
+
+QPushButton#PrimaryButton:disabled {
+    background-color: #e9ecef;  /* A very light, muted gray */
+    color: #6c757d;             /* Muted gray text for low contrast */
+    border-color: #dee2e6;       /* A soft border to match */
+}
+
+/* Danger Button (e.g., "Remove Column/Row") */
+QPushButton#DangerButton {
+    background-color: #dc3545;
+    color: white;
+    border: 1px solid #c82333;
+}
+QPushButton#DangerButton:hover {
+    background-color: #c82333;
+}
+QPushButton#DangerButton:pressed {
+    background-color: #bd2130;
+}
+
+
+/* --- Style for the main Machine Name ComboBox --- */
+QComboBox#MachineComboBox {
+    border: 1px solid #ced4da;
+    background-color: transparent; /* 2. Transparent Background */
+    font-weight: bold;          /* 3. Bold Text */
+    font-size: 20px;            /* 3. Larger Text */
+    padding-left: 5px;          /* Add some padding for better alignment */
+    color: #343a40;             /* A dark, but not quite black, color for the text */
+}
+
+/* We also need to style the dropdown list that appears when clicked */
+QComboBox#MachineComboBox QAbstractItemView {
+    background-color: white;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 5px;
+    font-size: 14px; /* Return to normal font size for the list items */
+    font-weight: normal;
+}
+
+/* And style the items within that dropdown list */
+QComboBox#MachineComboBox QAbstractItemView::item {
+    padding: 8px;
+    border-radius: 4px;
+}
+
+QComboBox#MachineComboBox QAbstractItemView::item:selected {
+    background-color: #007bff;
+    color: white;
+}
+
+QLabel#DescriptionLabel {
+    font-size: 15px;          /* A larger, more prominent font size */
+    color: #5a6268;           /* A slightly darker, more professional gray for better readability */
+    font-weight: normal;      /* Ensure the base text is not bold */
+    line-height: 1.5;         /* Improves readability for text that wraps to a second line */
+    margin: 10px 5px 20px 5px; /* Adds generous and balanced spacing: Top, Right, Bottom, Left */
+    word-wrap: true;          /* Ensure long text wraps correctly */
 }

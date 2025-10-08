@@ -33,6 +33,7 @@ class BasePanelHandlers:
                 lambda: self.table.editItem(self.table.item(selected_rows[0].row(), name_col_idx)))
         delete_text = f"Delete {num_selected} {self.config['name_plural' if num_selected > 1 else 'name_singular']}"
         delete_action = QAction(qta.icon("fa5s.trash-alt", color="#dc3545"), delete_text, self)
+        menu.addSeparator()
         menu.addAction(delete_action)
         delete_action.triggered.connect(self._handle_delete_selection)
         menu.exec(self.table.mapToGlobal(position))

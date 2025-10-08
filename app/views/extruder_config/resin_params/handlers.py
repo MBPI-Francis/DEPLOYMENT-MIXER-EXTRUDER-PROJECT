@@ -199,7 +199,7 @@ class ResinParamsPanelHandlers:
             edit_action = QAction(qta.icon("fa5s.edit", color="#007bff"), f"Edit {self.config['name_singular']}", self)
 
             menu.addAction(edit_action)
-
+            menu.addSeparator()
             edit_action.triggered.connect(lambda: self.table.editItem(self.table.item(selected_rows[0].row(), self.KEY_TO_INDEX['resin_name'])))
 
 
