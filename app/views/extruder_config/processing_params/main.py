@@ -15,14 +15,21 @@ class ExtruderProcessingParamsView(QWidget):
         super().__init__(parent)
         self.setObjectName("ProcessingParamsModule")
 
+        # --- Load Stylesheet ---
+        # This is the key step to apply the modern look.
+        style_path = os.path.join(os.path.dirname(__file__), 'styles.css')
+        with open(style_path, 'r') as f:
+            self.setStyleSheet(f.read())
+
+
         main_layout = QVBoxLayout(self)
 
         top_bar_layout = QHBoxLayout()
         top_bar_layout.addStretch()
 
         # --- BUTTONS: CREATE AND RESTORE button ---
-        self.restore_button = QPushButton("Restore Deleted")
-        self.restore_button.setObjectName("RestoreButton")  # For styling
+        self.restore_button = QPushButton("Restore")
+        self.restore_button.setObjectName("SecondaryButton")
 
         self.create_button = QPushButton("＋ Create New Parameter Set")
         self.create_button.setObjectName("PrimaryButton")

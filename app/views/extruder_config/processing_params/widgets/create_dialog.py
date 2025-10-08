@@ -67,6 +67,7 @@
 #             "resin_params": self.resin_params_table.get_data(),
 #             "temperatures": self.temp_table.get_data()
 #         }
+import os
 
 # app/views/extruder_config/processing_params/widgets/create_dialog.py
 
@@ -83,6 +84,8 @@ from .. import ops
 class CreateProcessingParamsDialog(QDialog):
     def __init__(self, session: Session, parent=None):
         super().__init__(parent)
+
+
         self.setWindowTitle("Create New Processing Parameter Set")
         self.setWindowFlags(
             self.windowFlags() | Qt.WindowType.Dialog | Qt.WindowType.WindowMinimizeButtonHint |

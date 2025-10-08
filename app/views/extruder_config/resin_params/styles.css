@@ -210,6 +210,7 @@ QMenu::separator {
     font-size: 14px;
 }
 
+
 QLineEdit {
     border: 1px solid #ced4da;
     border-radius: 6px;
@@ -219,5 +220,18 @@ QLineEdit {
 
 /* Highlight the border when the input field is focused */
 QLineEdit:focus {
+    border-color: #80bdff; /* A lighter shade of the primary blue */
+}
+
+
+QTableWidget QLineEdit {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    background-color: #ffffff;
+    font-size: 14px;
+}
+
+/* Highlight the border when the input field is focused */
+QTableWidget QLineEdit:focus {
     border-color: #80bdff; /* A lighter shade of the primary blue */
 }
