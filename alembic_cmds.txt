@@ -18,3 +18,16 @@ DROP TYPE statusenum;
 
 # check for type of Enum
 SELECT unnest(enum_range(NULL::department));
+
+
+1. INITIALIZE ALEMBIC (FIRST TIME SETUP)
+Run this command once to set up Alembic in your project:
+
+-- alembic init alembic
+
+This will create:
+
+A folder named "alembic" (where migration files will be stored)
+
+A configuration file "alembic.ini" (where you set your database connection)
+

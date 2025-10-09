@@ -1,3 +1,4 @@
+# models/ExtruderConfig.py
 import uuid
 from sqlalchemy import (
     Column,
@@ -29,6 +30,7 @@ class Resin(Base, AuditMixin):
 
     # Relationship to child table
     resin_params = relationship("ResinParams", back_populates="resin", cascade="all, delete-orphan")
+    purging_details = relationship("PurgingDetail", back_populates="resin")
 
 
 class Zone(Base, AuditMixin):
@@ -40,6 +42,7 @@ class Zone(Base, AuditMixin):
 
     # Relationship to child table
     processing_params = relationship("ProcessingParams", back_populates="zone", cascade="all, delete-orphan")
+    machine_temps = relationship("MachineTemp", back_populates="zone")
 
 
 class ExtruderMachine(Base, AuditMixin):
@@ -51,6 +54,7 @@ class ExtruderMachine(Base, AuditMixin):
 
     # Relationship to child table
     processing_params = relationship("ProcessingParams", back_populates="machine", cascade="all, delete-orphan")
+    extruder_form_data = relationship("ExtruderFormData", back_populates="machine")
 
 
 # --- Child/Junction Models ---

@@ -1,0 +1,137 @@
+ALEMBIC MIGRATION GUIDE
+=======================
+
+This file explains how to use Alembic for handling database migrations in your project.
+Follow these steps whenever you make changes to your database models.
+
+----------------------------------------
+1. INITIALIZE ALEMBIC (FIRST TIME SETUP)
+----------------------------------------
+
+Run this command once to set up Alembic in your project:
+
+    alembic init alembic
+
+This will create:
+- A folder named "alembic" (where migration files will be stored)
+- A configuration file "alembic.ini" (where you set your database connection)
+
+After running this, configure the database URL inside alembic.ini.
+Find the line "sqlalchemy.url" and set it to your database connection string. For example:
+
+    sqlalchemy.url = postgresql+psycopg2://username:password@localhost:5432/your_database_name
+
+Also, inside alembic/env.py, make sure to import your Base model and set target_metadata so Alembic can detect model changes:
+
+    from your_app.database import Base
+    target_metadata = Base.metadata
+
+----------------------------------------
+2. CREATE A NEW MIGRATION (MAKE MIGRATIONS)
+----------------------------------------
+
+Whenever you make changes to your models (e.g., adding a new column, table, or modifying structure), run:
+
+    alembic revision --autogenerate -m "your message"
+
+Example:
+
+    alembic revision --autogenerate -m "Add department table"
+
+This will generate a new migration file inside the alembic/versions folder.
+Open the generated file to review the changes Alembic detected.
+You can manually edit this file if needed before applying it.
+
+----------------------------------------
+3. APPLY MIGRATIONS (UPGRADE)
+----------------------------------------
+
+After creating a migration file, apply the migration to the database:
+
+    alembic upgrade head
+
+"head" means the latest migration.
+This command updates the database schema to match your current models.
+
+----------------------------------------
+4. UPGRADE TO A SPECIFIC MIGRATION
+----------------------------------------
+
+You can also apply migrations up to a specific revision using:
+
+    alembic upgrade <revision_id>
+
+The revision_id can be found at the top of the migration file or in the filename.
+You can usually use the first 4 characters.
+
+Example:
+
+    alembic upgrade a12b
+
+----------------------------------------
+5. DOWNGRADE (ROLLBACK)
+----------------------------------------
+
+If you need to undo the last migration, use:
+
+    alembic downgrade -1
+
+This will move the database back by one migration.
+You can also downgrade to a specific revision ID if needed:
+
+    alembic downgrade <revision_id>
+
+Be careful with downgrades, as they can drop tables or columns depending on the migration.
+
+----------------------------------------
+6. HANDLING ENUM TYPES (POSTGRESQL)
+----------------------------------------
+
+PostgreSQL stores ENUM types separately, and changing ENUM values may require dropping the existing types manually.
+
+To drop an ENUM type:
+
+    DROP TYPE categoryenum;
+    DROP TYPE statusenum;
+
+Run these commands directly in your PostgreSQL database (e.g., using psql or pgAdmin) before applying new migrations if you changed ENUM definitions.
+
+----------------------------------------
+7. CHECKING ENUM VALUES
+----------------------------------------
+
+To check the existing values of an ENUM type in PostgreSQL:
+
+    SELECT unnest(enum_range(NULL::department));
+
+Replace "department" with the actual ENUM type name you want to inspect.
+
+----------------------------------------
+SUMMARY OF COMMON COMMANDS
+----------------------------------------
+
+Initialize Alembic:
+    alembic init alembic
+
+Create new migration:
+    alembic revision --autogenerate -m "your message"
+
+Apply all migrations (latest):
+    alembic upgrade head
+
+Apply specific migration:
+    alembic upgrade <revision_id>
+
+Rollback last migration:
+    alembic downgrade -1
+
+Drop ENUM types:
+    DROP TYPE your_enum_name;
+
+Check ENUM values:
+    SELECT unnest(enum_range(NULL::your_enum_name));
+
+----------------------------------------
+
+This guide should help you understand the basic steps for creating, applying, and managing migrations with Alembic.
+Always make sure to commit your model changes before creating migrations, and review the generated migration files carefully.

@@ -18,3 +18,16 @@ from .ExtruderConfig import (ExtruderMachine,
                              Resin,
                              ResinParams,
                              ProcessingParams)
+
+from .Customers import Customer
+
+from .ProductionEmployees import ProductionEmployee, EmployeePosition
+
+from . ExtruderCore import (ExtruderPersonnel,
+                            ExtruderOutput,
+                            ExtruderFormData,
+                            MachineTemp,
+                            MachineConfig,
+                            UsedMaterial,
+                            PurgingDetail,
+                            )
