@@ -32,7 +32,8 @@ class ExtruderOpsController:
                 TblProd01.T_PRODCODE
             ).filter(
                 TblProd01.T_LOTNUM.isnot(None),
-                TblProd01.T_LOTNUM != ''
+                TblProd01.T_LOTNUM != '',
+                TblProd01.T_DELETED.isnot(True)
             )
 
             if search_term:
@@ -66,7 +67,10 @@ class ExtruderOpsController:
 
         with self.Session() as session:
             # Query the database for all records matching the lot numbers
-            records = session.query(TblProd01).filter(TblProd01.T_LOTNUM.in_(lot_numbers)).all()
+            records = session.query(TblProd01).filter(
+                TblProd01.T_LOTNUM.in_(lot_numbers),
+                TblProd01.T_DELETED.is_(False)  # This ensures we only get active records
+            ).all()
 
             if not records:
                 return {}
@@ -97,7 +101,9 @@ class ExtruderOpsController:
 
         with self.Session() as session:
             # First, find the unique Formula IDs (T_FID) from TblProd01 for the given lots
-            prod_records = session.query(TblProd01.T_FID).filter(TblProd01.T_LOTNUM.in_(lot_numbers)).distinct().all()
+            prod_records = session.query(TblProd01.T_FID).filter(TblProd01.T_LOTNUM.in_(lot_numbers),
+                                                                 TblProd01.T_DELETED.isnot(True)
+                                                                 ).distinct().all()
             formula_ids = [fid for (fid,) in prod_records if fid is not None]
 
             if not formula_ids:
@@ -108,7 +114,8 @@ class ExtruderOpsController:
             formulas = session.query(TblFormula01).options(
                 joinedload(TblFormula01.details)
             ).filter(
-                TblFormula01.T_UID.in_(formula_ids)
+                TblFormula01.T_UID.in_(formula_ids),
+
             ).all()
 
             # Structure the data for the dialog
@@ -145,3 +152,18 @@ class ExtruderOpsController:
         import json
         print(json.dumps(form_data, indent=2))
         print("--- SAVE COMPLETE (SIMULATED) ---")
+
+    def get_product_code_for_lot(self, lot_number: str) -> str | None:
+        """
+        Finds the product code for a single, specific lot number.
+        Returns the product code string or None if not found.
+        """
+        if not lot_number:
+            return None
+
+        with self.Session() as session:
+            result = session.query(TblProd01.T_PRODCODE).filter(
+                TblProd01.T_LOTNUM == lot_number
+            ).first()
+
+            return result[0] if result else None

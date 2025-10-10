@@ -54,11 +54,32 @@ class ExtruderEntryFormView(QWidget):
             QMessageBox.critical(self, "Database Error", f"Could not load initial data: {e}")
 
     def _open_lot_number_dialog(self):
-        """Opens the lot number dialog, passing a callback for it to use."""
+        """
+        Opens the lot number dialog, passing the current product code context if one exists.
+        """
         try:
-            # The dialog now takes the controller and our new callback method
-            dialog = LotNumberDialog(self.controller, self._handle_dialog_selections_applied, self)
-            dialog.exec()  # It's still modal, but internal buttons control its state
+            initial_product_code = None
+            current_lot_text = self.ui.lot_number_input.text()
+
+            # --- NEW LOGIC ---
+            # If there's already text in the lot number field, find its product code
+            if current_lot_text:
+                # Get the very first lot number from the semi-colon separated string
+                first_lot = current_lot_text.split(';')[0].strip()
+                if first_lot:
+                    # Use our new controller method to get the code
+                    initial_product_code = self.controller.get_product_code_for_lot(first_lot)
+            # --- END NEW LOGIC ---
+
+            # Pass the initial code (which could be None) to the dialog's constructor
+            dialog = LotNumberDialog(
+                self.controller,
+                self._handle_dialog_selections_applied,
+                self,
+                initial_product_code=initial_product_code
+            )
+            dialog.exec()
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not open lot number selector: {e}")
             import traceback

@@ -14,7 +14,8 @@ from ..ops import ExtruderOpsController
 class LotNumberDialog(QDialog):
     PAGE_SIZE = 100
 
-    def __init__(self, controller: ExtruderOpsController, success_callback: Callable, parent=None):
+    def __init__(self, controller: ExtruderOpsController, success_callback: Callable, parent=None,
+                 initial_product_code: str = None):
         super().__init__(parent)
         self.setWindowTitle("Select Lot Number(s) and Formula(s)")
         self.setMinimumSize(950, 700)
@@ -25,7 +26,8 @@ class LotNumberDialog(QDialog):
         self.current_page = 1
         self.is_loading_more = False
         self.can_load_more = True
-        self.locked_product_code = None  # The product code of the first applied selection
+        # --- MODIFIED: Set the locked_product_code from the argument ---
+        self.locked_product_code = initial_product_code
 
         # --- UI Setup ---
         layout = QVBoxLayout(self)
@@ -60,6 +62,12 @@ class LotNumberDialog(QDialog):
 
         # --- Initial Load ---
         self._load_lots()
+
+        # --- NEW: Apply initial UI lock if code was provided on creation ---
+        if self.locked_product_code:
+            self.search_input.setPlaceholderText(f"Locked to Product Code: {self.locked_product_code}")
+            self.search_input.setEnabled(False)
+        # --- END NEW ---
 
     def _create_left_panel(self):
         panel = QWidget()
