@@ -30,4 +30,7 @@ from . ExtruderCore import (ExtruderPersonnel,
                             MachineConfig,
                             UsedMaterial,
                             PurgingDetail,
+                            ScreenSize
                             )
+
+

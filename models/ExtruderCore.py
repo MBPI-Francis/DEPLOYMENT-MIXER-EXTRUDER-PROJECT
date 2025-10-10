@@ -70,7 +70,7 @@ class MachineTemp(Base, AuditMixin):
 
 
 class UsedMaterial(Base, AuditMixin):
-    __tablename__ = "tbl_used_materials"
+    __tablename__ = "tbl_extruder_used_materials"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     extruder_form_data_id = Column(Integer, ForeignKey("tbl_extruder_form_data.id"), nullable=False)

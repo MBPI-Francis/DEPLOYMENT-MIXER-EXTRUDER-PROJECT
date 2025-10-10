@@ -1,1 +1,1 @@
-from app.views.extruder_form.main import ExtruderFormView
+from app.views.extruder_form.main_view import ExtruderFormView

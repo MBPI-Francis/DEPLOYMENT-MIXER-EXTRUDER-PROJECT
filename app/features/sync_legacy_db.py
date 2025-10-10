@@ -12,7 +12,7 @@ from sqlalchemy.exc import OperationalError
 
 # Import your SQLAlchemy models
 # Assuming your new RawMaterials model is in a file with your other models
-from models import TblProd01, TblFormula01, TblFormula02, RawMaterials
+from models import TblProd01, TblFormula01, TblFormula02, RawMaterials, Customer
 from os import getenv
 # --- END NEW IMPORTS ---
 
@@ -22,6 +22,7 @@ DBF_PATH = r'\\system-server\SYSTEM-NEW-OLD'
 PRODUCTION_DBF_PATH = os.path.join(DBF_PATH, 'tbl_prod01.dbf')
 FORMULA01_DBF_PATH = os.path.join(DBF_PATH, 'tbl_formula01.dbf')
 FORMULA02_DBF_PATH = os.path.join(DBF_PATH, 'tbl_formula02.dbf')
+CUSTOMER_DBF_PATH = os.path.join(DBF_PATH, 'tbl_customer01.dbf')
 
 # --- NEW: Configuration for the external Raw Materials database ---
 DB_CONFIG_RAW_MATERIALS = {
@@ -233,6 +234,11 @@ class SyncWorker(QObject):
             # --- NEW: Sync Raw Materials ---
             self.progress.emit("Syncing Raw Materials...", 70)
             rm_new = self._sync_raw_materials(main_session)
+
+            # --- NEW: Call the customer sync method ---
+            self.progress.emit("Syncing Customers...", 80)
+            cust_new = self._sync_customers(main_session)
+            # --- END NEW ---
             
             self.progress.emit("Committing all changes...", 95)
             main_session.commit()
@@ -241,7 +247,8 @@ class SyncWorker(QObject):
                 "Database Synchronization Successful!\n\n"
                 f"New Formula Headers: {len(new_headers_map)}\n"
                 f"New Production Records: {p1_new}\n"
-                f"New Raw Materials: {rm_new}" # Add new count to message
+                f"New Raw Materials: {rm_new}\n" # Add new count to message
+                f"New Customers: {cust_new}"
             )
             self.finished.emit(result_message)
 
@@ -338,3 +345,38 @@ class SyncWorker(QObject):
             # You can add directly to the session here
             session.add_all(records_to_add)
         return len(records_to_add)
+
+    # --- NEW METHOD: Logic for syncing customers ---
+    def _sync_customers(self, session) -> int:
+        """
+        Syncs tbl_customer01.dbf to the main application's Customer table.
+        It prevents duplicates based on customer name.
+        """
+        # Get all existing customer names from the destination table to prevent duplicates
+        existing_names: Set[str] = {row.name for row in session.query(Customer.name).all()}
+        records_to_add = []
+
+        try:
+            dbf_records = dbfread.DBF(CUSTOMER_DBF_PATH, encoding='latin1')._iter_records()
+        except dbfread.exceptions.DBFNotFound:
+            raise FileNotFoundError(f"File not found: {CUSTOMER_DBF_PATH}")
+
+        for record in dbf_records:
+            # The customer name is in the 'T_CUSTOMER' field. Strip whitespace.
+            customer_name = record.get('T_CUSTOMER', '').strip()
+
+            # Skip if the name is empty or already exists in our database
+            if not customer_name or customer_name in existing_names:
+                continue
+
+            # Create a new Customer object. The AuditMixin will handle created_at etc.
+            new_customer = Customer(name=customer_name)
+            records_to_add.append(new_customer)
+            # Add the new name to our set to handle duplicates within the DBF file itself
+            existing_names.add(customer_name)
+
+        if records_to_add:
+            session.add_all(records_to_add)
+
+        return len(records_to_add)
+    # --- END NEW METHOD ---

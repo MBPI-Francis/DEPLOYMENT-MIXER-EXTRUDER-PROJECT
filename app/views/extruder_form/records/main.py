@@ -3,12 +3,12 @@ from typing import Type
 from sqlalchemy.orm import Session
 from models import User
 
-class ExtruderFormView(QWidget):
+class ExtruderRecordsView(QWidget):
     def __init__(self, session_factory: Type[Session], parent=None):
         super().__init__(parent)
 
         self.main_layout = QVBoxLayout()
-        self.mixer_label = QLabel("Extruder Form")
+        self.mixer_label = QLabel("Extruder Records")
         self.Session = session_factory
 
         self.main_layout.addWidget(self.mixer_label)
