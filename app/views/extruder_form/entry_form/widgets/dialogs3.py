@@ -15,11 +15,8 @@ from ..ops import ExtruderOpsController
 class LotNumberDialog(QDialog):
     PAGE_SIZE = 100
 
-    def __init__(self, controller: ExtruderOpsController,
-                 success_callback: Callable,
-                 parent=None,
-                 initial_product_code: str = None,
-                 initial_customer: str = None):
+    def __init__(self, controller: ExtruderOpsController, success_callback: Callable, parent=None,
+                 initial_product_code: str = None):
         super().__init__(parent)
         self.setWindowTitle("Select Lot Number(s) and Formula(s)")
         self.setMinimumSize(950, 700)
@@ -29,21 +26,10 @@ class LotNumberDialog(QDialog):
         self.current_page = 1
         self.is_loading_more = False
         self.can_load_more = True
-
-        # self.locked_product_code = initial_product_code
-
-        # --- FIX: Store the permanent lock state separately ---
-        self.initial_product_code_lock = initial_product_code
-        self.initial_customer_lock = initial_customer
-
-
         self.locked_product_code = initial_product_code
-        self.locked_customer = initial_customer # Will be set on first apply
+        self.locked_lot_item = None
 
-
-        # --- FIX: Store data, not the widget item ---
-        self.locked_lot_data = None
-        self.formula_details_cache = {}
+        self.formula_details_cache = {} # Initialize the cache
 
         layout = QVBoxLayout(self)
         splitter = QSplitter(Qt.Orientation.Horizontal);
@@ -69,9 +55,10 @@ class LotNumberDialog(QDialog):
         self._load_lots()
 
         self.lot_list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
-        if self.locked_product_code and self.locked_customer:
-            self.search_input.setPlaceholderText(f"Locked to Code: {self.locked_product_code}, Customer: {self.locked_customer}")
+        if self.locked_product_code:
+            self.search_input.setPlaceholderText(f"Adding lots for code: {self.locked_product_code}")
             self.search_input.setEnabled(False)
+            # The label text is a better place to indicate multi-add capability
             self.apply_btn.setText("Apply Additional Lot")
 
     def _connect_signals(self):
@@ -91,39 +78,89 @@ class LotNumberDialog(QDialog):
         self.reset_btn.clicked.connect(self._reset_selections)
         self.close_btn.clicked.connect(self.reject)
 
-    # --- METHOD MODIFIED to pass the correct context ---
+    # --- METHOD REWRITTEN to enforce mutual exclusivity ---
     @pyqtSlot()
     def _on_selected_formula_changed(self):
+        """Handles selection in the 'Selected' list."""
         selected_items = self.selected_formulas_widget.selectedItems()
         self.remove_formula_btn.setEnabled(len(selected_items) > 0)
 
+        # If an item is selected in this list...
         if selected_items:
+            # ...clear the selection in the other list.
             self.formula_list_widget.clearSelection()
-            batch_weight = self.locked_lot_data.get('batch_weight') if self.locked_lot_data else None
-            self._update_material_preview(selected_items[0].text(), batch_weight)
-        elif not self.formula_list_widget.selectedItems():
-            self._update_material_preview(None, None)
+            self._update_material_preview(selected_items[0].text())
 
-    # --- METHOD MODIFIED with new signature ---
-    def _update_material_preview(self, formula_id: str | None, batch_weight: Decimal | None):
-        self.material_list_widget.setRowCount(0)
+        # If selection is cleared and the other list is also clear, clear the preview
+        elif not self.formula_list_widget.selectedItems():
+            self._update_material_preview(None)
+
+    # --- THIS IS THE ONLY METHOD THAT IS REWRITTEN ---
+    # def _update_material_preview(self, formula_id: str | None):
+    #     """
+    #     Calculates and displays the ACTUAL material quantities (in kg) based on
+    #     the formula ratios and the selected lot's batch weight.
+    #     """
+    #     self.material_list_widget.clear()
+    #     total_actual_qty = Decimal("0.00")
+    #
+    #     # Get the currently selected lot to find its batch weight
+    #     selected_lot_items = self.lot_list_widget.selectedItems()
+    #
+    #     # Proceed only if a formula AND a lot are selected
+    #     if formula_id and selected_lot_items:
+    #         lot_data = selected_lot_items[0].data(Qt.ItemDataRole.UserRole)
+    #         batch_weight = lot_data.get("batch_weight") or Decimal("0.00")
+    #
+    #         materials = self.formula_details_cache.get(formula_id, [])
+    #
+    #         # 1. Calculate the total sum of all ratios for this formula
+    #         total_ratio = sum(mat.get('qty', Decimal(0)) for mat in materials)
+    #
+    #         if total_ratio > 0:
+    #             # 2. Loop through materials to calculate and display the actual qty for each
+    #             for mat in materials:
+    #                 ratio = mat.get('qty', Decimal(0))
+    #
+    #                 # 3. Apply the formula: Actual Qty = (Ratio / Total Ratio) * Batch Weight
+    #                 actual_qty = (ratio / total_ratio) * batch_weight
+    #
+    #                 self.material_list_widget.addItem(f"{mat['mat_code']}: {actual_qty:.2f} kg")
+    #                 total_actual_qty += actual_qty
+    #
+    #     # Update the total label with the sum of actual quantities
+    #     self.total_material_qty_label.setText(f"{total_actual_qty:.2f} kg")
+
+
+
+    # ... (All other methods remain unchanged) ...
+
+    # --- METHOD MODIFIED to populate the QTableWidget ---
+    def _update_material_preview(self, formula_id: str | None):
+        self.material_list_widget.setRowCount(0)  # Use setRowCount to clear the table
         self.material_list_widget.setHorizontalHeaderLabels(["Material Code", "Actual Qty (kg)"])
         total_actual_qty = Decimal("0.00")
 
-        if formula_id and batch_weight is not None:
+        selected_lot_items = self.lot_list_widget.selectedItems()
+
+        if formula_id and selected_lot_items:
+            lot_data = selected_lot_items[0].data(Qt.ItemDataRole.UserRole)
+            batch_weight = lot_data.get("batch_weight") or Decimal("0.00")
             materials = self.formula_details_cache.get(formula_id, [])
             total_ratio = sum(mat.get('qty', Decimal(0)) for mat in materials)
 
             if total_ratio > 0:
-                self.material_list_widget.setRowCount(len(materials))
+                self.material_list_widget.setRowCount(len(materials))  # Prepare rows
                 for i, mat in enumerate(materials):
                     ratio = mat.get('qty', Decimal(0))
                     actual_qty = (ratio / total_ratio) * batch_weight
 
+                    # Create QTableWidgetItem for each cell
                     code_item = QTableWidgetItem(mat['mat_code'])
                     qty_item = QTableWidgetItem(f"{actual_qty:.2f}")
                     qty_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
+                    # Add items to the table
                     self.material_list_widget.setItem(i, 0, code_item)
                     self.material_list_widget.setItem(i, 1, qty_item)
 
@@ -133,7 +170,6 @@ class LotNumberDialog(QDialog):
             self.material_list_widget.setHorizontalHeaderLabels(["Material Code", "Actual Qty (kg)"])
 
         self.total_material_qty_label.setText(f"{total_actual_qty:.2f} kg")
-
 
 
     def _create_center_panel(self):
@@ -156,12 +192,12 @@ class LotNumberDialog(QDialog):
         layout.addWidget(add_formula_btn)
         return panel, formula_list_widget, add_formula_btn
 
-    # --- METHOD REWRITTEN to use data, not item ---
     def _update_locked_details_display(self):
-        if self.locked_lot_data:
-            self.locked_lot_num_label.setText(self.locked_lot_data.get("lot_num", "-"))
-            self.locked_prod_id_label.setText(str(self.locked_lot_data.get("prod_id", "-")))
-            self.locked_prod_code_label.setText(self.locked_lot_data.get("product_code", "-"))
+        if self.locked_lot_item:
+            data = self.locked_lot_item.data(Qt.ItemDataRole.UserRole)
+            self.locked_lot_num_label.setText(self.locked_lot_item.text())
+            self.locked_prod_id_label.setText(str(data.get("prod_id", "-")))
+            self.locked_prod_code_label.setText(data.get("product_code", "-"))
         else:
             self.locked_lot_num_label.setText("-")
             self.locked_prod_id_label.setText("-")
@@ -171,26 +207,26 @@ class LotNumberDialog(QDialog):
     def _on_lot_selection_changed(self):
         self._fetch_and_display_formulas()
 
-    # --- METHOD REWRITTEN to use data, not item ---
+    # --- METHOD MODIFIED to auto-select the moved item ---
     @pyqtSlot(QListWidgetItem)
     def _on_lot_double_clicked(self, item: QListWidgetItem):
-        if self.locked_lot_data and self.locked_lot_data['lot_num'] == item.text():
+        if self.locked_lot_item is item:
             QMessageBox.information(self, "Already Locked", f"Lot '{item.text()}' is already the locked lot.")
             return
 
+
         if self.formula_list_widget.count() == 0:
-            QMessageBox.warning(self, "No Formulas Available",
-                                f"Lot '{item.text()}' has no associated formulas and cannot be locked.")
+            QMessageBox.warning(self, "No Formulas Available", f"Lot '{item.text()}' has no associated formulas and cannot be locked.")
             return
 
-        if self.locked_lot_data:
+        if self.locked_lot_item and self.locked_lot_item is not item:
             reply = QMessageBox.question(self, "Confirm Change",
                                          "This will clear your selected formulas and lock this new lot number. Proceed?",
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.No:
                 return
 
-        self.locked_lot_data = item.data(Qt.ItemDataRole.UserRole)
+        self.locked_lot_item = item
         self.selected_formulas_widget.clear()
         self._update_locked_details_display()
         self.lot_list_widget.setCurrentItem(item)
@@ -200,30 +236,26 @@ class LotNumberDialog(QDialog):
             item_to_move = self.formula_list_widget.takeItem(0)
             if item_to_move:
                 self.selected_formulas_widget.addItem(item_to_move)
+                # --- FIX: Programmatically select the item after auto-moving it ---
                 self.selected_formulas_widget.setCurrentItem(item_to_move)
 
     @pyqtSlot()
     def _reset_selections(self):
-        self.locked_lot_data = None
+        self.locked_product_code = None
+        self.locked_lot_item = None
         self._update_locked_details_display()
-        self.formula_list_widget.clear()
-        self.selected_formulas_widget.clear()
-        self._update_material_preview(None, None)
-
-        # Only do a full reset if there was no initial lock from the main form
-        if self.initial_product_code_lock is None and self.initial_customer_lock is None:
-            self.locked_product_code = None
-            self.locked_customer = None  # Clear customer lock
-            self.search_input.clear()
-            self.search_input.setPlaceholderText("Search Lot Number...")
-            self.search_input.setEnabled(True)
-            self.apply_btn.setText("Apply Selections")
-
         self.current_page = 1
         self.can_load_more = True
+        self.formula_list_widget.clear()
+        self.material_list_widget.clear()
+        self.selected_formulas_widget.clear()
+        self.search_input.clear()
+        self.search_input.setPlaceholderText("Search Lot Number...")
+        self.search_input.setEnabled(True)
+        self.lot_list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
         self._load_lots()
 
-
+        # --- METHOD MODIFIED to auto-select the moved item ---
 
     # @pyqtSlot()
     # def _add_formula_to_selection(self):
@@ -246,38 +278,51 @@ class LotNumberDialog(QDialog):
     #         # --- FIX: Programmatically select the item after moving it ---
     #         self.selected_formulas_widget.setCurrentItem(item_to_move)
 
-    # --- METHOD REWRITTEN to use data, not item ---
+    # --- THE ONLY METHOD THAT IS CHANGED IS HERE ---
     @pyqtSlot()
     def _add_formula_to_selection(self):
+        """
+        Moves a formula to the selected list. Handles implicit locking and
+        changing the lock with user confirmation.
+        """
         previewed_items = self.lot_list_widget.selectedItems()
         if not previewed_items:
             QMessageBox.warning(self, "No Lot Selected", "Please select a lot number before adding formulas.")
             return
 
         previewed_item = previewed_items[0]
-        previewed_data = previewed_item.data(Qt.ItemDataRole.UserRole)
 
-        if self.locked_lot_data is None:
+        # Case 1: No lot is locked yet. Implicitly lock to the previewed item.
+        if self.locked_lot_item is None:
+
             if self.formula_list_widget.count() == 0:
                 QMessageBox.warning(self, "No Formulas Available",
                                     "The selected lot has no formulas to add and cannot be locked.")
                 return
-            self.locked_lot_data = previewed_data
+
+
+            self.locked_lot_item = previewed_item
             self._update_locked_details_display()
             QMessageBox.information(self, "Lot Locked",
-                                    f"Lot '{self.locked_lot_data['lot_num']}' is now locked because you added a formula.")
-        elif self.locked_lot_data['lot_num'] != previewed_data['lot_num']:
+                                    f"Lot '{self.locked_lot_item.text()}' is now locked because you added a formula.")
+
+        # Case 2: A different lot is locked. Ask for confirmation to change the lock.
+        elif self.locked_lot_item is not previewed_item:
             reply = QMessageBox.question(self, "Confirm Change",
-                                         f"You are adding a formula for '{previewed_data['lot_num']}', but '{self.locked_lot_data['lot_num']}' is currently locked.\n\n"
+                                         f"You are adding a formula for '{previewed_item.text()}', but '{self.locked_lot_item.text()}' is currently locked.\n\n"
                                          "Do you want to clear the previous selection and lock this new lot instead?",
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
+                # User confirmed. Change the lock.
                 self.selected_formulas_widget.clear()
-                self.locked_lot_data = previewed_data
+                self.locked_lot_item = previewed_item
                 self._update_locked_details_display()
             else:
+                # User canceled. Do nothing.
                 return
 
+        # At this point, self.locked_lot_item is guaranteed to be the same as previewed_item.
+        # Proceed with moving the formula.
         selected_items = self.formula_list_widget.selectedItems()
         if not selected_items:
             return
@@ -287,81 +332,69 @@ class LotNumberDialog(QDialog):
             self.selected_formulas_widget.addItem(item_to_move)
             self.selected_formulas_widget.setCurrentItem(item_to_move)
 
-        # --- METHOD REWRITTEN with final validation ---
-
+    # --- METHOD MODIFIED for clarity and to enforce the single-lot rule ---
     @pyqtSlot()
     def _apply_selections(self):
-
-        if not self.locked_lot_data:
-            QMessageBox.warning(self, "No Lot Locked",
-                                "Please double-click a lot or add a formula to lock it before applying.")
+        # The selected lot is now the locked lot, not from a multi-selection
+        if not self.locked_lot_item:
+            QMessageBox.warning(self, "No Lot Locked", "Please double-click a lot to lock it, then add at least one formula to apply.")
             return
 
-        if self.initial_product_code_lock and self.initial_customer_lock:
-            current_lot_pc = self.locked_lot_data.get('product_code')
-
-            current_customer = self.locked_lot_data.get('customer')
-            if (current_lot_pc != self.initial_product_code_lock or
-                current_customer != self.initial_customer_lock):
-                QMessageBox.critical(self, "Validation Error",
-                                     f"The selected lot does not match the required Product Code and Customer.")
-                return
-
-        selected_formulas = [self.selected_formulas_widget.item(i).text() for i in
-                             range(self.selected_formulas_widget.count())]
+        selected_formulas = [self.selected_formulas_widget.item(i).text() for i in range(self.selected_formulas_widget.count())]
         if not selected_formulas:
-            QMessageBox.warning(self, "No Formula Selected",
-                                "Please add at least one formula for the locked lot number.")
+            QMessageBox.warning(self, "No Formula Selected", "Please add at least one formula for the locked lot number.")
             return
 
-        locked_lot_text = self.locked_lot_data['lot_num']
+        locked_lot_text = self.locked_lot_item.text()
 
-
-        if self.locked_product_code is None and self.locked_customer is None:
-            # self.locked_product_code = self.locked_lot_data['product_code']
-            # self.locked_customer = self.locked_lot_data['customer']
-            self.locked_product_code = self.locked_lot_data.get('product_code')
-            self.locked_customer = self.locked_lot_data.get('customer') # This is the corrected line
-
-            # Also set the permanent locks for the session
-            self.initial_product_code_lock = self.locked_product_code
-            self.initial_customer_lock = self.locked_customer
-            self.search_input.setPlaceholderText(f"Locked to Code: {self.locked_product_code}, Customer: {self.locked_customer}")
+        # If this is the first apply, set the permanent product code lock
+        if self.locked_product_code is None:
+            item_data = self.locked_lot_item.data(Qt.ItemDataRole.UserRole)
+            self.locked_product_code = item_data['product_code']
+            # We don't change selection mode anymore. It stays as SingleSelection.
+            self.search_input.setPlaceholderText(f"Adding lots for code: {self.locked_product_code}")
             self.search_input.setEnabled(False)
-            self.apply_btn.setText("Apply Additional Lot")
-
+            self.apply_btn.setText("Apply Additional Lot") # Change button text for clarity
 
         selection_data = {"lots": [locked_lot_text], "formulas": selected_formulas}
         self.success_callback(selection_data)
         QMessageBox.information(self, "Success", f"Applied lot '{locked_lot_text}' to the main form.")
 
-        # Reset for the next addition
+        # After applying, we should clear the formula selections to prepare for the next lot
         self.selected_formulas_widget.clear()
         self.formula_list_widget.clear()
-        self.locked_lot_data = None
+        self.locked_lot_item = None
         self._update_locked_details_display()
-        self._update_material_preview(None, None)
 
+        # --- THE ONLY METHOD THAT IS CHANGED IS HERE ---
 
-    # --- METHOD MODIFIED to call preview with None ---
     def _fetch_and_display_formulas(self):
         self.formula_list_widget.clear()
-        self._update_material_preview(None, None)
+        self._update_material_preview(None)
         self.add_formula_btn.setEnabled(False)
+
         selected_items = self.lot_list_widget.selectedItems()
-        if not selected_items: return
+        if not selected_items:
+            return
         selected_lots = [item.text() for item in selected_items]
         try:
             details = self.controller.get_details_for_lots(selected_lots)
             all_formula_ids = sorted(details.keys())
             self.formula_details_cache.update(details)
-            selected_ids = {self.selected_formulas_widget.item(i).text() for i in range(self.selected_formulas_widget.count())}
+            selected_ids = {self.selected_formulas_widget.item(i).text() for i in
+                            range(self.selected_formulas_widget.count())}
             available_ids = [fid for fid in all_formula_ids if fid not in selected_ids]
             self.formula_list_widget.addItems(available_ids)
+
+            # --- NEW FEATURE: Auto-select if only one formula is available ---
             if len(available_ids) == 1:
+                # Programmatically select the first (and only) item in the list
                 self.formula_list_widget.setCurrentRow(0)
+            # --- END NEW FEATURE ---
+
         except Exception as e:
             print(f"Error fetching formula details: {e}")
+
     def _create_left_panel(self):
         panel = QWidget()
         layout = QVBoxLayout(panel)
@@ -455,15 +488,13 @@ class LotNumberDialog(QDialog):
 
 
 
-    # --- METHOD MODIFIED to pass customer filter ---
     def _load_lots(self):
         self.is_loading_more = True
         try:
             lots = self.controller.get_lot_numbers_paginated(
                 page=self.current_page, page_size=self.PAGE_SIZE,
                 search_term=self.search_input.text(),
-                product_code=self.locked_product_code,
-                customer=self.locked_customer # <-- PASS NEW FILTER
+                product_code=self.locked_product_code
             )
             if self.current_page == 1: self.lot_list_widget.clear()
             if not lots or len(lots) < self.PAGE_SIZE: self.can_load_more = False
@@ -473,7 +504,6 @@ class LotNumberDialog(QDialog):
                 self.lot_list_widget.addItem(item)
         finally:
             self.is_loading_more = False
-
 
     @pyqtSlot()
     def _trigger_search(self):
@@ -490,19 +520,21 @@ class LotNumberDialog(QDialog):
         self.current_page += 1
         self._load_lots()
 
-    # --- METHOD MODIFIED to pass the correct context ---
+    # --- METHOD REWRITTEN to enforce mutual exclusivity ---
     @pyqtSlot()
     def _on_formula_selection_changed(self):
+        """Handles selection in the 'Available' list."""
         selected_items = self.formula_list_widget.selectedItems()
         self.add_formula_btn.setEnabled(len(selected_items) > 0)
 
+        # If an item is selected in this list...
         if selected_items:
+            # ...clear the selection in the other list.
             self.selected_formulas_widget.clearSelection()
-            previewed_lot_items = self.lot_list_widget.selectedItems()
-            batch_weight = previewed_lot_items[0].data(Qt.ItemDataRole.UserRole).get('batch_weight') if previewed_lot_items else None
-            self._update_material_preview(selected_items[0].text(), batch_weight)
+            self._update_material_preview(selected_items[0].text())
+        # If selection is cleared and the other list is also clear, clear the preview
         elif not self.selected_formulas_widget.selectedItems():
-             self._update_material_preview(None, None)
+             self._update_material_preview(None)
 
     @pyqtSlot()
     def _remove_formula_from_selection(self):

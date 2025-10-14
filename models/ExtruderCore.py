@@ -25,6 +25,7 @@ class ExtruderFormData(Base, AuditMixin):
     formula_no = Column(String(100))
     order_no = Column(String(100))
     product_code = Column(String(100))
+    customer = Column(String(500))
     lot_number = Column(String(100), index=True)
     qty_order = Column(Numeric(10, 2))
     total_input = Column(Numeric(10, 2))
@@ -32,8 +33,6 @@ class ExtruderFormData(Base, AuditMixin):
     prepared_by = Column(String(255))
     is_completed = Column(Boolean, default=False, nullable=False)
 
-    # Foreign Keys
-    customer_id = Column(Integer, ForeignKey("tbl_customers.id"), nullable=True)
     machine_id = Column(Integer, ForeignKey("tbl_extruder_machines.id"), nullable=False)
 
     machine_datetime_start = Column(DateTime(timezone=True))
@@ -41,7 +40,6 @@ class ExtruderFormData(Base, AuditMixin):
 
     # --- Relationships ---
     # Parent relationships
-    customer = relationship("Customer", back_populates="extruder_form_data")
     machine = relationship("ExtruderMachine", back_populates="extruder_form_data")
 
     # Child relationships

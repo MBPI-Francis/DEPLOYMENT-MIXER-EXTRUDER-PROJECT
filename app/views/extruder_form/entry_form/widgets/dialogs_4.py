@@ -15,11 +15,8 @@ from ..ops import ExtruderOpsController
 class LotNumberDialog(QDialog):
     PAGE_SIZE = 100
 
-    def __init__(self, controller: ExtruderOpsController,
-                 success_callback: Callable,
-                 parent=None,
-                 initial_product_code: str = None,
-                 initial_customer: str = None):
+    def __init__(self, controller: ExtruderOpsController, success_callback: Callable, parent=None,
+                 initial_product_code: str = None):
         super().__init__(parent)
         self.setWindowTitle("Select Lot Number(s) and Formula(s)")
         self.setMinimumSize(950, 700)
@@ -34,11 +31,7 @@ class LotNumberDialog(QDialog):
 
         # --- FIX: Store the permanent lock state separately ---
         self.initial_product_code_lock = initial_product_code
-        self.initial_customer_lock = initial_customer
-
-
         self.locked_product_code = initial_product_code
-        self.locked_customer = initial_customer # Will be set on first apply
 
 
         # --- FIX: Store data, not the widget item ---
@@ -69,9 +62,10 @@ class LotNumberDialog(QDialog):
         self._load_lots()
 
         self.lot_list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
-        if self.locked_product_code and self.locked_customer:
-            self.search_input.setPlaceholderText(f"Locked to Code: {self.locked_product_code}, Customer: {self.locked_customer}")
+        if self.locked_product_code:
+            self.search_input.setPlaceholderText(f"Adding lots for code: {self.locked_product_code}")
             self.search_input.setEnabled(False)
+            # The label text is a better place to indicate multi-add capability
             self.apply_btn.setText("Apply Additional Lot")
 
     def _connect_signals(self):
@@ -202,28 +196,34 @@ class LotNumberDialog(QDialog):
                 self.selected_formulas_widget.addItem(item_to_move)
                 self.selected_formulas_widget.setCurrentItem(item_to_move)
 
+    # --- METHOD REWRITTEN to be context-aware ---
     @pyqtSlot()
     def _reset_selections(self):
+        """
+        Resets the current selection state. If a permanent product code lock
+        is active from the main form, it does not remove the filter.
+        """
+        # Always clear the transient (in-dialog) lock and UI selections
         self.locked_lot_data = None
         self._update_locked_details_display()
         self.formula_list_widget.clear()
         self.selected_formulas_widget.clear()
         self._update_material_preview(None, None)
 
-        # Only do a full reset if there was no initial lock from the main form
-        if self.initial_product_code_lock is None and self.initial_customer_lock is None:
-            self.locked_product_code = None
-            self.locked_customer = None  # Clear customer lock
+        # --- FIX: Only perform a full reset if there's no initial, permanent lock ---
+        if self.initial_product_code_lock is None:
+            self.locked_product_code = None  # Allow the code to be re-established
             self.search_input.clear()
             self.search_input.setPlaceholderText("Search Lot Number...")
             self.search_input.setEnabled(True)
             self.apply_btn.setText("Apply Selections")
+            self.lot_list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        # --- END FIX ---
 
+        # Reload the list. It will respect the locked_product_code if it still exists.
         self.current_page = 1
         self.can_load_more = True
         self._load_lots()
-
-
 
     # @pyqtSlot()
     # def _add_formula_to_selection(self):
@@ -291,21 +291,20 @@ class LotNumberDialog(QDialog):
 
     @pyqtSlot()
     def _apply_selections(self):
-
         if not self.locked_lot_data:
             QMessageBox.warning(self, "No Lot Locked",
                                 "Please double-click a lot or add a formula to lock it before applying.")
             return
 
-        if self.initial_product_code_lock and self.initial_customer_lock:
+        # --- FIX: Final validation against the permanent lock from the main form ---
+        if self.initial_product_code_lock:
             current_lot_pc = self.locked_lot_data.get('product_code')
-
-            current_customer = self.locked_lot_data.get('customer')
-            if (current_lot_pc != self.initial_product_code_lock or
-                current_customer != self.initial_customer_lock):
+            if current_lot_pc != self.initial_product_code_lock:
                 QMessageBox.critical(self, "Validation Error",
-                                     f"The selected lot does not match the required Product Code and Customer.")
+                                     f"The selected lot has product code '{current_lot_pc}', "
+                                     f"but you can only add lots with product code '{self.initial_product_code_lock}'.")
                 return
+        # --- END FIX ---
 
         selected_formulas = [self.selected_formulas_widget.item(i).text() for i in
                              range(self.selected_formulas_widget.count())]
@@ -316,20 +315,14 @@ class LotNumberDialog(QDialog):
 
         locked_lot_text = self.locked_lot_data['lot_num']
 
-
-        if self.locked_product_code is None and self.locked_customer is None:
-            # self.locked_product_code = self.locked_lot_data['product_code']
-            # self.locked_customer = self.locked_lot_data['customer']
-            self.locked_product_code = self.locked_lot_data.get('product_code')
-            self.locked_customer = self.locked_lot_data.get('customer') # This is the corrected line
-
-            # Also set the permanent locks for the session
+        # This logic is now safe because of the validation above. It only runs on the first "Apply".
+        if self.locked_product_code is None:
+            self.locked_product_code = self.locked_lot_data['product_code']
+            # This is also the point where the initial lock becomes permanent for the session
             self.initial_product_code_lock = self.locked_product_code
-            self.initial_customer_lock = self.locked_customer
-            self.search_input.setPlaceholderText(f"Locked to Code: {self.locked_product_code}, Customer: {self.locked_customer}")
+            self.search_input.setPlaceholderText(f"Adding lots for code: {self.locked_product_code}")
             self.search_input.setEnabled(False)
             self.apply_btn.setText("Apply Additional Lot")
-
 
         selection_data = {"lots": [locked_lot_text], "formulas": selected_formulas}
         self.success_callback(selection_data)
@@ -455,15 +448,13 @@ class LotNumberDialog(QDialog):
 
 
 
-    # --- METHOD MODIFIED to pass customer filter ---
     def _load_lots(self):
         self.is_loading_more = True
         try:
             lots = self.controller.get_lot_numbers_paginated(
                 page=self.current_page, page_size=self.PAGE_SIZE,
                 search_term=self.search_input.text(),
-                product_code=self.locked_product_code,
-                customer=self.locked_customer # <-- PASS NEW FILTER
+                product_code=self.locked_product_code
             )
             if self.current_page == 1: self.lot_list_widget.clear()
             if not lots or len(lots) < self.PAGE_SIZE: self.can_load_more = False
@@ -473,7 +464,6 @@ class LotNumberDialog(QDialog):
                 self.lot_list_widget.addItem(item)
         finally:
             self.is_loading_more = False
-
 
     @pyqtSlot()
     def _trigger_search(self):

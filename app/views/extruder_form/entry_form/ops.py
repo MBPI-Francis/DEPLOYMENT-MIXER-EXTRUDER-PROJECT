@@ -1,5 +1,7 @@
 # app/views/extruder_form/entry_form/ops.py
+from decimal import Decimal
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, sessionmaker, joinedload
 from typing import Type, List, Dict, Any
 
@@ -19,8 +21,83 @@ class ExtruderOpsController:
     def __init__(self, session_factory: Type[sessionmaker]):
         self.Session = session_factory
 
-    def get_lot_numbers_paginated(self, page: int = 1, page_size: int = 100, search_term: str = None,
-                                  product_code: str = None) -> List[Dict[str, Any]]:
+    # --- THIS IS THE NEW METHOD ---
+    def get_total_batch_weight_for_lots(self, lot_numbers: List[str]) -> Decimal:
+        """
+        Calculates the sum of the batch weights (T_QTYREQ) for a given
+        list of lot numbers.
+        """
+        if not lot_numbers:
+            return Decimal("0.00")
+
+        with self.Session() as session:
+            # Query for the T_QTYREQ column for all matching, non-deleted lots
+            results = session.query(TblProd01.T_QTYREQ).filter(
+                TblProd01.T_LOTNUM.in_(lot_numbers),
+                TblProd01.T_DELETED.is_(False)
+            ).all()
+
+            # Sum the results, ensuring None values are treated as 0
+            total_weight = sum(qty for (qty,) in results if qty is not None)
+
+            return total_weight
+
+    # --- NEW METHOD: The core of the new feature ---
+    def calculate_total_input(self, lot_numbers: List[str], formula_numbers: List[str]) -> Decimal:
+        """
+        Calculates the total input quantity based on the sum of materials for
+        selected formulas, accounting for how many selected lots use each formula.
+        """
+        if not lot_numbers or not formula_numbers:
+            return Decimal("0.00")
+
+        with self.Session() as session:
+            # 1. Find which of the selected formulas is used by each selected lot.
+            # This creates a mapping of {lot_num: formula_id}
+            lot_to_formula_map = dict(session.query(
+                TblProd01.T_LOTNUM,
+                TblProd01.T_FID
+            ).filter(
+                TblProd01.T_LOTNUM.in_(lot_numbers),
+                TblProd01.T_DELETED.is_(False)
+            ).all())
+
+            # 2. Count how many times each selected formula is actually used by the selected lots.
+            formula_usage_count = {}
+            for lot, fid in lot_to_formula_map.items():
+                fid_str = str(fid)
+                if fid_str in formula_numbers:  # Only count if the user selected this formula
+                    formula_usage_count[fid_str] = formula_usage_count.get(fid_str, 0) + 1
+
+            if not formula_usage_count:
+                return Decimal("0.00")
+
+            # 3. Get the sum of material quantities (T_CON) for each required formula ID in a single query.
+            # This returns a list of tuples like [(formula_id, total_qty), ...]
+            formula_material_sums = session.query(
+                TblFormula02.T_UID,
+                func.sum(TblFormula02.T_CON)
+            ).filter(
+                TblFormula02.T_UID.in_([int(f) for f in formula_usage_count.keys()]),
+                TblFormula02.T_DELETED.is_(False)
+            ).group_by(TblFormula02.T_UID).all()
+
+            formula_totals_map = {str(uid): total for uid, total in formula_material_sums}
+
+            # 4. Calculate the final total input.
+            total_input = Decimal(0)
+            for fid, count in formula_usage_count.items():
+                # Multiply the sum of materials for a formula by the number of lots that use it.
+                total_input += formula_totals_map.get(fid, Decimal(0)) * count
+
+            return total_input
+
+
+    def get_lot_numbers_paginated(self, page: int = 1,
+                                  page_size: int = 100,
+                                  search_term: str = None,
+                                  product_code: str = None,
+                                  customer: str = None) -> List[Dict[str, Any]]:
         """
         Fetches a paginated list of lot numbers.
         Supports searching AND filtering by a specific product code.
@@ -29,7 +106,9 @@ class ExtruderOpsController:
             query = session.query(
                 TblProd01.T_PRODID,
                 TblProd01.T_LOTNUM,
-                TblProd01.T_PRODCODE
+                TblProd01.T_PRODCODE,
+                TblProd01.T_QTYREQ,  # <-- ADDED
+                TblProd01.T_CUSTOMER  # <-- ADDED
             ).filter(
                 TblProd01.T_LOTNUM.isnot(None),
                 TblProd01.T_LOTNUM != '',
@@ -39,10 +118,13 @@ class ExtruderOpsController:
             if search_term:
                 query = query.filter(TblProd01.T_LOTNUM.ilike(f"%{search_term}%"))
 
-            # --- NEW FEATURE ---
+
             if product_code:
                 query = query.filter(TblProd01.T_PRODCODE == product_code)
-            # --- END NEW FEATURE ---
+
+
+            if customer:
+                query = query.filter(TblProd01.T_CUSTOMER == customer)
 
             query = query.order_by(TblProd01.T_PRODDATE.desc()) \
                 .offset((page - 1) * page_size) \
@@ -54,43 +136,65 @@ class ExtruderOpsController:
                 {
                     "prod_id": r.T_PRODID,
                     "lot_num": r.T_LOTNUM,
-                    "product_code": r.T_PRODCODE
+                    "product_code": r.T_PRODCODE,
+                    "batch_weight": r.T_QTYREQ  # <-- ADDED
                 } for r in results
             ]
 
+    def get_details_for_lot(self, lot_number: str) -> Dict | None:
+        """
+        Finds the product code and customer for a single, specific lot number.
+        Returns a dictionary or None if not found.
+        """
+        if not lot_number:
+            return None
+
+        with self.Session() as session:
+            result = session.query(
+                TblProd01.T_PRODCODE,
+                TblProd01.T_CUSTOMER
+            ).filter(
+                TblProd01.T_LOTNUM == lot_number,
+                TblProd01.T_DELETED.is_(False)
+            ).first()
+
+            if result:
+                return {"product_code": result.T_PRODCODE, "customer": result.T_CUSTOMER}
+            return None
+
+
+    # --- METHOD MODIFIED: Remove the old, incorrect total_input calculation ---
     def get_data_for_lot_numbers(self, lot_numbers: List[str]) -> Dict[str, Any]:
         """
         Given a list of lot numbers, fetches and aggregates key production data.
+        Total input is now calculated separately.
         """
         if not lot_numbers:
             return {}
 
         with self.Session() as session:
-            # Query the database for all records matching the lot numbers
             records = session.query(TblProd01).filter(
                 TblProd01.T_LOTNUM.in_(lot_numbers),
-                TblProd01.T_DELETED.is_(False)  # This ensures we only get active records
+                TblProd01.T_DELETED.is_(False)
             ).all()
 
             if not records:
                 return {}
 
-            # Aggregate the data
             production_ids = sorted([str(r.T_PRODID) for r in records])
             product_codes = sorted(list(set([r.T_PRODCODE for r in records if r.T_PRODCODE])))
             order_nos = sorted(list(set([r.T_ORDERNUM for r in records if r.T_ORDERNUM])))
-            total_input = sum([r.T_QTYPROD for r in records if r.T_QTYPROD is not None])
-
-            # For customer, we'll just pick the first one found as a default
             customer_name = records[0].T_CUSTOMER if records else ""
 
             return {
                 "production_id": "; ".join(production_ids),
                 "product_code": "; ".join(product_codes),
                 "order_no": "; ".join(order_nos),
-                "total_input": total_input,
                 "customer_name": customer_name
+                # The incorrect total_input calculation has been removed from here.
             }
+
+
 
     def get_details_for_lots(self, lot_numbers: List[str]) -> Dict[str, List[Dict]]:
         """
@@ -133,10 +237,7 @@ class ExtruderOpsController:
 
             return results
 
-    def get_customers(self) -> List[Customer]:
-        """Fetches all customers for the ComboBox."""
-        with self.Session() as session:
-            return session.query(Customer).filter_by(is_deleted=False).order_by(Customer.name).all()
+
 
     def get_machines(self) -> List[ExtruderMachine]:
         """Fetches all extruder machines for the ComboBox."""

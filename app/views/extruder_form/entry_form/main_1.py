@@ -27,6 +27,7 @@ class ExtruderEntryFormView(QWidget):
 
     def _connect_signals(self):
         self.ui.lot_number_select_btn.clicked.connect(self._open_lot_number_dialog)
+        self.ui.formula_id_select_btn.clicked.connect(self._open_formula_id_dialog)
         self.ui.zone_temps_btn.clicked.connect(lambda: self._open_generic_dialog("Zone Temperatures"))
         self.ui.personnel_btn.clicked.connect(lambda: self._open_generic_dialog("Extruder Personnel"))
         self.ui.purging_btn.clicked.connect(lambda: self._open_generic_dialog("Purging Details"))
@@ -39,6 +40,11 @@ class ExtruderEntryFormView(QWidget):
     def _initial_load(self):
         """Load initial data for combo boxes."""
         try:
+            customers = self.controller.get_customers()
+            self.ui.customer_combo.addItem("", None)  # Add a blank default item
+            for c in customers:
+                self.ui.customer_combo.addItem(c.name, c.id)
+
             machines = self.controller.get_machines()
             self.ui.machine_combo.addItem("", None)  # Add a blank default item
             for m in machines:
@@ -49,31 +55,28 @@ class ExtruderEntryFormView(QWidget):
 
     def _open_lot_number_dialog(self):
         """
-        Opens the lot number dialog, passing the current product code and
-        customer context if they exist.
+        Opens the lot number dialog, passing the current product code context if one exists.
         """
         try:
             initial_product_code = None
-            initial_customer = None
             current_lot_text = self.ui.lot_number_input.text()
 
-            # If there's already text, find the details for the first lot
+            # --- NEW LOGIC ---
+            # If there's already text in the lot number field, find its product code
             if current_lot_text:
+                # Get the very first lot number from the semi-colon separated string
                 first_lot = current_lot_text.split(';')[0].strip()
                 if first_lot:
-                    # Use the new, more detailed controller method
-                    lot_details = self.controller.get_details_for_lot(first_lot)
-                    if lot_details:
-                        initial_product_code = lot_details.get("product_code")
-                        initial_customer = lot_details.get("customer")
+                    # Use our new controller method to get the code
+                    initial_product_code = self.controller.get_product_code_for_lot(first_lot)
+            # --- END NEW LOGIC ---
 
-            # Pass both initial locks to the dialog's constructor
+            # Pass the initial code (which could be None) to the dialog's constructor
             dialog = LotNumberDialog(
                 self.controller,
                 self._handle_dialog_selections_applied,
                 self,
-                initial_product_code=initial_product_code,
-                initial_customer=initial_customer
+                initial_product_code=initial_product_code
             )
             dialog.exec()
 
@@ -82,9 +85,6 @@ class ExtruderEntryFormView(QWidget):
             import traceback
             traceback.print_exc()
 
-
-
-    # --- THIS IS THE ONLY METHOD THAT IS CHANGED ---
     def _handle_dialog_selections_applied(self, selection_data: dict):
         """
         This method is passed to the dialog and is called when 'Apply' is clicked.
@@ -95,6 +95,7 @@ class ExtruderEntryFormView(QWidget):
         if not selected_lots:
             return
 
+        # Append to existing values instead of overwriting, using a set for uniqueness
         current_lots = set(self.ui.lot_number_input.text().split('; ')) if self.ui.lot_number_input.text() else set()
         current_formulas = set(
             self.ui.formula_id_input.text().split('; ')) if self.ui.formula_id_input.text() else set()
@@ -102,61 +103,14 @@ class ExtruderEntryFormView(QWidget):
         current_lots.update(selected_lots)
         current_formulas.update(selected_formulas)
 
-        final_lots = sorted([lot for lot in current_lots if lot])
-        final_formulas = sorted([f for f in current_formulas if f])
+        # Update the main form's UI
+        self.ui.lot_number_input.setText("; ".join(sorted(list(current_lots))))
+        self.ui.formula_id_input.setText("; ".join(sorted(list(current_formulas))))
 
-        self.ui.lot_number_input.setText("; ".join(final_lots))
-        self.ui.formula_id_input.setText("; ".join(final_formulas))
+        # Trigger data prepopulation with the complete list of lots
+        self._prepopulate_form_from_lots(list(current_lots))
 
-        self._prepopulate_form_from_lots(final_lots)
-
-        # --- FIX: Call the new, correct calculation method ---
-        try:
-            # Use the complete list of final_lots for the calculation
-            total_input = self.controller.get_total_batch_weight_for_lots(final_lots)
-            self.ui.total_input_display.setText(f"{total_input:.2f}")
-        except Exception as e:
-            QMessageBox.critical(self, "Calculation Error", f"Could not calculate total input: {e}")
-        # --- END FIX ---
-
-
-    # def _handle_dialog_selections_applied(self, selection_data: dict):
-    #     """
-    #     This method is passed to the dialog and is called when 'Apply' is clicked.
-    #     """
-    #     selected_lots = selection_data.get("lots", [])
-    #     selected_formulas = selection_data.get("formulas", [])
-    #
-    #     if not selected_lots:
-    #         return
-    #
-    #     current_lots = set(self.ui.lot_number_input.text().split('; ')) if self.ui.lot_number_input.text() else set()
-    #     current_formulas = set(
-    #         self.ui.formula_id_input.text().split('; ')) if self.ui.formula_id_input.text() else set()
-    #
-    #     current_lots.update(selected_lots)
-    #     current_formulas.update(selected_formulas)
-    #
-    #     # Filter out any empty strings that might result from splitting
-    #     final_lots = sorted([lot for lot in current_lots if lot])
-    #     final_formulas = sorted([f for f in current_formulas if f])
-    #
-    #     self.ui.lot_number_input.setText("; ".join(final_lots))
-    #     self.ui.formula_id_input.setText("; ".join(final_formulas))
-    #
-    #     # --- NEW LOGIC ---
-    #     # 1. Prepopulate fields like Product Code, Order No, etc.
-    #     self._prepopulate_form_from_lots(final_lots)
-    #
-    #     # 2. Call the new, accurate calculation method for Total Input
-    #     try:
-    #         total_input = self.controller.calculate_total_input(final_lots, final_formulas)
-    #         self.ui.total_input_display.setText(f"{total_input:.2f}")
-    #     except Exception as e:
-    #         QMessageBox.critical(self, "Calculation Error", f"Could not calculate total input: {e}")
-    #     # --- END NEW LOGIC ---
-
-    # --- METHOD MODIFIED to remove the old total_input logic ---
+    # ... (the rest of the file, including _prepopulate_form_from_lots, _clear_form, _save_form_data etc. remains unchanged) ...
     def _prepopulate_form_from_lots(self, lot_numbers: list):
         """Calls the controller to get data and fills the main form fields."""
         try:
@@ -165,10 +119,14 @@ class ExtruderEntryFormView(QWidget):
             self.ui.product_code_input.setText(data.get("product_code", ""))
             self.ui.order_no_input.setText(data.get("order_no", ""))
 
-            # The total_input line has been removed from here.
+            total_input = data.get("total_input", Decimal("0.00"))
+            self.ui.total_input_display.setText(f"{total_input:.2f}")
 
-            customer_name = data.get("customer_name", "")
-            self.ui.customer_input.setText(customer_name)
+            customer_name = data.get("customer_name")
+            if customer_name:
+                index = self.ui.customer_combo.findText(customer_name, Qt.MatchFlag.MatchFixedString)
+                if index >= 0:
+                    self.ui.customer_combo.setCurrentIndex(index)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to prepopulate form data: {e}")
 
@@ -195,7 +153,7 @@ class ExtruderEntryFormView(QWidget):
         self.ui.remarks_textedit.clear()
 
         # Reset combo boxes
-        self.ui.customer_input.clear()
+        self.ui.customer_combo.setCurrentIndex(0)
         self.ui.machine_combo.setCurrentIndex(0)
 
         # Reset labels

@@ -10,6 +10,3 @@ class Customer(Base, AuditMixin):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(250), nullable=False, unique=True, index=True)
-
-    # Relationship to child table
-    extruder_form_data = relationship("ExtruderFormData", back_populates="customer")

@@ -20,7 +20,6 @@ class UiExtruderForm:
         self.lot_number_input = QLineEdit()
         self.lot_number_select_btn = QPushButton("Select...")
         self.formula_id_input = QLineEdit()
-        self.formula_id_select_btn = QPushButton("Select...")
 
         # Main Form Fields
         self.production_id_input = QLineEdit()
@@ -29,7 +28,11 @@ class UiExtruderForm:
         self.product_code_input.setReadOnly(True)
         self.order_no_input = QLineEdit()
         self.order_no_input.setReadOnly(True)
-        self.customer_combo = QComboBox()
+
+        # --- MODIFIED: Changed from QComboBox to QLineEdit ---
+        self.customer_input = QLineEdit()
+        self.customer_input.setReadOnly(True) # Make it uneditable
+
         self.machine_combo = QComboBox()
         self.start_datetime_edit = QDateTimeEdit()
         self.start_datetime_edit.setDateTime(QDateTime.currentDateTime())
@@ -37,7 +40,7 @@ class UiExtruderForm:
         self.end_datetime_edit.setDateTime(QDateTime.currentDateTime())
         self.ordered_qty_input = QLineEdit("0.00")
         self.total_input_display = QLineEdit("0.00")
-        self.total_input_display.setReadOnly(True)
+        # self.total_input_display.setReadOnly(True)
         self.remarks_textedit = QTextEdit()
 
         # Sub-Form Buttons
@@ -72,7 +75,6 @@ class UiExtruderForm:
         selection_layout.addSpacing(20)
         selection_layout.addWidget(QLabel("Formula ID(s):"))
         selection_layout.addWidget(self.formula_id_input)
-        selection_layout.addWidget(self.formula_id_select_btn)
         main_layout.addLayout(selection_layout)
 
         # Grid layout for the main form and summary
@@ -86,7 +88,7 @@ class UiExtruderForm:
         form_layout.addRow("Production ID:", self.production_id_input)
         form_layout.addRow("Product Code:", self.product_code_input)
         form_layout.addRow("Order No:", self.order_no_input)
-        form_layout.addRow("Customer:", self.customer_combo)
+        form_layout.addRow("Customer:", self.customer_input)
         form_layout.addRow("Machine:", self.machine_combo)
         form_layout.addRow("Machine Start:", self.start_datetime_edit)
         form_layout.addRow("Machine End:", self.end_datetime_edit)
