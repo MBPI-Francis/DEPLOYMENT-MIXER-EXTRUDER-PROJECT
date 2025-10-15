@@ -112,7 +112,9 @@ class ExtruderOpsController:
             ).filter(
                 TblProd01.T_LOTNUM.isnot(None),
                 TblProd01.T_LOTNUM != '',
-                TblProd01.T_DELETED.isnot(True)
+                TblProd01.T_DELETED.isnot(True),
+                TblProd01.T_FID.isnot(None),
+                TblProd01.T_FID !=0,
             )
 
             if search_term:
@@ -137,7 +139,8 @@ class ExtruderOpsController:
                     "prod_id": r.T_PRODID,
                     "lot_num": r.T_LOTNUM,
                     "product_code": r.T_PRODCODE,
-                    "batch_weight": r.T_QTYREQ  # <-- ADDED
+                    "batch_weight": r.T_QTYREQ,  # <-- ADDED,
+                    "customer": r.T_CUSTOMER
                 } for r in results
             ]
 

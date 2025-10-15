@@ -47,8 +47,6 @@ class ExtruderEntryFormView(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Database Error", f"Could not load initial data: {e}")
 
-        # --- METHOD REWRITTEN to manage the dialog instance ---
-
     def _open_lot_number_dialog(self):
         """
         Opens the lot number dialog, passing the current product code and
@@ -59,28 +57,32 @@ class ExtruderEntryFormView(QWidget):
             initial_customer = None
             current_lot_text = self.ui.lot_number_input.text()
 
+            # If there's already text, find the details for the first lot
             if current_lot_text:
                 first_lot = current_lot_text.split(';')[0].strip()
                 if first_lot:
+                    # Use the new, more detailed controller method
                     lot_details = self.controller.get_details_for_lot(first_lot)
                     if lot_details:
                         initial_product_code = lot_details.get("product_code")
                         initial_customer = lot_details.get("customer")
 
-            # Store the dialog instance so we can close it later
-            self.lot_number_dialog = LotNumberDialog(
+            # Pass both initial locks to the dialog's constructor
+            dialog = LotNumberDialog(
                 self.controller,
                 self._handle_dialog_selections_applied,
                 self,
                 initial_product_code=initial_product_code,
                 initial_customer=initial_customer
             )
-            self.lot_number_dialog.exec()
+            dialog.exec()
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not open lot number selector: {e}")
             import traceback
             traceback.print_exc()
+
+
 
     # --- THIS IS THE ONLY METHOD THAT IS CHANGED ---
     def _handle_dialog_selections_applied(self, selection_data: dict):
@@ -117,6 +119,42 @@ class ExtruderEntryFormView(QWidget):
             QMessageBox.critical(self, "Calculation Error", f"Could not calculate total input: {e}")
         # --- END FIX ---
 
+
+    # def _handle_dialog_selections_applied(self, selection_data: dict):
+    #     """
+    #     This method is passed to the dialog and is called when 'Apply' is clicked.
+    #     """
+    #     selected_lots = selection_data.get("lots", [])
+    #     selected_formulas = selection_data.get("formulas", [])
+    #
+    #     if not selected_lots:
+    #         return
+    #
+    #     current_lots = set(self.ui.lot_number_input.text().split('; ')) if self.ui.lot_number_input.text() else set()
+    #     current_formulas = set(
+    #         self.ui.formula_id_input.text().split('; ')) if self.ui.formula_id_input.text() else set()
+    #
+    #     current_lots.update(selected_lots)
+    #     current_formulas.update(selected_formulas)
+    #
+    #     # Filter out any empty strings that might result from splitting
+    #     final_lots = sorted([lot for lot in current_lots if lot])
+    #     final_formulas = sorted([f for f in current_formulas if f])
+    #
+    #     self.ui.lot_number_input.setText("; ".join(final_lots))
+    #     self.ui.formula_id_input.setText("; ".join(final_formulas))
+    #
+    #     # --- NEW LOGIC ---
+    #     # 1. Prepopulate fields like Product Code, Order No, etc.
+    #     self._prepopulate_form_from_lots(final_lots)
+    #
+    #     # 2. Call the new, accurate calculation method for Total Input
+    #     try:
+    #         total_input = self.controller.calculate_total_input(final_lots, final_formulas)
+    #         self.ui.total_input_display.setText(f"{total_input:.2f}")
+    #     except Exception as e:
+    #         QMessageBox.critical(self, "Calculation Error", f"Could not calculate total input: {e}")
+    #     # --- END NEW LOGIC ---
 
     # --- METHOD MODIFIED to remove the old total_input logic ---
     def _prepopulate_form_from_lots(self, lot_numbers: list):
