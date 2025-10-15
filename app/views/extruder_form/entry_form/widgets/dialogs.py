@@ -331,6 +331,12 @@ class LotNumberDialog(QDialog):
             self.apply_btn.setText("Apply Additional Lot")
 
 
+            self.current_page = 1
+            self.can_load_more = True
+            self._load_lots()
+
+
+
         selection_data = {"lots": [locked_lot_text], "formulas": selected_formulas}
         self.success_callback(selection_data)
         QMessageBox.information(self, "Success", f"Applied lot '{locked_lot_text}' to the main form.")
