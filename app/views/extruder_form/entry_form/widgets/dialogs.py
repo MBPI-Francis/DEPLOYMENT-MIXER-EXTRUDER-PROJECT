@@ -110,7 +110,7 @@ class LotNumberDialog(QDialog):
         self.material_table.setColumnCount(2)
         self.material_table.setHorizontalHeaderLabels(["Material Code", "Qty (kg)"])
         self.material_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.material_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.material_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.material_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.material_table.verticalHeader().setVisible(False)
         layout.addWidget(self.material_table)
@@ -249,10 +249,10 @@ class LotNumberDialog(QDialog):
         """Updates the 'Lot Details' group box."""
         if data:
             self.prod_id_label.setText(str(data.get("prod_id", "-")))
-            self.prod_code_label.setText(data.get("product_code", "-"))
-            self.customer_label.setText(data.get("customer", "-"))
+            self.prod_code_label.setText(data.get("product_code", "-")))
+            self.customer_label.setText(data.get("customer", "-")))
             self.formula_id_label.setText(str(data.get("formula_id", "-")))
-        else:
+            else:
             self.prod_id_label.setText("-")
             self.prod_code_label.setText("-")
             self.customer_label.setText("-")
@@ -283,14 +283,4 @@ class LotNumberDialog(QDialog):
         self.current_page += 1
         self._load_lots()
 
-
-class GenericSubFormDialog(QDialog):
-    def __init__(self, title, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle(title)
-        layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(f"This is the placeholder dialog for '{title}'."))
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        layout.addWidget(button_box)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
+        
