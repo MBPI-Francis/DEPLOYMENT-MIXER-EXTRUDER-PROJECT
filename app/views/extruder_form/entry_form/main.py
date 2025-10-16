@@ -1,7 +1,7 @@
 # app/views/extruder_form/entry_form/main.py
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QWidget, QMessageBox
-from typing import Type
+from typing import Type, List
 from sqlalchemy.orm import Session, sessionmaker
 from decimal import Decimal
 
@@ -67,7 +67,7 @@ class ExtruderEntryFormView(QWidget):
                         initial_product_code = lot_details.get("product_code")
                         initial_customer = lot_details.get("customer")
 
-            # Store the dialog instance so we can close it later
+            # Create the dialog instance
             self.lot_number_dialog = LotNumberDialog(
                 self.controller,
                 self._handle_dialog_selections_applied,
@@ -75,6 +75,8 @@ class ExtruderEntryFormView(QWidget):
                 initial_product_code=initial_product_code,
                 initial_customer=initial_customer
             )
+
+            # Use .exec() to run it as a modal dialog
             self.lot_number_dialog.exec()
 
         except Exception as e:
@@ -82,23 +84,42 @@ class ExtruderEntryFormView(QWidget):
             import traceback
             traceback.print_exc()
 
-    # --- THIS IS THE ONLY METHOD THAT IS CHANGED ---
-    def _handle_dialog_selections_applied(self, selection_data: dict):
+    def _prepopulate_form_from_lots(self, lot_numbers: list):
         """
-        This method is passed to the dialog and is called when 'Apply' is clicked.
+        Prepopulates the form based on the details of the *first* lot in the list.
         """
-        selected_lots = selection_data.get("lots", [])
-        selected_formulas = selection_data.get("formulas", [])
+        if not lot_numbers: return
+        try:
+            first_lot_details = self.controller.get_lot_numbers_paginated(search_term=lot_numbers[0])[0]
+            if first_lot_details:
+                self.ui.production_id_input.setText(str(first_lot_details.get("prod_id", "")))
+                self.ui.product_code_input.setText(first_lot_details.get("product_code", ""))
+                self.ui.customer_input.setText(first_lot_details.get("customer", ""))
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to prepopulate form data: {e}")
 
-        if not selected_lots:
-            return
+    def _handle_dialog_selections_applied(self, selected_data: List[dict]):
+        """
+        Handles the list of data dictionaries returned from the dialog. If it's
+        the initial selection, it triggers a refresh of the dialog.
+        """
+        is_initial_apply = not self.ui.lot_number_input.text()
+
+        if not selected_data: return
+
+        # Since we add one at a time, we only care about the first item
+        new_lot_data = selected_data[0]
+        new_lot_num = new_lot_data.get("lot_num")
+        new_formula_id = str(new_lot_data.get("formula_id", "")) if new_lot_data.get("formula_id") is not None else ""
 
         current_lots = set(self.ui.lot_number_input.text().split('; ')) if self.ui.lot_number_input.text() else set()
         current_formulas = set(
             self.ui.formula_id_input.text().split('; ')) if self.ui.formula_id_input.text() else set()
 
-        current_lots.update(selected_lots)
-        current_formulas.update(selected_formulas)
+        if new_lot_num:
+            current_lots.add(new_lot_num)
+        if new_formula_id:
+            current_formulas.add(new_formula_id)
 
         final_lots = sorted([lot for lot in current_lots if lot])
         final_formulas = sorted([f for f in current_formulas if f])
@@ -108,31 +129,19 @@ class ExtruderEntryFormView(QWidget):
 
         self._prepopulate_form_from_lots(final_lots)
 
-        # --- FIX: Call the new, correct calculation method ---
         try:
-            # Use the complete list of final_lots for the calculation
             total_input = self.controller.get_total_batch_weight_for_lots(final_lots)
             self.ui.total_input_display.setText(f"{total_input:.2f}")
         except Exception as e:
             QMessageBox.critical(self, "Calculation Error", f"Could not calculate total input: {e}")
-        # --- END FIX ---
+
+        # If this was the first lot, trigger the close-and-reopen cycle
+        if is_initial_apply:
+            # Using a timer allows the current dialog to finish its 'accept' event
+            # before we try to open a new one.
+            QTimer.singleShot(0, self._open_lot_number_dialog)
 
 
-    # --- METHOD MODIFIED to remove the old total_input logic ---
-    def _prepopulate_form_from_lots(self, lot_numbers: list):
-        """Calls the controller to get data and fills the main form fields."""
-        try:
-            data = self.controller.get_data_for_lot_numbers(lot_numbers)
-            self.ui.production_id_input.setText(data.get("production_id", ""))
-            self.ui.product_code_input.setText(data.get("product_code", ""))
-            self.ui.order_no_input.setText(data.get("order_no", ""))
-
-            # The total_input line has been removed from here.
-
-            customer_name = data.get("customer_name", "")
-            self.ui.customer_input.setText(customer_name)
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to prepopulate form data: {e}")
 
     def _open_formula_id_dialog(self):
         """Re-opens the lot number dialog to allow changing the formula selection."""

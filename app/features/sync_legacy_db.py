@@ -12,14 +12,15 @@ from sqlalchemy.exc import OperationalError
 
 # Import your SQLAlchemy models
 # Assuming your new RawMaterials model is in a file with your other models
-from models import TblProd01, TblFormula01, TblFormula02, RawMaterials, Customer
+from models import TblProd01, TblFormula01, TblFormula02, RawMaterials, Customer, TblProd02
 from os import getenv
 # --- END NEW IMPORTS ---
 
 
 # --- DATABASE FILE PATHS (Unchanged) ---
 DBF_PATH = r'\\system-server\SYSTEM-NEW-OLD'
-PRODUCTION_DBF_PATH = os.path.join(DBF_PATH, 'tbl_prod01.dbf')
+PRODUCTION01_DBF_PATH = os.path.join(DBF_PATH, 'tbl_prod01.dbf')
+PRODUCTION02_DBF_PATH = os.path.join(DBF_PATH, 'tbl_prod02.dbf')
 FORMULA01_DBF_PATH = os.path.join(DBF_PATH, 'tbl_formula01.dbf')
 FORMULA02_DBF_PATH = os.path.join(DBF_PATH, 'tbl_formula02.dbf')
 CUSTOMER_DBF_PATH = os.path.join(DBF_PATH, 'tbl_customer01.dbf')
@@ -171,7 +172,7 @@ class SyncWorker(QObject):
             main_session = MainSession()
 
             # --- THIS IS THE NEW, CORRECT LOGIC ---
-            self.progress.emit("Reading legacy formulas...", 10)
+            self.progress.emit("Reading legacy formulas...", 5)
 
             # 1. Fetch existing legacy IDs to avoid duplicates.
             existing_header_uids: Set[int] = {row.T_UID for row in main_session.query(TblFormula01.T_UID).all()}
@@ -184,7 +185,7 @@ class SyncWorker(QObject):
             new_headers_map = {}
 
             # 3. Process Formula Headers (tbl_formula01)
-            self.progress.emit("Processing formula headers...", 20)
+            self.progress.emit("Processing formula headers...", 15)
             dbf_headers = dbfread.DBF(FORMULA01_DBF_PATH, encoding='latin1')._iter_records()
             for record in dbf_headers:
                 t_uid = safe_int(record.get('T_UID'))
@@ -228,15 +229,18 @@ class SyncWorker(QObject):
                     parent_header.details.append(new_detail)
 
 
-            self.progress.emit("Syncing Production Records...", 40)
+            self.progress.emit("Syncing Production Records (PROD01)...", 30)
             p1_new = self._sync_prod01(main_session)
 
+            self.progress.emit("Syncing Production Details (PROD02)...", 45)
+            p2_new = self._sync_prod02(main_session)
+
             # --- NEW: Sync Raw Materials ---
-            self.progress.emit("Syncing Raw Materials...", 70)
+            self.progress.emit("Syncing Raw Materials...", 60)
             rm_new = self._sync_raw_materials(main_session)
 
             # --- NEW: Call the customer sync method ---
-            self.progress.emit("Syncing Customers...", 80)
+            self.progress.emit("Syncing Customers...", 75)
             cust_new = self._sync_customers(main_session)
             # --- END NEW ---
             
@@ -247,6 +251,7 @@ class SyncWorker(QObject):
                 "Database Synchronization Successful!\n\n"
                 f"New Formula Headers: {len(new_headers_map)}\n"
                 f"New Production Records: {p1_new}\n"
+                f"New Production Details: {p2_new}\n"
                 f"New Raw Materials: {rm_new}\n" # Add new count to message
                 f"New Customers: {cust_new}"
             )
@@ -262,6 +267,59 @@ class SyncWorker(QObject):
                 main_session.close()
             if self.engine_rm:
                 self.engine_rm.dispose()
+
+    # --- NEW METHOD: Logic for syncing TblProd02 ---
+    def _sync_prod02(self, session) -> int:
+        """
+        Syncs tbl_prod02.dbf to the TblProd02 table.
+        Prevents duplicates based on a composite key of (T_PRODID, T_SEQ).
+        """
+        # A composite key (prodid, seq) is a reliable way to identify unique records.
+        existing_keys: Set[Tuple[Decimal, int]] = {
+            (row.T_PRODID, row.T_SEQ) for row in session.query(TblProd02.T_PRODID, TblProd02.T_SEQ).all()
+        }
+        records_to_add = []
+
+        try:
+            dbf_records = dbfread.DBF(PRODUCTION02_DBF_PATH, encoding='latin1')._iter_records()
+        except dbfread.exceptions.DBFNotFound:
+            raise FileNotFoundError(f"File not found: {PRODUCTION02_DBF_PATH}")
+
+        for record in dbf_records:
+            t_prodid = safe_decimal(record.get('T_PRODID'))
+            t_seq = safe_int(record.get('T_SEQ'))
+
+            # Skip if the composite key is invalid or already exists
+            if not t_prodid or not t_seq or (t_prodid, t_seq) in existing_keys:
+                continue
+
+            try:
+                new_prod_detail = TblProd02(
+                    T_PRODID=t_prodid,
+                    T_LOTNUM=record.get('T_LOTNUM'),
+                    T_CDATE=record.get('T_CDATE'),
+                    T_PRODDATE=record.get('T_PRODDATE'),
+                    T_SEQ=t_seq,
+                    T_MATCODE=record.get('T_MATCODE'),
+                    T_PRODA=safe_decimal(record.get('T_PRODA')),
+                    T_LABA=safe_decimal(record.get('T_LABA')),
+                    T_PRODB=safe_decimal(record.get('T_PRODB')),
+                    T_LABB=safe_decimal(record.get('T_LABB')),
+                    T_WT=safe_decimal(record.get('T_WT')),
+                    T_LOSS=safe_decimal(record.get('T_LOSS')),
+                    T_CONS=safe_decimal(record.get('T_CONS')),
+                    T_DELETED=safe_bool(record.get('T_DELETED')),
+                )
+                records_to_add.append(new_prod_detail)
+            except Exception as e:
+                print(f"Skipping corrupt record in tbl_prod02 for T_PRODID={t_prodid}, T_SEQ={t_seq}. Error: {e}")
+                continue
+
+        if records_to_add:
+            session.add_all(records_to_add)
+
+        return len(records_to_add)
+
 
     # --- NEW METHOD for Raw Materials Sync ---
     def _sync_raw_materials(self, main_session) -> int:
@@ -312,9 +370,9 @@ class SyncWorker(QObject):
         existing_prodids: Set[Decimal] = {row.T_PRODID for row in session.query(TblProd01.T_PRODID).all()}
         records_to_add = []
         try:
-            dbf_records = dbfread.DBF(PRODUCTION_DBF_PATH, encoding='latin1')._iter_records()
+            dbf_records = dbfread.DBF(PRODUCTION01_DBF_PATH, encoding='latin1')._iter_records()
         except dbfread.exceptions.DBFNotFound:
-            raise FileNotFoundError(f"File not found: {PRODUCTION_DBF_PATH}")
+            raise FileNotFoundError(f"File not found: {PRODUCTION01_DBF_PATH}")
 
         for record in dbf_records:
             t_prodid = safe_decimal(record.get('T_PRODID'))

@@ -9,7 +9,8 @@ from .Mixer import (MixerMachine,
                     MixerDetail)
 from .ProdDatabase import (TblFormula01,
                            TblFormula02,
-                           TblProd01)
+                           TblProd01,
+                           TblProd02)
 
 from .RawMaterials import RawMaterials
 

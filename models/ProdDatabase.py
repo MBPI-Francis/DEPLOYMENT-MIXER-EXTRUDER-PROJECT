@@ -58,6 +58,40 @@ class TblProd01(Base):
         return f"<TblProd01(T_PRODID={self.T_PRODID}, T_PRODCODE='{self.T_PRODCODE}')>"
 
 
+
+class TblProd02(Base):
+    """
+    SQLAlchemy model for the 'tbl_prod02' table, likely containing
+    production material details or outputs related to TblProd01.
+    """
+    __tablename__ = 'tbl_prod02'
+    __table_args__ = {'schema': 'public'}
+
+    # A new auto-incrementing integer primary key for reliable use within SQLAlchemy.
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # --- Column definitions based on the DBF structure ---
+    T_PRODID: Mapped[Decimal | None] = mapped_column(Numeric)
+    T_LOTNUM: Mapped[str | None] = mapped_column(String(15))
+    T_CDATE: Mapped[date | None] = mapped_column(Date)
+    T_PRODDATE: Mapped[date | None] = mapped_column(Date)
+    T_SEQ: Mapped[int | None] = mapped_column(Integer)
+    T_MATCODE: Mapped[str | None] = mapped_column(String(16))
+    T_PRODA: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    T_LABA: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    T_PRODB: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    T_LABB: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    T_WT: Mapped[Decimal | None] = mapped_column(Numeric(18, 7))
+    T_LOSS: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    T_CONS: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    T_DELETED: Mapped[bool | None] = mapped_column(Boolean)
+
+
+
+    def __repr__(self) -> str:
+        return f"<TblProd02(t_prodid={self.t_prodid}, t_lotnum='{self.t_lotnum}', t_seq={self.t_seq})>"
+
+
 class TblFormula01(Base):
     """
     SQLAlchemy model for the 'tbl_formula01' table using modern syntax.
