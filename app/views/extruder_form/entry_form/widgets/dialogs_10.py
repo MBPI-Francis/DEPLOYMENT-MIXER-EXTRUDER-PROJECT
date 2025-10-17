@@ -210,13 +210,12 @@ class LotNumberDialog(QDialog):
             super().accept()
         else:
             # For subsequent lots, stay open and reset for the next entry.
+            QMessageBox.information(self, "Success", f"Applied lot '{current_lot_data['lot_num']}' to the main form.")
             self.lot_list_widget.clearSelection()
             self._update_details_display(None)
             self.material_table.setRowCount(0)
             self.total_material_qty_label.setText("0.00 kg")
             self.prod_cut_checkbox.setChecked(False)
-            QMessageBox.information(self, "Success", f"Applied lot '{current_lot_data['lot_num']}' to the main form.")
-
 
 
 

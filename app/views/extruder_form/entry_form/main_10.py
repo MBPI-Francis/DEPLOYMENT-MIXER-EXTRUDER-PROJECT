@@ -296,6 +296,7 @@ class ExtruderEntryFormView(QWidget):
     def _handle_dialog_selections_applied(self, selection_data: dict):
         """
         Handles the data from the dialog and updates the main form's state.
+        The double-addition bug is fixed by removing the reopen logic.
         """
         new_lot_data = selection_data.get("lot_data")
         prod_cut_qty = selection_data.get("prod_cut_qty")
@@ -305,7 +306,6 @@ class ExtruderEntryFormView(QWidget):
         new_lot_num = new_lot_data.get("lot_num")
         new_formula_id = str(new_lot_data.get("formula_id", "")) if new_lot_data.get("formula_id") is not None else ""
         new_prod_id = str(new_lot_data.get("prod_id", "")) if new_lot_data.get("prod_id") is not None else ""
-        new_order_no = str(new_lot_data.get("order_no", "")) if new_lot_data.get("order_no") is not None else ""
 
         is_initial_apply = not self.ui.lot_number_input.text()
 
@@ -316,24 +316,17 @@ class ExtruderEntryFormView(QWidget):
         current_prod_ids = set(
             self.ui.production_id_input.text().split('; ')) if self.ui.production_id_input.text() else set()
 
-        current_order_nos = set(
-            self.ui.order_no_input.text().split('; ')) if self.ui.order_no_input.text() else set()
-
         if new_lot_num: current_lots.add(new_lot_num)
         if new_formula_id: current_formulas.add(new_formula_id)
         if new_prod_id: current_prod_ids.add(new_prod_id)
-        if new_order_no: current_order_nos.add(new_order_no)
 
         final_lots = sorted([lot for lot in current_lots if lot])
         final_formulas = sorted([f for f in current_formulas if f])
         final_prod_ids = sorted([pid for pid in current_prod_ids if pid])
-        final_order_nos = sorted([order for order in current_order_nos if order])
 
         self.ui.lot_number_input.setText("; ".join(final_lots))
         self.ui.formula_id_input.setText("; ".join(final_formulas))
         self.ui.production_id_input.setText("; ".join(final_prod_ids))
-        self.ui.order_no_input.setText("; ".join(final_order_nos))
-
 
         # Total Input Calculation Logic
         try:
