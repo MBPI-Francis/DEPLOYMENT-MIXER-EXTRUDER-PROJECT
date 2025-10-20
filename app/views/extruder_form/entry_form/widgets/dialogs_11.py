@@ -1,14 +1,16 @@
+
 # app/views/extruder_form/entry_form/widgets/dialogs.py
 
 from decimal import Decimal
-from typing import Dict, Callable
+from typing import Dict, List, Callable
 
 from PyQt6.QtCore import Qt, pyqtSlot, QTimer
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QLabel, QDialogButtonBox, QLineEdit,
-    QWidget, QSplitter, QMessageBox, QGroupBox, QFormLayout, QHBoxLayout,
+    QDialog, QVBoxLayout, QLabel, QDialogButtonBox, QListWidget, QLineEdit,
+    QWidget, QSplitter, QListWidgetItem, QPushButton, QMessageBox, QGroupBox, QFormLayout, QHBoxLayout, QFrame,
     QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox
 )
+# --- NEW: Import our custom widget ---
 from .numeric_line_edit import QNumericLineEdit
 from ..ops import ExtruderOpsController
 
@@ -39,7 +41,6 @@ class LotNumberDialog(QDialog):
         self._load_lots()
         self._initial_ui_state()
 
-    # --- All other methods are correct ---
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -58,6 +59,7 @@ class LotNumberDialog(QDialog):
         self.search_timer.setSingleShot(True)
         self.search_timer.setInterval(300)
 
+    # --- METHOD MODIFIED to create a QTableWidget ---
     def _create_left_panel(self):
         panel = QWidget()
         layout = QVBoxLayout(panel)
@@ -69,6 +71,7 @@ class LotNumberDialog(QDialog):
         search_input = QLineEdit()
         search_input.setPlaceholderText("Search by Production ID or Lot Number...")
 
+        # --- NEW: Use QTableWidget ---
         lot_list_widget = QTableWidget()
         lot_list_widget.setColumnCount(2)
         lot_list_widget.setHorizontalHeaderLabels(["Prod ID", "Lot Number"])
@@ -78,12 +81,14 @@ class LotNumberDialog(QDialog):
         lot_list_widget.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         lot_list_widget.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         lot_list_widget.verticalHeader().setVisible(False)
+        # --- END NEW ---
 
         layout.addWidget(search_input)
         layout.addWidget(lot_list_widget)
         return panel, search_input, lot_list_widget
 
     def _create_right_panel(self):
+        # This method is correct and does not need changes
         panel = QWidget()
         layout = QVBoxLayout(panel)
         details_group = QGroupBox("Lot Details")
@@ -98,32 +103,39 @@ class LotNumberDialog(QDialog):
         details_layout.addRow("Formula No:", self.formula_id_label)
         layout.addWidget(details_group)
 
-        prod_cut_group = QGroupBox("Production Cut (Optional)")
+        # --- NEW: Production Cut Feature UI ---
+        prod_cut_group = QGroupBox("Production Cut")
         prod_cut_layout = QFormLayout(prod_cut_group)
+
         self.prod_cut_checkbox = QCheckBox("Apply Production Cut")
-        self.prod_cut_qty_input = QNumericLineEdit()
+        self.prod_cut_qty_input = QNumericLineEdit()  # Use our new widget
         self.prod_cut_qty_input.setPlaceholderText("Enter Qty in kg")
-        self.prod_cut_qty_input.setEnabled(False)
+        self.prod_cut_qty_input.setEnabled(False)  # Disabled by default
+
         prod_cut_layout.addRow(self.prod_cut_checkbox)
         prod_cut_layout.addRow("Production Cut Qty:", self.prod_cut_qty_input)
         layout.addWidget(prod_cut_group)
+        # --- END NEW ---
 
         layout.addWidget(QLabel("Materials Used"))
         self.material_table = QTableWidget()
         self.material_table.setColumnCount(2)
         self.material_table.setHorizontalHeaderLabels(["Material Code", "Qty (kg)"])
         self.material_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.material_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.material_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.material_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.material_table.verticalHeader().setVisible(False)
         layout.addWidget(self.material_table)
-
         summary_layout = QHBoxLayout()
-        summary_layout.addStretch()
         summary_layout.addWidget(QLabel("<b>Total Qty:</b>"))
+        summary_layout.addStretch()
         self.total_material_qty_label = QLabel("0.00 kg")
         self.total_material_qty_label.setStyleSheet("font-weight: bold;")
         summary_layout.addWidget(self.total_material_qty_label)
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        layout.addWidget(line)
         layout.addLayout(summary_layout)
         return panel
 
@@ -140,27 +152,34 @@ class LotNumberDialog(QDialog):
         self.search_input.textChanged.connect(self.search_timer.start)
         self.lot_list_widget.verticalScrollBar().valueChanged.connect(self._on_scroll)
         self.lot_list_widget.itemSelectionChanged.connect(self._on_lot_selection_changed)
-        self.lot_list_widget.itemDoubleClicked.connect(lambda: self.accept())
-        self.prod_cut_checkbox.toggled.connect(self.prod_cut_qty_input.setEnabled)
+        self.lot_list_widget.itemDoubleClicked.connect(self.accept)  # Shortcut for Apply
+        self.prod_cut_checkbox.toggled.connect(self._on_prod_cut_toggled)
         self.button_box.accepted.connect(self.accept)
-        self.button_box.rejected.connect(self.reject)  # Close button calls reject()
+        self.button_box.rejected.connect(self.reject)
         self.reset_btn.clicked.connect(self._reset_selections)
 
+    # --- THIS IS THE ONLY METHOD THAT IS CHANGED ---
     def accept(self):
         """
-        Handles the apply/accept action. It validates, sends data, and then
-        decides whether to close or reset based on its state.
+        Overrides the default OK/Apply button. Validates the selection and the
+        Production Cut field before sending data back.
         """
         selected_items = self.lot_list_widget.selectedItems()
         if not selected_items:
             QMessageBox.warning(self, "No Selection", "Please select a lot number to apply.")
             return
 
+        # --- NEW: Production Cut Validation ---
         if self.prod_cut_checkbox.isChecked():
             prod_cut_value = self.prod_cut_qty_input.get_value()
+
+            # Check 1: Ensure a value was entered
             if prod_cut_value <= 0:
-                QMessageBox.warning(self, "Validation Error", "Production Cut requires a quantity greater than zero.")
+                QMessageBox.warning(self, "Validation Error",
+                                    "Production Cut is checked, please enter a valid quantity greater than zero.")
                 return
+
+            # Check 2: Ensure the value does not exceed the total material quantity
             try:
                 total_material_qty = float(self.total_material_qty_label.text().replace(" kg", ""))
                 if prod_cut_value > total_material_qty:
@@ -169,10 +188,15 @@ class LotNumberDialog(QDialog):
                                         f"Total Material Qty ({total_material_qty:.2f} kg).")
                     return
             except (ValueError, TypeError):
+                # This case should ideally not happen if the label is always populated correctly
                 QMessageBox.critical(self, "Error", "Could not verify total material quantity.")
                 return
+        # --- END NEW ---
 
         current_lot_data = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        is_initial_apply = self.initial_product_code_lock is None
+
+        # Add the production cut value to the data being sent back
         prod_cut_qty = self.prod_cut_qty_input.get_value() if self.prod_cut_checkbox.isChecked() else None
 
         self.success_callback({
@@ -180,17 +204,30 @@ class LotNumberDialog(QDialog):
             "prod_cut_qty": prod_cut_qty
         })
 
-        # --- FIX FOR BUG 2: Conditional closing logic ---
-        is_initial_apply = self.initial_product_code_lock is None
-
+        # Logic to keep the dialog open or close it
         if is_initial_apply:
-            # On the first apply, close the dialog. The main window will handle reopening it if needed.
+            # For the first lot, we close the dialog to allow the main form to reopen it correctly filtered.
             super().accept()
         else:
-            # On subsequent applies, stay open and reset for the next entry.
+            # For subsequent lots, stay open and reset for the next entry.
+            QMessageBox.information(self, "Success", f"Applied lot '{current_lot_data['lot_num']}' to the main form.")
             self.lot_list_widget.clearSelection()
             self._update_details_display(None)
-            QMessageBox.information(self, "Success", f"Applied lot '{current_lot_data['lot_num']}' to the main form.")
+            self.material_table.setRowCount(0)
+            self.total_material_qty_label.setText("0.00 kg")
+            self.prod_cut_checkbox.setChecked(False)
+
+
+
+    # --- NEW HANDLER for the checkbox ---
+    @pyqtSlot(bool)
+    def _on_prod_cut_toggled(self, checked: bool):
+        """Enables or disables the Production Cut Qty input field."""
+        self.prod_cut_qty_input.setEnabled(checked)
+        if not checked:
+            self.prod_cut_qty_input.clear()
+
+
 
     @pyqtSlot()
     def _on_lot_selection_changed(self):
@@ -206,7 +243,9 @@ class LotNumberDialog(QDialog):
         item_data = item.data(Qt.ItemDataRole.UserRole)
         self._update_details_display(item_data)
 
+
         prod_id = item_data.get("prod_id")
+
         if not prod_id: return
 
         try:
@@ -230,6 +269,9 @@ class LotNumberDialog(QDialog):
         self.lot_list_widget.clearSelection()
         if self.initial_product_code_lock is None:
             self.search_input.clear()
+            self._update_filter_status_display()
+        self.current_page = 1
+        self.can_load_more = True
         self._load_lots()
 
     def _load_lots(self):
@@ -246,22 +288,33 @@ class LotNumberDialog(QDialog):
             if not lots or len(lots) < self.PAGE_SIZE: self.can_load_more = False
 
             for lot_data in lots:
-                row_pos = self.lot_list_widget.rowCount()
-                self.lot_list_widget.insertRow(row_pos)
+                row_position = self.lot_list_widget.rowCount()
+                self.lot_list_widget.insertRow(row_position)
+
+                # Create Table Items
                 prod_id_item = QTableWidgetItem(str(lot_data.get("prod_id", "")))
+                lot_num_item = QTableWidgetItem(lot_data.get("lot_num", ""))
+
+                # Store the full data dict in the first column's item for later retrieval
                 prod_id_item.setData(Qt.ItemDataRole.UserRole, lot_data)
-                self.lot_list_widget.setItem(row_pos, 0, prod_id_item)
-                self.lot_list_widget.setItem(row_pos, 1, QTableWidgetItem(lot_data.get("lot_num", "")))
+
+                self.lot_list_widget.setItem(row_position, 0, prod_id_item)
+                self.lot_list_widget.setItem(row_position, 1, lot_num_item)
         finally:
             self.is_loading_more = False
 
+
     def _update_details_display(self, data: Dict | None):
-        self.prod_id_label.setText(str(data.get("prod_id", "-")) if data else "-")
-        self.prod_code_label.setText(data.get("product_code", "-") if data else "-")
-        self.customer_label.setText(data.get("customer", "-") if data else "-")
-        self.formula_id_label.setText(str(data.get("formula_id", "-")) if data else "-")
-        self.prod_cut_checkbox.setChecked(False)
-        self.prod_cut_qty_input.clear()
+        if data:
+            self.prod_id_label.setText(str(data.get("prod_id", "-")))
+            self.prod_code_label.setText(data.get("product_code", "-"))
+            self.customer_label.setText(data.get("customer", "-"))
+            self.formula_id_label.setText(str(data.get("formula_id", "-")))
+        else:
+            self.prod_id_label.setText("-")
+            self.prod_code_label.setText("-")
+            self.customer_label.setText("-")
+            self.formula_id_label.setText("-")
 
     def _update_filter_status_display(self):
         if self.initial_product_code_lock and self.initial_customer_lock:

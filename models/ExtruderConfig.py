@@ -32,6 +32,10 @@ class Resin(Base, AuditMixin):
     resin_params = relationship("ResinParams", back_populates="resin", cascade="all, delete-orphan")
     purging_details = relationship("PurgingDetail", back_populates="resin")
 
+    # --- FIX 3: Added the new relationship back to PurgingHeader ---
+    purging_headers = relationship("PurgingHeader", back_populates="resin_used")
+
+
 
 class Zone(Base, AuditMixin):
     __tablename__ = "tbl_extruder_zones"

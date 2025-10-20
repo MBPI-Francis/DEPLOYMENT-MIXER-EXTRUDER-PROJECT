@@ -1,418 +1,411 @@
-# # app/views/extruder_form/entry_form/main.py
-# from PyQt6.QtCore import Qt, QTimer
-# from PyQt6.QtWidgets import QWidget, QMessageBox, QDialog
-# from typing import Type, List
-# from sqlalchemy.orm import Session, sessionmaker
-# from decimal import Decimal
-#
-# # Import the new classes
-# from .ui_setup import UiExtruderForm
-# from .ops import ExtruderOpsController
-# from .widgets.dialogs import LotNumberDialog, GenericSubFormDialog
-#
-#
-# class ExtruderEntryFormView(QWidget):
-#     def __init__(self, session_factory: Type[sessionmaker], parent=None):
-#         super().__init__(parent)
-#
-#         self.Session = session_factory
-#         self.controller = ExtruderOpsController(self.Session)
-#
-#         self.ui = UiExtruderForm()
-#         self.ui.setup_ui(self)
-#
-#         self._connect_signals()
-#         self._initial_load()
-#
-#     def _connect_signals(self):
-#         self.ui.lot_number_select_btn.clicked.connect(self._open_lot_number_dialog)
-#         self.ui.zone_temps_btn.clicked.connect(lambda: self._open_generic_dialog("Zone Temperatures"))
-#         self.ui.personnel_btn.clicked.connect(lambda: self._open_generic_dialog("Extruder Personnel"))
-#         self.ui.purging_btn.clicked.connect(lambda: self._open_generic_dialog("Purging Details"))
-#         self.ui.machine_config_btn.clicked.connect(lambda: self._open_generic_dialog("Machine Configuration"))
-#         self.ui.extruder_output_btn.clicked.connect(lambda: self._open_generic_dialog("Extruder Output"))
-#         self.ui.used_materials_btn.clicked.connect(lambda: self._open_generic_dialog("Used Materials"))
-#         self.ui.save_button.clicked.connect(self._save_form_data)
-#         self.ui.clear_button.clicked.connect(self._clear_form)
-#
-#     def _initial_load(self):
-#         """Load initial data for combo boxes."""
-#         try:
-#             machines = self.controller.get_machines()
-#             self.ui.machine_combo.addItem("", None)  # Add a blank default item
-#             for m in machines:
-#                 self.ui.machine_combo.addItem(m.name, m.id)
-#
-#         except Exception as e:
-#             QMessageBox.critical(self, "Database Error", f"Could not load initial data: {e}")
-#
-#         # --- METHOD REWRITTEN to manage the dialog instance ---
-#
-#     def _open_lot_number_dialog(self):
-#         """
-#         Opens the lot number dialog, passing the current product code and
-#         customer context if they exist.
-#         """
-#         try:
-#             initial_product_code = None
-#             initial_customer = None
-#             current_lot_text = self.ui.lot_number_input.text()
-#
-#             if current_lot_text:
-#                 first_lot = current_lot_text.split(';')[0].strip()
-#                 if first_lot:
-#                     lot_details = self.controller.get_details_for_lot(first_lot)
-#                     if lot_details:
-#                         initial_product_code = lot_details.get("product_code")
-#                         initial_customer = lot_details.get("customer")
-#
-#             dialog = LotNumberDialog(
-#                 self.controller,
-#                 self._handle_dialog_selections_applied,
-#                 self,
-#                 initial_product_code=initial_product_code,
-#                 initial_customer=initial_customer
-#             )
-#
-#             # .exec() runs the dialog modally. When it closes via accept(), the code continues.
-#             result = dialog.exec()
-#
-#             # The callback will be triggered before .exec() returns.
-#             # If it was the initial apply, we now need to reopen the dialog.
-#             if result == QDialog.DialogCode.Accepted and not initial_product_code:
-#                 # Using a timer allows the first dialog to fully close before the new one opens.
-#                 QTimer.singleShot(0, self._open_lot_number_dialog)
-#
-#         except Exception as e:
-#             QMessageBox.critical(self, "Error", f"Could not open lot number selector: {e}")
-#             import traceback
-#             traceback.print_exc()
-#
-#
-#     def _prepopulate_form_from_lots(self, lot_numbers: list):
-#         """
-#         Prepopulates the form based on the details of the *first* lot in the list.
-#         """
-#         if not lot_numbers: return
-#         try:
-#             first_lot_details = self.controller.get_lot_numbers_paginated(search_term=lot_numbers[0])[0]
-#             if first_lot_details:
-#                 self.ui.production_id_input.setText(str(first_lot_details.get("prod_id", "")))
-#                 self.ui.product_code_input.setText(first_lot_details.get("product_code", ""))
-#                 self.ui.customer_input.setText(first_lot_details.get("customer", ""))
-#         except Exception as e:
-#             QMessageBox.critical(self, "Error", f"Failed to prepopulate form data: {e}")
-#
-#     def _handle_dialog_selections_applied(self, selected_data: List[dict]):
-#         """
-#         Handles the list of data dictionaries returned from the dialog.
-#         """
-#         if not selected_data: return
-#
-#         new_lot_data = selected_data[0]
-#         new_lot_num = new_lot_data.get("lot_num")
-#         new_formula_id = str(new_lot_data.get("formula_id", "")) if new_lot_data.get("formula_id") is not None else ""
-#         new_prod_id = str(new_lot_data.get("prod_id", "")) if new_lot_data.get("prod_id") is not None else ""
-#
-#         current_lots = set(self.ui.lot_number_input.text().split('; ')) if self.ui.lot_number_input.text() else set()
-#         current_formulas = set(
-#             self.ui.formula_id_input.text().split('; ')) if self.ui.formula_id_input.text() else set()
-#         current_prod_ids = set(
-#             self.ui.production_id_input.text().split('; ')) if self.ui.production_id_input.text() else set()
-#
-#         if new_lot_num: current_lots.add(new_lot_num)
-#         if new_formula_id: current_formulas.add(new_formula_id)
-#         if new_prod_id: current_prod_ids.add(new_prod_id)
-#
-#         final_lots = sorted([lot for lot in current_lots if lot])
-#         final_formulas = sorted([f for f in current_formulas if f])
-#         final_prod_ids = sorted([pid for pid in current_prod_ids if pid])
-#
-#         self.ui.lot_number_input.setText("; ".join(final_lots))
-#         self.ui.formula_id_input.setText("; ".join(final_formulas))
-#         self.ui.production_id_input.setText("; ".join(final_prod_ids))
-#
-#         # Only populate static info from the very first lot
-#         if len(final_lots) == 1:
-#             self._prepopulate_form_from_lot(final_lots[0])
-#
-#         try:
-#             total_input = self.controller.get_total_batch_weight_for_lots(final_lots)
-#             self.ui.total_input_display.setText(f"{total_input:.2f}")
-#         except Exception as e:
-#             QMessageBox.critical(self, "Calculation Error", f"Could not calculate total input: {e}")
-#
-#     def _open_formula_id_dialog(self):
-#         """Re-opens the lot number dialog to allow changing the formula selection."""
-#         QMessageBox.information(self, "Select Formula",
-#                                 "To change the selected formulas, please click the 'Select...' button next to the Lot Numbers.")
-#         self._open_lot_number_dialog()
-#
-#     def _open_generic_dialog(self, title):
-#         dialog = GenericSubFormDialog(title, self)
-#         dialog.exec()
-#
-#     def _clear_form(self):
-#         """Clears all input fields on the form."""
-#         # Clear line edits
-#         self.ui.lot_number_input.clear()
-#         self.ui.formula_id_input.clear()
-#         self.ui.production_id_input.clear()
-#         self.ui.product_code_input.clear()
-#         self.ui.order_no_input.clear()
-#         self.ui.ordered_qty_input.setText("0.00")
-#         self.ui.total_input_display.setText("0.00")
-#         self.ui.remarks_textedit.clear()
-#
-#         # Reset combo boxes
-#         self.ui.customer_input.clear()
-#         self.ui.machine_combo.setCurrentIndex(0)
-#
-#         # Reset labels
-#         self.ui.total_output_display.setText("0.00")
-#         self.ui.output_percent_display.setText("0.00%")
-#         self.ui.loss_display.setText("0.00")
-#         self.ui.loss_percent_display.setText("0.00%")
-#         self.ui.output_per_hour_display.setText("0.00")
-#
-#         # In a real app, you would also clear the data models for sub-forms
-#         print("Form cleared.")
-#
-#     def _save_form_data(self):
-#         """Gathers all data from the UI and passes it to the controller to save."""
-#         if not self.ui.lot_number_input.text():
-#             QMessageBox.warning(self, "Missing Data", "Please select a lot number before saving.")
-#             return
-#
-#         form_data = {
-#             "main": {
-#                 "lot_number": self.ui.lot_number_input.text(),
-#                 "formula_no": self.ui.formula_id_input.text(),
-#                 "production_id": self.ui.production_id_input.text(),
-#                 "product_code": self.ui.product_code_input.text(),
-#                 "order_no": self.ui.order_no_input.text(),
-#                 "customer": self.ui.customer_input.text(),
-#                 "machine_id": self.ui.machine_combo.currentData(),
-#                 "machine_datetime_start": self.ui.start_datetime_edit.dateTime().toPyDateTime(),
-#                 "machine_datetime_end": self.ui.end_datetime_edit.dateTime().toPyDateTime(),
-#                 "qty_order": self.ui.ordered_qty_input.text(),
-#                 "total_input": self.ui.total_input_display.text(),
-#                 "remarks": self.ui.remarks_textedit.toPlainText(),
-#             },
-#             "personnel": [],
-#             "machine_temps": [],
-#             # ... other sub-form data will be gathered here ...
-#         }
-#
-#         try:
-#             self.controller.save_full_form(form_data)
-#             QMessageBox.information(self, "Success", "Form data has been saved (simulated).")
-#             self._clear_form()
-#         except Exception as e:
-#             QMessageBox.critical(self, "Save Error", f"Could not save the form: {e}")
-
-
 # app/views/extruder_form/entry_form/main.py
 
-from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QWidget, QMessageBox, QDialog
-from typing import Type, List
-from sqlalchemy.orm import Session, sessionmaker
-from decimal import Decimal
+from PyQt6.QtCore import QDate, QTime, Qt
+from PyQt6.QtWidgets import QWidget, QMessageBox, QComboBox, QTableWidgetItem, QLineEdit, QDateEdit, QTimeEdit
+from typing import Type
+from sqlalchemy.orm import sessionmaker
+from decimal import Decimal, InvalidOperation
 
-from .ui_setup import UiExtruderForm
+from .ui_setup import Ui_ExtruderEntryForm
 from .ops import ExtruderOpsController
-from .widgets.dialogs import LotNumberDialog, GenericSubFormDialog
+from .widgets.dialogs import LotNumberDialog
 
 
 class ExtruderEntryFormView(QWidget):
     def __init__(self, session_factory: Type[sessionmaker], parent=None):
         super().__init__(parent)
+
         self.Session = session_factory
         self.controller = ExtruderOpsController(self.Session)
-        self.lot_number_dialog = None  # Keep a reference
-        self.ui = UiExtruderForm()
+        self.lot_number_dialog = None
+        self.selected_prod_id = None  # Store the selected prod_id
+
+        self.production_cut_active = False
+
+        # To store data for comboboxes in tables
+        self.employee_list = []
+        self.position_list = []
+        self.resin_list = []
+
+
+        self.ui = Ui_ExtruderEntryForm()
         self.ui.setup_ui(self)
+
         self._connect_signals()
         self._initial_load()
 
     def _connect_signals(self):
+        # Lot Number selection
         self.ui.lot_number_select_btn.clicked.connect(self._open_lot_number_dialog)
-        self.ui.zone_temps_btn.clicked.connect(lambda: self._open_generic_dialog("Zone Temperatures"))
-        self.ui.personnel_btn.clicked.connect(lambda: self._open_generic_dialog("Extruder Personnel"))
-        self.ui.purging_btn.clicked.connect(lambda: self._open_generic_dialog("Purging Details"))
-        self.ui.machine_config_btn.clicked.connect(lambda: self._open_generic_dialog("Machine Configuration"))
-        self.ui.extruder_output_btn.clicked.connect(lambda: self._open_generic_dialog("Extruder Output"))
-        self.ui.used_materials_btn.clicked.connect(lambda: self._open_generic_dialog("Used Materials"))
+
+        # Dynamic table buttons
+        self.ui.add_operator_btn.clicked.connect(self._add_operator_row)
+        self.ui.remove_operator_btn.clicked.connect(self._remove_selected_operator)
+        self.ui.add_resin_btn.clicked.connect(self._add_resin_row)
+        self.ui.remove_resin_btn.clicked.connect(self._remove_selected_resin)
+        self.ui.add_output_log_btn.clicked.connect(self._add_output_log_row)
+        self.ui.remove_output_log_btn.clicked.connect(self._remove_selected_output_log)
+
+        # Connect table cell changes to summary updates
+        self.ui.resin_table.cellChanged.connect(self._update_production_summary)
+        self.ui.output_log_table.cellChanged.connect(self._update_production_summary)
+        self.ui.qty_order_input.textChanged.connect(self._update_production_summary)
+
+        # Main action buttons
         self.ui.save_button.clicked.connect(self._save_form_data)
         self.ui.clear_button.clicked.connect(self._clear_form)
 
     def _initial_load(self):
+        """Load initial data for all combo boxes."""
         try:
-            machines = self.controller.get_machines()
-            self.ui.machine_combo.addItem("", None)
+            # Group 1 Data
+            self.employee_list = self.controller.get_all_employees()
+            self.position_list = self.controller.get_all_positions()
+
+            # For "Prepared By" - assuming they are also employees
+            self.ui.prepared_by_combo.addItem("- Select -", None)
+            for emp in self.employee_list:
+                self.ui.prepared_by_combo.addItem(f"{emp.first_name} {emp.last_name}", emp.id)
+
+            # Group 2 Data
+            self.ui.shift_combo.addItems(["- Select -", "1st Shift", "2nd Shift", "3rd Shift"])
+            machines = self.controller.get_all_machines()
+            self.ui.mc_no_combo.addItem("- Select -", None)
             for m in machines:
-                self.ui.machine_combo.addItem(m.name, m.id)
+                self.ui.mc_no_combo.addItem(m.name, m.id)
+
+            screen_sizes = self.controller.get_all_screen_sizes()
+            self.ui.screen_size_combo.addItem("- Select -", None)
+            for s in screen_sizes:
+                self.ui.screen_size_combo.addItem(s.size, s.id)
+
+            self.ui.screw_config_combo.addItems(["- Select -", "Coil", "Configuration"])
+
+            # Purging & Resin Data
+            self.resin_list = self.controller.get_all_resins()
+            self.ui.purging_resin_combo.addItem("- Select -", None)
+            # Assuming product codes for purging are also resins for now
+            self.ui.purging_product_code_combo.addItem("- Select -", None)
+            for r in self.resin_list:
+                self.ui.purging_resin_combo.addItem(r.name, r.id)
+                self.ui.purging_product_code_combo.addItem(r.name, r.id)
+
         except Exception as e:
             QMessageBox.critical(self, "Database Error", f"Could not load initial data: {e}")
 
-    def _open_lot_number_dialog(self):
-        """
-        Opens the lot number dialog. If it's already open, it brings it to the front.
-        """
-        try:
-            # If the dialog already exists and is open, just activate it.
-            if self.lot_number_dialog is not None and self.lot_number_dialog.isVisible():
-                self.lot_number_dialog.activateWindow()
-                return
+    # --- Lot Number Dialog Management ---
 
+    def _open_lot_number_dialog(self):
+        try:
             initial_product_code = None
             initial_customer = None
-            current_lot_text = self.ui.lot_number_input.text()
-
-            if current_lot_text:
-                first_lot = current_lot_text.split(';')[0].strip()
-                if first_lot:
-                    lot_details = self.controller.get_details_for_lot(first_lot)
-                    if lot_details:
-                        initial_product_code = lot_details.get("product_code")
-                        initial_customer = lot_details.get("customer")
+            if self.ui.lot_number_input.text():
+                first_lot = self.ui.lot_number_input.text().split(';')[0].strip()
+                lot_details = self.controller.get_details_for_lot(first_lot)
+                if lot_details:
+                    initial_product_code = lot_details.get("product_code")
+                    initial_customer = lot_details.get("customer")
 
             self.lot_number_dialog = LotNumberDialog(
-                self.controller,
-                self._handle_dialog_selections_applied,
-                self,
-                initial_product_code=initial_product_code,
-                initial_customer=initial_customer
+                self.controller, self._handle_lot_selection, self,
+                initial_product_code=initial_product_code, initial_customer=initial_customer
             )
-            # Use show() to run it non-modally
             self.lot_number_dialog.show()
-
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not open lot number selector: {e}")
-            import traceback
-            traceback.print_exc()
 
-    def _handle_dialog_selections_applied(self, selection_data: dict):
+    def _handle_lot_selection(self, selection_data: dict):
         """
-        Handles the data from the dialog and updates the main form's state.
+        Handles data from the dialog, appending unique values to the relevant fields.
         """
-        new_lot_data = selection_data.get("lot_data")
+        lot_data = selection_data.get("lot_data")
         prod_cut_qty = selection_data.get("prod_cut_qty")
+        if not lot_data: return
 
-        if not new_lot_data: return
+        # --- Logic for appending unique values ---
 
-        new_lot_num = new_lot_data.get("lot_num")
-        new_formula_id = str(new_lot_data.get("formula_id", "")) if new_lot_data.get("formula_id") is not None else ""
-        new_prod_id = str(new_lot_data.get("prod_id", "")) if new_lot_data.get("prod_id") is not None else ""
-        new_order_no = str(new_lot_data.get("order_no", "")) if new_lot_data.get("order_no") is not None else ""
+        # Helper function to perform the set/sort/join logic
+        def append_unique_value(widget: QLineEdit, new_value: str):
+            current_text = widget.text()
+            items_set = set(current_text.split('; ')) if current_text else set()
+            if new_value:
+                items_set.add(str(new_value))
+            final_items = sorted([item for item in items_set if item])
+            widget.setText("; ".join(final_items))
+            return final_items
 
-        is_initial_apply = not self.ui.lot_number_input.text()
+        # Append all required fields
+        final_lots = append_unique_value(self.ui.lot_number_input, lot_data.get("lot_num"))
+        # The following fields are not in the UI anymore but would be used if they were:
+        # append_unique_value(self.ui.formula_id_input, lot_data.get("formula_id"))
+        # append_unique_value(self.ui.production_id_input, lot_data.get("prod_id"))
+        # append_unique_value(self.ui.order_no_input, lot_data.get("order_no"))
 
-        # Update Lot, Formula, and Prod ID fields
-        current_lots = set(self.ui.lot_number_input.text().split('; ')) if self.ui.lot_number_input.text() else set()
-        current_formulas = set(
-            self.ui.formula_id_input.text().split('; ')) if self.ui.formula_id_input.text() else set()
-        current_prod_ids = set(
-            self.ui.production_id_input.text().split('; ')) if self.ui.production_id_input.text() else set()
-
-        current_order_nos = set(
-            self.ui.order_no_input.text().split('; ')) if self.ui.order_no_input.text() else set()
-
-        if new_lot_num: current_lots.add(new_lot_num)
-        if new_formula_id: current_formulas.add(new_formula_id)
-        if new_prod_id: current_prod_ids.add(new_prod_id)
-        if new_order_no: current_order_nos.add(new_order_no)
-
-        final_lots = sorted([lot for lot in current_lots if lot])
-        final_formulas = sorted([f for f in current_formulas if f])
-        final_prod_ids = sorted([pid for pid in current_prod_ids if pid])
-        final_order_nos = sorted([order for order in current_order_nos if order])
-
-        self.ui.lot_number_input.setText("; ".join(final_lots))
-        self.ui.formula_id_input.setText("; ".join(final_formulas))
-        self.ui.production_id_input.setText("; ".join(final_prod_ids))
-        self.ui.order_no_input.setText("; ".join(final_order_nos))
-
-
-        # Total Input Calculation Logic
         try:
             if prod_cut_qty is not None:
-                current_total = Decimal(self.ui.total_input_display.text() or '0')
+                if not self.production_cut_active:
+                    self.production_cut_active = True
+                    # --- FIX: Using the reverted widget name ---
+                    self.ui.qty_produced_input.setText("0.00")
+
+                current_total = Decimal(self.ui.qty_produced_input.text() or '0')
                 new_total = current_total + Decimal(prod_cut_qty)
-                self.ui.total_input_display.setText(f"{new_total:.2f}")
-            else:
+                self.ui.qty_produced_input.setText(f"{new_total:.2f}")
+
+            elif not self.production_cut_active:
                 total_input = self.controller.get_total_batch_weight_for_lots(final_lots)
-                self.ui.total_input_display.setText(f"{total_input:.2f}")
+                # --- FIX: Using the reverted widget name ---
+                self.ui.qty_produced_input.setText(f"{total_input:.2f}")
         except Exception as e:
             QMessageBox.critical(self, "Calculation Error", f"Could not calculate total input: {e}")
 
-        if is_initial_apply:
-            self._prepopulate_static_fields(new_lot_data)
+        # --- Pre-populate static fields only on the very first lot added ---
+        if len(final_lots) == 1:
+            self._prepopulate_static_fields(final_lots[0])
 
+    def _prepopulate_static_fields(self, lot_number: str):
+        details = self.controller.get_details_for_lot(lot_number)
+        if details:
+            self.ui.product_code_input.setText(details.get("product_code", ""))
+            self.ui.customer_input.setText(details.get("customer", ""))
+            # qty_order = details.get("qty_order", Decimal("0.00"))
+            # self.ui.qty_order_input.setText(f"{qty_order:.2f}" if qty_order else "0.00")
+            # Qty produced is prepopulated from summary, so we just trigger a recalc
+            self._update_production_summary()
 
-    def _prepopulate_static_fields(self, lot_data: dict):
-        """
-        Prepopulates static form fields (Product Code, Customer, Order No) using
-        the provided data dictionary for the first lot.
-        """
-        if not lot_data: return
-        self.ui.product_code_input.setText(lot_data.get("product_code", ""))
-        self.ui.customer_input.setText(lot_data.get("customer", ""))
-        self.ui.order_no_input.setText(lot_data.get("order_no", ""))
+    # --- Dynamic Table Handlers ---
 
+    def _add_operator_row(self):
+        row_position = self.ui.operators_table.rowCount()
+        self.ui.operators_table.insertRow(row_position)
 
-    def _open_generic_dialog(self, title):
-        dialog = GenericSubFormDialog(title, self)
-        dialog.exec()
+        # Add a combobox for names
+        emp_combo = QComboBox()
+        emp_combo.addItem("- Select -", None)
+        for emp in self.employee_list:
+            emp_combo.addItem(f"{emp.first_name} {emp.last_name}", emp.id)
+
+        # Add a combobox for positions
+        pos_combo = QComboBox()
+        pos_combo.addItem("- Select -", None)
+        for pos in self.position_list:
+            pos_combo.addItem(pos.name, pos.id)
+
+        self.ui.operators_table.setCellWidget(row_position, 0, emp_combo)
+        self.ui.operators_table.setCellWidget(row_position, 1, pos_combo)
+
+    def _remove_selected_operator(self):
+        current_row = self.ui.operators_table.currentRow()
+        if current_row >= 0:
+            self.ui.operators_table.removeRow(current_row)
+
+    def _add_resin_row(self):
+        row_position = self.ui.resin_table.rowCount()
+        self.ui.resin_table.insertRow(row_position)
+
+        resin_combo = QComboBox()
+        resin_combo.addItem("- Select -", None)
+        for resin in self.resin_list:
+            resin_combo.addItem(resin.name, resin.id)
+
+        self.ui.resin_table.setCellWidget(row_position, 0, resin_combo)
+        self.ui.resin_table.setItem(row_position, 1, QTableWidgetItem("0.00"))
+
+    def _remove_selected_resin(self):
+        current_row = self.ui.resin_table.currentRow()
+        if current_row >= 0:
+            self.ui.resin_table.removeRow(current_row)
+
+    def _add_output_log_row(self):
+        row_position = self.ui.output_log_table.rowCount()
+        self.ui.output_log_table.insertRow(row_position)
+
+        date_edit = QDateEdit(QDate.currentDate())
+        date_edit.setCalendarPopup(True)
+        time_start_edit = QTimeEdit(QTime.currentTime())
+        time_end_edit = QTimeEdit(QTime.currentTime())
+
+        self.ui.output_log_table.setCellWidget(row_position, 0, date_edit)
+        self.ui.output_log_table.setCellWidget(row_position, 1, time_start_edit)
+        self.ui.output_log_table.setCellWidget(row_position, 2, time_end_edit)
+        self.ui.output_log_table.setItem(row_position, 3, QTableWidgetItem("0.00"))
+        self.ui.output_log_table.setItem(row_position, 4, QTableWidgetItem("0.00"))
+
+    def _remove_selected_output_log(self):
+        current_row = self.ui.output_log_table.currentRow()
+        if current_row >= 0:
+            self.ui.output_log_table.removeRow(current_row)
+
+    # --- Summary Calculation ---
+
+    def _update_production_summary(self):
+        try:
+            # 1. Calculate Total Output and Loss from the log
+            total_output = Decimal("0.00")
+            total_loss = Decimal("0.00")
+            for row in range(self.ui.output_log_table.rowCount()):
+                output_item = self.ui.output_log_table.item(row, 3)
+                loss_item = self.ui.output_log_table.item(row, 4)
+                if output_item: total_output += Decimal(output_item.text() or '0')
+                if loss_item: total_loss += Decimal(loss_item.text() or '0')
+
+            self.ui.total_output_label.setText(f"{total_output:.2f} KG")
+            # self.ui.qty_produced_input.setText(f"{total_output:.2f}")
+            self.ui.loss_label.setText(f"{total_loss:.2f} KG")
+
+            # 2. Calculate Output %
+            qty_ordered = Decimal(self.ui.qty_order_input.text() or '0')
+            output_percent = (total_output / qty_ordered * 100) if qty_ordered > 0 else Decimal("0.00")
+            self.ui.output_percent_label.setText(f"{output_percent:.2f} %")
+
+            # 3. Calculate Resin Total
+            total_resin = Decimal("0.00")
+            for row in range(self.ui.resin_table.rowCount()):
+                qty_item = self.ui.resin_table.item(row, 1)
+                if qty_item: total_resin += Decimal(qty_item.text() or '0')
+            self.ui.resin_qty_label.setText(f"{total_resin:.2f} KG")
+
+            # 4. Calculate Loss %
+            total_material_used = total_resin
+            loss_percent = (total_loss / total_material_used * 100) if total_material_used > 0 else Decimal("0.00")
+            self.ui.loss_percent_label.setText(f"{loss_percent:.2f} %")
+
+            # 5. Calculate Output per Hour
+            # (Simplified: This would need a more robust calculation of total time)
+            # For now, we'll leave it as a placeholder.
+
+        except (InvalidOperation, TypeError) as e:
+            # Handle cases where text is not a valid decimal yet
+            # print(f"Calculation error: {e}")
+            pass
+
+    # --- Form Actions ---
 
     def _clear_form(self):
-        """Clears all input fields on the form."""
+        # Group 1
         self.ui.lot_number_input.clear()
-        self.ui.formula_id_input.clear()
-        self.ui.production_id_input.clear()
         self.ui.product_code_input.clear()
-        self.ui.order_no_input.clear()
-        self.ui.ordered_qty_input.setText("0.00")
-        self.ui.total_input_display.setText("0.00")
-        self.ui.remarks_textedit.clear()
         self.ui.customer_input.clear()
-        self.ui.machine_combo.setCurrentIndex(0)
-        self.ui.total_output_display.setText("0.00")
-        self.ui.output_percent_display.setText("0.00%")
-        self.ui.loss_display.setText("0.00")
-        self.ui.loss_percent_display.setText("0.00%")
-        self.ui.output_per_hour_display.setText("0.00")
-        print("Form cleared.")
+        self.ui.qty_order_input.setText("0.00")
+        self.ui.qty_produced_input.setText("0.00")
+        self.ui.target_output_hr_input.setText("0.00")
+
+        self.ui.prepared_by_combo.setCurrentIndex(0)
+        self.ui.operators_table.setRowCount(0)
+
+        # Group 2
+        self.ui.shift_combo.setCurrentIndex(0)
+        self.ui.mc_no_combo.setCurrentIndex(0)
+        self.ui.feed_rate_input.setText("0.00")
+        self.ui.rpm_input.setText("0.00")
+        self.ui.screen_size_combo.setCurrentIndex(0)
+        self.ui.screw_config_combo.setCurrentIndex(0)
+
+        # Purging
+        self.ui.purging_product_code_combo.setCurrentIndex(0)
+        self.ui.purging_resin_combo.setCurrentIndex(0)
+        self.ui.purging_palletizer_input.setText("0.00")
+        self.ui.purging_siever_input.setText("0.00")
+
+        # Resin Table
+        self.ui.resin_table.setRowCount(0)
+
+        # Output Log Table
+        self.ui.output_log_table.setRowCount(0)
+
+        # Zone Temps
+        for widget in self.ui.zone_inputs.values():
+            widget.setText("0")
+
+        # Remarks
+        self.ui.remarks_input.clear()
+
+        # Summary - will be cleared by the update call
+        self._update_production_summary()
+
+        QMessageBox.information(self, "Cleared", "Form has been cleared.")
+
+    def _gather_data_from_ui(self) -> dict:
+        """Gathers all data from the UI into a structured dictionary."""
+
+        # Helper to get data from table cell widgets
+        def get_table_cell_data(table, row, col):
+            widget = table.cellWidget(row, col)
+            if isinstance(widget, QComboBox):
+                return widget.currentData(), widget.currentText()
+            elif isinstance(widget, (QDateEdit, QTimeEdit)):
+                return widget.text()  # Simple text for now
+            item = table.item(row, col)
+            return (item.text() if item else None), None
+
+        data = {
+            "main": {
+                "lot_number": self.ui.lot_number_input.text(),
+                "prod_id": self.selected_prod_id,
+                "product_code": self.ui.product_code_input.text(),
+                "customer": self.ui.customer_input.text(),
+                "qty_order": self.ui.qty_order_input.text(),
+                "prepared_by_id": self.ui.prepared_by_combo.currentData(),
+                "prepared_by_name": self.ui.prepared_by_combo.currentText(),
+                "machine_id": self.ui.mc_no_combo.currentData(),
+            },
+            "machine_config": {
+                "shift": self.ui.shift_combo.currentText(),
+                "feed_rate": self.ui.feed_rate_input.text(),
+                "rpm": self.ui.rpm_input.text(),
+                "screen_size_id": self.ui.screen_size_combo.currentData(),
+                "screw_config": self.ui.screw_config_combo.currentText(),
+            },
+            "purging": {
+                "product_code_id": self.ui.purging_product_code_combo.currentData(),
+                "product_code_name": self.ui.purging_product_code_combo.currentText(),
+                "start_time": self.ui.purging_start_time.time().toPyTime(),
+                "end_time": self.ui.purging_end_time.time().toPyTime(),
+                "resin_id": self.ui.purging_resin_combo.currentData(),
+                "palletizer": self.ui.purging_palletizer_input.text(),
+                "siever": self.ui.purging_siever_input.text(),
+            },
+            "resin_consumption": [
+                {
+                    "resin_id": get_table_cell_data(self.ui.resin_table, r, 0)[0],
+                    "resin_name": get_table_cell_data(self.ui.resin_table, r, 0)[1],
+                    "qty": get_table_cell_data(self.ui.resin_table, r, 1)[0]
+                } for r in range(self.ui.resin_table.rowCount())
+            ],
+            "output_log": [
+                {
+                    "date": self.ui.output_log_table.cellWidget(r, 0).date().toPyDate(),
+                    "time_start": self.ui.output_log_table.cellWidget(r, 1).time().toPyTime(),
+                    "time_end": self.ui.output_log_table.cellWidget(r, 2).time().toPyTime(),
+                    "output": get_table_cell_data(self.ui.output_log_table, r, 3)[0],
+                    "loss": get_table_cell_data(self.ui.output_log_table, r, 4)[0],
+                } for r in range(self.ui.output_log_table.rowCount())
+            ],
+            "zone_temps": {name: widget.text() for name, widget in self.ui.zone_inputs.items()},
+            "personnel": [
+                {
+                    "employee_id": get_table_cell_data(self.ui.operators_table, r, 0)[0],
+                    "position_id": get_table_cell_data(self.ui.operators_table, r, 1)[0]
+                } for r in range(self.ui.operators_table.rowCount())
+            ],
+            "summary": {
+                "resin_qty_total": Decimal(self.ui.resin_qty_label.text().replace(" KG", ""))
+            }
+        }
+        return data
 
     def _save_form_data(self):
-        """Gathers all data from the UI and passes it to the controller to save."""
         if not self.ui.lot_number_input.text():
             QMessageBox.warning(self, "Missing Data", "Please select a lot number before saving.")
             return
 
-        form_data = {
-            "main": {
-                "lot_number": self.ui.lot_number_input.text(),
-                "formula_no": self.ui.formula_id_input.text(),
-                "production_id": self.ui.production_id_input.text(),
-                "product_code": self.ui.product_code_input.text(),
-                "order_no": self.ui.order_no_input.text(),
-                "customer": self.ui.customer_input.text(),
-                "machine_id": self.ui.machine_combo.currentData(),
-                "machine_datetime_start": self.ui.start_datetime_edit.dateTime().toPyDateTime(),
-                "machine_datetime_end": self.ui.end_datetime_edit.dateTime().toPyDateTime(),
-                "qty_order": self.ui.ordered_qty_input.text(),
-                "total_input": self.ui.total_input_display.text(),
-                "remarks": self.ui.remarks_textedit.toPlainText(),
-            },
-            "personnel": [],
-            "machine_temps": [],
-        }
+        form_data = self._gather_data_from_ui()
 
         try:
             self.controller.save_full_form(form_data)
             QMessageBox.information(self, "Success", "Form data has been saved (simulated).")
             self._clear_form()
         except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"Could not save the form: {e}")
+            QMessageBox.critical(self, "Save Error", f"Could not save the form: {e}\n\nCheck console for details.")
+            import traceback
+            traceback.print_exc()
