@@ -119,7 +119,7 @@ class ExtruderEntryFormView(QWidget):
         Handles data from the dialog, appending unique values to the relevant fields.
         """
         lot_data = selection_data.get("lot_data")
-        prod_cut_qty = selection_data.get("prod_cut_qty")
+        self.prod_cut_qty = selection_data.get("prod_cut_qty")
         if not lot_data: return
 
         # --- Logic for appending unique values ---
@@ -141,16 +141,24 @@ class ExtruderEntryFormView(QWidget):
         # append_unique_value(self.ui.production_id_input, lot_data.get("prod_id"))
         # append_unique_value(self.ui.order_no_input, lot_data.get("order_no"))
 
+        # This ensures the variable is always available.
+        current_lots_text = self.ui.lot_number_input.text()
+        lot_set = set(current_lots_text.split('; ')) if current_lots_text else set()
+        lot_set.add(lot_data.get("lot_num", ""))
+        final_lots = sorted([item for item in lot_set if item])
+        self.ui.lot_number_input.setText("; ".join(final_lots))
+
         try:
-            if prod_cut_qty is not None:
+            if self.prod_cut_qty is not None:
                 if not self.production_cut_active:
                     self.production_cut_active = True
                     # --- FIX: Using the reverted widget name ---
                     self.ui.qty_produced_input.setText("0.00")
 
                 current_total = Decimal(self.ui.qty_produced_input.text() or '0')
-                new_total = current_total + Decimal(prod_cut_qty)
-                self.ui.qty_produced_input.setText(f"{new_total:.2f}")
+                self.new_total = current_total + Decimal(self.prod_cut_qty)
+                self.ui.qty_produced_input.setText(f"{self.new_total:.2f}")
+                self.ui.qty_order_input.setText(f"{self.new_total:.2f}")
 
             elif not self.production_cut_active:
                 total_input = self.controller.get_total_batch_weight_for_lots(final_lots)
@@ -164,16 +172,31 @@ class ExtruderEntryFormView(QWidget):
             self._prepopulate_static_fields(final_lots[0])
 
     def _prepopulate_static_fields(self, lot_number: str):
+        """
+        Prepopulates static fields and now also fetches the QTY Order
+        from tbl_incoming2.
+        """
         details = self.controller.get_details_for_lot(lot_number)
         if details:
             self.ui.product_code_input.setText(details.get("product_code", ""))
             self.ui.customer_input.setText(details.get("customer", ""))
-            # qty_order = details.get("qty_order", Decimal("0.00"))
-            # self.ui.qty_order_input.setText(f"{qty_order:.2f}" if qty_order else "0.00")
-            # Qty produced is prepopulated from summary, so we just trigger a recalc
-            self._update_production_summary()
 
-    # --- Dynamic Table Handlers ---
+            # --- FIX: New logic to get QTY Order ---
+            order_no = details.get("order_no")
+
+            if self.prod_cut_qty:
+                self.ui.qty_order_input.setText(f"{self.new_total:.2f}")
+
+            elif order_no:
+                order_qty = self.controller.get_order_qty_by_order_number(order_no)
+                if order_qty is not None:
+                    self.ui.qty_order_input.setText(f"{order_qty:.2f}")
+                else:
+                    # If no matching order is found, default to 0
+                    self.ui.qty_order_input.setText("0.00")
+
+            # This call remains to update the summary panel correctly
+            self._update_production_summary()
 
     def _add_operator_row(self):
         row_position = self.ui.operators_table.rowCount()

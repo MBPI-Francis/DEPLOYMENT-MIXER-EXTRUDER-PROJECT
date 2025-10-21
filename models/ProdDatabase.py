@@ -2,7 +2,7 @@
 
 from datetime import date
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 from sqlalchemy import (
     Boolean,
     Date,
@@ -163,3 +163,42 @@ class TblFormula02(Base):
 
     def __repr__(self) -> str:
         return f"<TblFormula02(T_UID={self.T_UID}, T_SEQ={self.T_SEQ}, T_MATCODE='{self.T_MATCODE}')>"
+
+
+class TblIncoming2(Base):
+    """
+    SQLAlchemy model for the 'tbl_incoming2' table, mapped from the legacy DBF file.
+    """
+    __tablename__ = 'tbl_incoming2'
+
+    # A new, auto-incrementing integer primary key for use within SQLAlchemy.
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # --- Column definitions based on the DBF structure ---
+
+    t_seq: Mapped[Optional[int]] = mapped_column(Integer)
+    t_ctrlnum: Mapped[Optional[str]] = mapped_column(String(100))
+    t_date: Mapped[Optional[date]] = mapped_column(Date)
+    t_matcode: Mapped[Optional[str]] = mapped_column(String(15))
+
+    # Note: t_qty was listed twice; it is defined here once as a Numeric field.
+    # A precision of 12 with 2 decimal places is a safe default. Adjust if needed.
+    t_qty: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 6))
+
+    t_note: Mapped[Optional[str]] = mapped_column(String(254))
+    t_uid: Mapped[Optional[str]] = mapped_column(String(100))
+    t_deleted: Mapped[Optional[bool]] = mapped_column(Boolean)
+    t_customer: Mapped[Optional[str]] = mapped_column(String(100))
+    t_code: Mapped[Optional[str]] = mapped_column(String(100))
+    t_po: Mapped[Optional[str]] = mapped_column(String(100))
+    t_datereq: Mapped[Optional[date]] = mapped_column(Date)
+    t_datereq2: Mapped[Optional[str]] = mapped_column(String(100))
+    t_delto: Mapped[Optional[str]] = mapped_column(String(100))
+    t_orderedb: Mapped[Optional[str]] = mapped_column(String(100))
+    t_prepared: Mapped[Optional[str]] = mapped_column(String(100))
+    t_mattype: Mapped[Optional[str]] = mapped_column(String(15))
+    t_status: Mapped[Optional[str]] = mapped_column(String(30))
+    t_time: Mapped[Optional[str]] = mapped_column(String(30))
+
+    def __repr__(self) -> str:
+        return f"<TblIncoming2(id={self.id}, t_ctrlnum='{self.t_ctrlnum}', t_matcode='{self.t_matcode}')>"

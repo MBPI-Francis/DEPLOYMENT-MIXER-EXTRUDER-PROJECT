@@ -9,7 +9,7 @@ from models import (
     TblProd01, TblProd02, ExtruderMachine, ScreenSize, Resin, Zone,
     ProductionEmployee, EmployeePosition, ExtruderFormData, MachineConfig,
     UsedMaterial, ExtruderOutput, MachineTemp, ExtruderPersonnel,
-    PurgingHeader
+    PurgingHeader, TblIncoming2
 )
 
 
@@ -21,7 +21,23 @@ class ExtruderOpsController:
     def __init__(self, session_factory: Type[sessionmaker]):
         self.Session = session_factory
 
-    # --- Methods for Populating ComboBoxes ---
+    # --- NEW METHOD ---
+    def get_order_qty_by_order_number(self, order_number: str) -> Decimal | None:
+        """
+        Finds the corresponding record in tbl_incoming2 using the order number
+        and returns the quantity (t_qty).
+        """
+        if not order_number:
+            return None
+
+        with self.Session() as session:
+            # Query TblIncoming2 for the t_qty where t_ctrlnum matches the order_number
+            # .scalar() returns the first value of the first row, or None if no rows found.
+            quantity = session.query(TblIncoming2.t_qty).filter(
+                TblIncoming2.t_ctrlnum == order_number
+            ).scalar()
+
+            return quantity
 
     def get_all_machines(self) -> List[ExtruderMachine]:
         with self.Session() as session:

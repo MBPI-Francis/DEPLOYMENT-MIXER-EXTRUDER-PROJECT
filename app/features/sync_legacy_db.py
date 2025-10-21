@@ -5,6 +5,7 @@ from typing import Set, Tuple, Any
 import dbfread
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QThread, Qt
 from PyQt6.QtWidgets import QProgressDialog, QMessageBox
+from dbfread import FieldParser
 # --- NEW IMPORTS ---
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
@@ -12,7 +13,7 @@ from sqlalchemy.exc import OperationalError
 
 # Import your SQLAlchemy models
 # Assuming your new RawMaterials model is in a file with your other models
-from models import TblProd01, TblFormula01, TblFormula02, RawMaterials, Customer, TblProd02
+from models import TblProd01, TblFormula01, TblFormula02, RawMaterials, Customer, TblProd02, TblIncoming2
 from os import getenv
 # --- END NEW IMPORTS ---
 
@@ -24,6 +25,7 @@ PRODUCTION02_DBF_PATH = os.path.join(DBF_PATH, 'tbl_prod02.dbf')
 FORMULA01_DBF_PATH = os.path.join(DBF_PATH, 'tbl_formula01.dbf')
 FORMULA02_DBF_PATH = os.path.join(DBF_PATH, 'tbl_formula02.dbf')
 CUSTOMER_DBF_PATH = os.path.join(DBF_PATH, 'tbl_customer01.dbf')
+INCOMING02_DBF_PATH = os.path.join(DBF_PATH, 'tbl_incoming2.dbf')
 
 # --- NEW: Configuration for the external Raw Materials database ---
 DB_CONFIG_RAW_MATERIALS = {
@@ -38,6 +40,22 @@ DB_CONFIG_RAW_MATERIALS = {
 
 # --- Helper Functions for Safe Data Conversion ---
 # These functions will prevent crashes when encountering bad data in DBF files.
+
+
+# --- NEW: Custom Field Parser to handle invalid dates ---
+class SafeFieldParser(FieldParser):
+    def parseD(self, field, data):
+        """
+        Custom date parser that returns None for invalid date strings.
+        This prevents crashes on 'zero dates' like b'00000000'.
+        """
+        try:
+            # Attempt to parse the date using the default dbfread method
+            return super().parseD(field, data)
+        except ValueError:
+            # If it fails (e.g., year 0), return None instead of crashing
+            return None
+
 
 def safe_decimal(value: Any) -> Decimal | None:
     """Safely converts a value to a Decimal, returning None on failure."""
@@ -239,10 +257,14 @@ class SyncWorker(QObject):
             self.progress.emit("Syncing Raw Materials...", 60)
             rm_new = self._sync_raw_materials(main_session)
 
-            # --- NEW: Call the customer sync method ---
+
             self.progress.emit("Syncing Customers...", 75)
             cust_new = self._sync_customers(main_session)
-            # --- END NEW ---
+
+
+            # --- NEW: Call the incoming2 sync method ---
+            self.progress.emit("Syncing Incoming Records...", 85)
+            inc2_new = self._sync_incoming2(main_session)
             
             self.progress.emit("Committing all changes...", 95)
             main_session.commit()
@@ -252,6 +274,7 @@ class SyncWorker(QObject):
                 f"New Formula Headers: {len(new_headers_map)}\n"
                 f"New Production Records: {p1_new}\n"
                 f"New Production Details: {p2_new}\n"
+                f"New Order Records: {inc2_new}\n"
                 f"New Raw Materials: {rm_new}\n" # Add new count to message
                 f"New Customers: {cust_new}"
             )
@@ -438,3 +461,49 @@ class SyncWorker(QObject):
 
         return len(records_to_add)
     # --- END NEW METHOD ---
+
+    def _sync_incoming2(self, session) -> int:
+        existing_ctrl_nums: Set[str] = {row.t_ctrlnum for row in session.query(TblIncoming2.t_ctrlnum).all()}
+        records_to_add = []
+        try:
+            dbf_records = dbfread.DBF(INCOMING02_DBF_PATH, encoding='latin1',
+                                      parserclass=SafeFieldParser)._iter_records()
+        except dbfread.exceptions.DBFNotFound:
+            raise FileNotFoundError(f"File not found: {INCOMING02_DBF_PATH}")
+        for record in dbf_records:
+            # --- THE FIX: Use UPPERCASE keys for all .get() calls ---
+            # Also, add strip() to the control number for robustness.
+            t_ctrlnum = record.get('T_CTRLNUM', '').strip()
+
+            if not t_ctrlnum or t_ctrlnum in existing_ctrl_nums:
+                continue
+
+            try:
+                new_incoming_record = TblIncoming2(
+                    t_seq=safe_int(record.get('T_SEQ')),
+                    t_ctrlnum=t_ctrlnum,
+                    t_date=record.get('T_DATE'),
+                    t_matcode=record.get('T_MATCODE'),
+                    t_qty=safe_decimal(record.get('T_QTY')),
+                    t_note=record.get('T_NOTE'),
+                    t_uid=record.get('T_UID'),
+                    t_deleted=safe_bool(record.get('T_DELETED')),
+                    t_customer=record.get('T_CUSTOMER'),
+                    t_code=record.get('T_CODE'),
+                    t_po=record.get('T_PO'),
+                    t_datereq=record.get('T_DATEREQ'),
+                    t_datereq2=record.get('T_DATEREQ2'),
+                    t_delto=record.get('T_DELTO'),
+                    t_orderedb=record.get('T_ORDEREDB'),
+                    t_prepared=record.get('T_PREPARED'),
+                    t_mattype=record.get('T_MATTYPE'),
+                    t_status=record.get('T_STATUS'),
+                    t_time=record.get('T_TIME')
+                )
+                records_to_add.append(new_incoming_record)
+                existing_ctrl_nums.add(t_ctrlnum)
+            except Exception as e:
+                print(f"Skipping corrupt record in tbl_incoming2 for T_CTRLNUM={t_ctrlnum}. Error: {e}")
+        if records_to_add:
+            session.add_all(records_to_add)
+        return len(records_to_add)

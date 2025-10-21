@@ -55,12 +55,10 @@ class Ui_ExtruderEntryForm:
         self.product_code_input = QLineEdit()
         self.product_code_input.setReadOnly(True)
         self.customer_input = QLineEdit()
-        self.customer_input.setReadOnly(True)
         self.qty_order_input = QLineEdit("0.00")
 
         # --- FIX: Reverted widget name and label to your preference ---
         self.qty_produced_input = QLineEdit("0.00")
-        self.qty_produced_input.setReadOnly(True)
 
         self.target_output_hr_input = QLineEdit("0.00")
         self.prepared_by_combo = QComboBox()
