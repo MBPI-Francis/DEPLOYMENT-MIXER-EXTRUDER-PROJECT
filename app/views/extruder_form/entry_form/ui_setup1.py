@@ -8,53 +8,31 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QDateTime, QDate
 
-from app.views.extruder_form.entry_form.widgets.lazy_loading_combo import LazyLoadingComboBox
-
 
 class Ui_ExtruderEntryForm:
-
     def setup_ui(self, parent_widget: QWidget):
-        """
-        Sets up the UI with the new, specified grid layout.
-        """
         main_layout = QVBoxLayout(parent_widget)
         grid_layout = QGridLayout()
         main_layout.addLayout(grid_layout)
 
-        # --- Create all the group box widgets first ---
         order_group = self._create_order_info_group()
-        machine_group = self._create_machine_config_group()
-        zones_group = self._create_zones_group()
-        output_log_group = self._create_output_log_group()
-        purging_group = self._create_purging_group()
-        resin_group = self._create_resin_consumption_group()
-        remarks_personnel_group = self._create_remarks_personnel_group()
-        summary_group = self._create_summary_group()
-
-        # --- Arrange widgets in the grid layout according to the new plan ---
-
-        # Row 1: (Spans from column 0 to 2)
         grid_layout.addWidget(order_group, 0, 0)
+        machine_group = self._create_machine_config_group()
         grid_layout.addWidget(machine_group, 0, 1)
+        zones_group = self._create_zones_group()
         grid_layout.addWidget(zones_group, 0, 2)
-
-        # Row 2 & 3, Column 1:
-        # addWidget(widget, fromRow, fromColumn, rowSpan, columnSpan)
-        grid_layout.addWidget(output_log_group, 1, 0, 2, 1)  # Start at row 1, col 0, span 2 rows, span 1 column
-
-        # Row 2, Column 2:
-        grid_layout.addWidget(purging_group, 1, 1)
-
-        # Row 2, Column 3:
-        grid_layout.addWidget(resin_group, 1, 2)
-
-        # Row 3, Column 2:
-        grid_layout.addWidget(remarks_personnel_group, 2, 1)
-
-        # Row 3, Column 3:
-        grid_layout.addWidget(summary_group, 2, 2)
-
-        # --- Action Buttons (at the very bottom) ---
+        purging_resin_layout = QHBoxLayout()
+        self.purging_group = self._create_purging_group()
+        self.resin_group = self._create_resin_consumption_group()
+        purging_resin_layout.addWidget(self.purging_group)
+        purging_resin_layout.addWidget(self.resin_group)
+        grid_layout.addLayout(purging_resin_layout, 1, 0, 1, 2)
+        summary_group = self._create_summary_group()
+        grid_layout.addWidget(summary_group, 1, 2)
+        output_log_group = self._create_output_log_group()
+        grid_layout.addWidget(output_log_group, 2, 0, 1, 3)
+        remarks_personnel_group = self._create_remarks_personnel_group()
+        grid_layout.addWidget(remarks_personnel_group, 3, 0, 1, 3)
         action_layout = QHBoxLayout()
         action_layout.addStretch()
         self.clear_button = QPushButton("Clear Form")
@@ -62,7 +40,6 @@ class Ui_ExtruderEntryForm:
         action_layout.addWidget(self.clear_button)
         action_layout.addWidget(self.save_button)
         main_layout.addLayout(action_layout)
-
 
     def _create_remarks_personnel_group(self):
         """
@@ -158,10 +135,7 @@ class Ui_ExtruderEntryForm:
     def _create_purging_group(self):
         group = QGroupBox("Purging Details")
         layout = QFormLayout(group)
-        # --- FIX: Use the new LazyLoadingComboBox ---
-        self.purging_product_code_combo = LazyLoadingComboBox()
-        self.purging_product_code_combo.setPlaceholderText("Type to search Product Codes...")
-
+        self.purging_product_code_combo = QComboBox()
         self.purging_start_time = QTimeEdit()
         self.purging_end_time = QTimeEdit()
         self.purging_resin_combo = QComboBox()

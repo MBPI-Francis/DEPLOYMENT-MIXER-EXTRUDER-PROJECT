@@ -7,6 +7,7 @@ from .User import User, AuthLog
 from .Mixer import (MixerMachine,
                     MixerHeader,
                     MixerDetail)
+
 from .ProdDatabase import (TblFormula01,
                            TblFormula02,
                            TblProd01,
@@ -25,15 +26,15 @@ from .Customers import Customer
 
 from .ProductionEmployees import ProductionEmployee, EmployeePosition
 
-from . ExtruderCore import (ExtruderPersonnel,
+from .ExtruderCore import ( ExtruderPersonnel,
+                            MachineDetail,
                             ExtruderOutput,
-                            ExtruderFormData,
                             MachineTemp,
-                            MachineConfig,
-                            UsedMaterial,
-                            PurgingDetail,
                             ScreenSize,
-                            PurgingHeader
+                            PurgingDetail,
+                            PurgingHeader,
+                            Shift,
+                            ExtruderFormData,
                             )
 
 

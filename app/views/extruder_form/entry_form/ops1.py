@@ -1,17 +1,16 @@
 # app/views/extruder_form/entry_form/ops.py
 
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import func, or_, cast, String, distinct
+from sqlalchemy import func, or_, cast, String
 from typing import Type, List, Dict, Any
 from decimal import Decimal
 
 from models import (
     TblProd01, TblProd02, ExtruderMachine, ScreenSize, Resin, Zone,
     ProductionEmployee, EmployeePosition, ExtruderFormData, MachineDetail,
-    ExtruderOutput, MachineTemp, ExtruderPersonnel,
-    PurgingHeader, TblIncoming2, Shift
+     ExtruderOutput, MachineTemp, ExtruderPersonnel,
+    PurgingHeader, TblIncoming2
 )
-from models.ExtruderCore import ScrewConfig
 
 
 class ExtruderOpsController:
@@ -36,18 +35,6 @@ class ExtruderOpsController:
             return total_weight or Decimal("0.00")
 
 
-    # --- NEW METHODS ---
-    def get_all_shifts(self) -> List[Shift]:
-        """Fetches all shifts for the ComboBox."""
-        with self.Session() as session:
-            return session.query(Shift).filter_by(is_deleted=False).order_by(Shift.name).all()
-
-    def get_all_screw_configs(self) -> List[ScrewConfig]:
-        """Fetches all screw configurations for the ComboBox."""
-        with self.Session() as session:
-            return session.query(ScrewConfig).filter_by(is_deleted=False).order_by(ScrewConfig.name).all()
-
-
     def get_order_qty_by_order_number(self, order_number: str) -> Decimal | None:
         """
         Finds the corresponding record in tbl_incoming2 using the order number
@@ -64,27 +51,6 @@ class ExtruderOpsController:
             ).scalar()
 
             return quantity
-
-        # --- NEW METHOD ---
-
-    # --- NEW PAGINATED METHOD for the lazy loading combo box ---
-    def get_distinct_product_codes_paginated(self, page: int, page_size: int, search_term: str = None) -> List[str]:
-        """
-        Fetches a unique, paginated, and searchable list of T_PRODCODE values.
-        """
-        with self.Session() as session:
-            query = session.query(distinct(TblProd01.T_PRODCODE)).filter(
-                TblProd01.T_PRODCODE.isnot(None),
-                TblProd01.T_PRODCODE != ''
-            )
-
-            if search_term:
-                query = query.filter(TblProd01.T_PRODCODE.ilike(f"%{search_term}%"))
-
-            results = query.order_by(TblProd01.T_PRODCODE).offset((page - 1) * page_size).limit(page_size).all()
-
-            return [code for (code,) in results]
-
 
     def get_all_machines(self) -> List[ExtruderMachine]:
         with self.Session() as session:

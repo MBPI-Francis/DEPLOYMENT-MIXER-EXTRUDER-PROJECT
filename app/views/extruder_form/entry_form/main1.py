@@ -62,64 +62,17 @@ class ExtruderEntryFormView(QWidget):
             screen_sizes = self.controller.get_all_screen_sizes()
             self.ui.screen_size_combo.addItem("- Select -", None)
             for s in screen_sizes: self.ui.screen_size_combo.addItem(s.size, s.id)
-
-
-
-            # --- FIX: Populate Shift from the database ---
-            self.ui.shift_combo.clear() # Clear any existing items
-            shifts = self.controller.get_all_shifts()
-            self.ui.shift_combo.addItem("- Select -", None)
-            for s in shifts:
-                self.ui.shift_combo.addItem(s.name, s.id)
-
-            # --- FIX: Populate Screw Config from the database ---
-            self.ui.screw_config_combo.clear() # Clear any existing items
-            screw_configs = self.controller.get_all_screw_configs()
-            self.ui.screw_config_combo.addItem("- Select -", None)
-            for sc in screw_configs:
-                self.ui.screw_config_combo.addItem(sc.name, sc.id)
-
-            # --- Purging & Resin Data ---
+            self.ui.screw_config_combo.addItems(["- Select -", "Coil", "Configuration"])
             self.resin_list = self.controller.get_all_resins()
             self.ui.purging_resin_combo.addItem("- Select -", None)
+            self.ui.purging_product_code_combo.addItem("- Select -", None)
             for r in self.resin_list:
-                self.ui.purging_resin_combo.addItem(r.abbreviation, r.id)
-
-            self.ui.purging_product_code_combo.set_data_fetcher(
-                self.controller.get_distinct_product_codes_paginated
-            )
-            self.ui.purging_product_code_combo.load_initial_data()
-
-
+                self.ui.purging_resin_combo.addItem(r.name, r.id)
+                self.ui.purging_product_code_combo.addItem(r.name, r.id)
             zones = self.controller.get_all_zones()
             self.zone_mapping = {zone.name: zone.id for zone in zones}
         except Exception as e:
             QMessageBox.critical(self, "Database Error", f"Could not load initial data: {e}")
-
-    def _validate_purging_times(self) -> bool:
-        """
-        Validates the start and end times for purging.
-        Returns True if valid, False otherwise (and shows a message).
-        """
-        # Check if the user has intended to enter any purging data
-        product_code_selected = self.ui.purging_product_code_combo.currentIndex() > 0
-        resin_selected = self.ui.purging_resin_combo.currentIndex() > 0
-
-        # Only validate if at least one of the key fields is filled
-        if product_code_selected or resin_selected:
-            start_time = self.ui.purging_start_time.time()
-            end_time = self.ui.purging_end_time.time()
-
-            if end_time <= start_time:
-                QMessageBox.warning(
-                    self,
-                    "Purging Validation Error",
-                    "The Purging End Time must be after the Purging Start Time."
-                )
-                return False
-
-        return True  # Validation passes
-
 
     def _open_lot_number_dialog(self):
         try:
@@ -187,7 +140,7 @@ class ExtruderEntryFormView(QWidget):
         resin_combo = QComboBox()
         resin_combo.addItem("- Select -", None)
         for resin in self.resin_list:
-            resin_combo.addItem(resin.abbreviation, resin.id)
+            resin_combo.addItem(resin.name, resin.id)
         self.ui.resin_table.setCellWidget(row_position, 0, resin_combo)
         self.ui.resin_table.setItem(row_position, 1, QTableWidgetItem("0.00"))
     def _remove_selected_resin(self):
@@ -262,8 +215,6 @@ class ExtruderEntryFormView(QWidget):
         self.ui.remarks_input.clear()
         self._update_production_summary()
         QMessageBox.information(self, "Cleared", "Form has been cleared.")
-
-
     def _gather_data_from_ui(self) -> dict:
         prod_id_str = "; ".join(sorted([item for item in self.aggregated_prod_ids if item]))
         formula_no_str = "; ".join(sorted([item for item in self.aggregated_formula_ids if item]))
@@ -274,24 +225,9 @@ class ExtruderEntryFormView(QWidget):
             item = table.item(row, col)
             return (item.text() if item else None), None
         data = {
-            "main": { "lot_number": self.ui.lot_number_input.text(), "production_id": prod_id_str, "formula_no": formula_no_str, "order_no": order_no_str, "product_code": self.ui.product_code_input.text(), "customer": self.ui.customer_input.text(), "qty_order": self.ui.qty_order_input.text(), "prepared_by_id": self.ui.prepared_by_combo.currentData(), "prepared_by_name": self.ui.prepared_by_combo.currentText(), "machine_id": self.ui.mc_no_combo.currentData(),
-            # --- FIX: Add shift_id to the data being saved ---
-            "shift_id": self.ui.shift_combo.currentData()
-            },
-            "machine_config": {
-                # --- FIX: Save the text value of the screw config, as the model expects a string ---
-                "screw_config": self.ui.screw_config_combo.currentText(),
-                "feed_rate": self.ui.feed_rate_input.text(), "rpm": self.ui.rpm_input.text(), "screen_size_id": self.ui.screen_size_combo.currentData(),
-            },
-            "purging": {
-                # "product_code_id": self.ui.purging_product_code_combo.currentData(),
-                "product_code_name": self.ui.purging_product_code_combo.currentText(),
-                "start_time": self.ui.purging_start_time.time().toPyTime(),
-                "end_time": self.ui.purging_end_time.time().toPyTime(),
-                "resin_id": self.ui.purging_resin_combo.currentData(),
-                "palletizer": self.ui.purging_palletizer_input.text(),
-                "siever": self.ui.purging_siever_input.text(),
-            },
+            "main": { "lot_number": self.ui.lot_number_input.text(), "production_id": prod_id_str, "formula_no": formula_no_str, "order_no": order_no_str, "product_code": self.ui.product_code_input.text(), "customer": self.ui.customer_input.text(), "qty_order": self.ui.qty_order_input.text(), "prepared_by_id": self.ui.prepared_by_combo.currentData(), "prepared_by_name": self.ui.prepared_by_combo.currentText(), "machine_id": self.ui.mc_no_combo.currentData(), },
+            "machine_config": { "shift": self.ui.shift_combo.currentText(), "feed_rate": self.ui.feed_rate_input.text(), "rpm": self.ui.rpm_input.text(), "screen_size_id": self.ui.screen_size_combo.currentData(), "screw_config": self.ui.screw_config_combo.currentText(), },
+            "purging": { "product_code_id": self.ui.purging_product_code_combo.currentData(), "product_code_name": self.ui.purging_product_code_combo.currentText(), "start_time": self.ui.purging_start_time.time().toPyTime(), "end_time": self.ui.purging_end_time.time().toPyTime(), "resin_id": self.ui.purging_resin_combo.currentData(), "palletizer": self.ui.purging_palletizer_input.text(), "siever": self.ui.purging_siever_input.text(), },
             "resin_consumption": [ { "resin_id": get_table_cell_data(self.ui.resin_table, r, 0)[0], "resin_name": get_table_cell_data(self.ui.resin_table, r, 0)[1], "qty": get_table_cell_data(self.ui.resin_table, r, 1)[0] } for r in range(self.ui.resin_table.rowCount()) ],
             "output_log": [ { "date": self.ui.output_log_table.cellWidget(r, 0).date().toPyDate(), "time_start": self.ui.output_log_table.cellWidget(r, 1).time().toPyTime(), "time_end": self.ui.output_log_table.cellWidget(r, 2).time().toPyTime(), "output": get_table_cell_data(self.ui.output_log_table, r, 3)[0], "loss": get_table_cell_data(self.ui.output_log_table, r, 4)[0], } for r in range(self.ui.output_log_table.rowCount()) ],
             "zone_temps": {name: widget.text() for name, widget in self.ui.zone_inputs.items()},
@@ -299,16 +235,7 @@ class ExtruderEntryFormView(QWidget):
             "summary": { "resin_qty_total": Decimal(self.ui.resin_qty_label.text().replace(" KG", "")) }
         }
         return data
-
-
-
     def _save_form_data(self):
-
-        # --- FIX: Call validation method before saving ---
-        if not self._validate_purging_times():
-            return # Stop the save if validation fails
-
-
         if not self.ui.lot_number_input.text():
             QMessageBox.warning(self, "Missing Data", "Please select a lot number before saving.")
             return
