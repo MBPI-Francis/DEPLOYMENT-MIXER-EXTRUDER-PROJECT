@@ -85,8 +85,14 @@ class LazyLoadingComboBox(QComboBox):
         self.is_loading = False
 
     def clear(self):
-        """Overrides the default clear to also reset the line edit text."""
+        """Overrides the default clear to also reset state and selection."""
+        # Block signals to prevent any partial updates while we are clearing
+        self.blockSignals(True)
         super().clear()
         self.lineEdit().clear()
+        self.setCurrentIndex(-1)  # Explicitly set index to "no selection"
+        self.blockSignals(False)
+
+        # Reset pagination state
         self.current_page = 1
         self.can_load_more = True

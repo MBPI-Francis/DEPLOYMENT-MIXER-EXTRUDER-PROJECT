@@ -190,7 +190,7 @@ class SyncWorker(QObject):
             main_session = MainSession()
 
             # --- THIS IS THE NEW, CORRECT LOGIC ---
-            self.progress.emit("Reading legacy formulas...", 5)
+            self.progress.emit("Fetching Records.", 5)
 
             # 1. Fetch existing legacy IDs to avoid duplicates.
             existing_header_uids: Set[int] = {row.T_UID for row in main_session.query(TblFormula01.T_UID).all()}
@@ -203,7 +203,7 @@ class SyncWorker(QObject):
             new_headers_map = {}
 
             # 3. Process Formula Headers (tbl_formula01)
-            self.progress.emit("Processing formula headers...", 15)
+            self.progress.emit("Fetching Records..", 15)
             dbf_headers = dbfread.DBF(FORMULA01_DBF_PATH, encoding='latin1')._iter_records()
             for record in dbf_headers:
                 t_uid = safe_int(record.get('T_UID'))
@@ -226,7 +226,7 @@ class SyncWorker(QObject):
                 new_headers_map[t_uid] = new_header # Store in our map
 
             # 4. Process Formula Details (tbl_formula02) and link them to headers
-            self.progress.emit("Processing formula details...", 40)
+            self.progress.emit("Fetching Records...", 40)
             dbf_details = dbfread.DBF(FORMULA02_DBF_PATH, encoding='latin1')._iter_records()
             for record in dbf_details:
                 t_uid, t_seq = safe_int(record.get('T_UID')), safe_int(record.get('T_SEQ'))
@@ -247,36 +247,30 @@ class SyncWorker(QObject):
                     parent_header.details.append(new_detail)
 
 
-            self.progress.emit("Syncing Production Records (PROD01)...", 30)
+            self.progress.emit("Syncing Records", 30)
             p1_new = self._sync_prod01(main_session)
 
-            self.progress.emit("Syncing Production Details (PROD02)...", 45)
+            self.progress.emit("Syncing Records.", 45)
             p2_new = self._sync_prod02(main_session)
 
             # --- NEW: Sync Raw Materials ---
-            self.progress.emit("Syncing Raw Materials...", 60)
+            self.progress.emit("Syncing Records..", 60)
             rm_new = self._sync_raw_materials(main_session)
 
 
-            self.progress.emit("Syncing Customers...", 75)
+            self.progress.emit("Syncing Records...", 75)
             cust_new = self._sync_customers(main_session)
 
 
             # --- NEW: Call the incoming2 sync method ---
-            self.progress.emit("Syncing Incoming Records...", 85)
+            self.progress.emit("Syncing Records....", 85)
             inc2_new = self._sync_incoming2(main_session)
             
-            self.progress.emit("Committing all changes...", 95)
+            self.progress.emit("Almost Done.....", 95)
             main_session.commit()
 
             result_message = (
-                "Database Synchronization Successful!\n\n"
-                f"New Formula Headers: {len(new_headers_map)}\n"
-                f"New Production Records: {p1_new}\n"
-                f"New Production Details: {p2_new}\n"
-                f"New Order Records: {inc2_new}\n"
-                f"New Raw Materials: {rm_new}\n" # Add new count to message
-                f"New Customers: {cust_new}"
+                "Database Synchronization Successful!"
             )
             self.finished.emit(result_message)
 

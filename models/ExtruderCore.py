@@ -86,6 +86,7 @@ class PurgingDetail(Base, AuditMixin):
     purging_header_id = Column(Integer, ForeignKey("tbl_extruder_purging_headers.id"), nullable=False)
     resin_id = Column(SmallInteger, ForeignKey("tbl_extruder_resins.id"), nullable=False)
     qty = Column(Numeric(10, 2))
+    notes = Column(String(250), nullable=True)
     resin = relationship("Resin", back_populates="purging_details")
     purging_header = relationship("PurgingHeader", back_populates="purging_details")
 
@@ -98,7 +99,6 @@ class ExtruderOutput(Base, AuditMixin):
     time_start = Column(DateTime(timezone=True))
     time_end = Column(DateTime(timezone=True))
     qty_output = Column(Numeric(10, 2))
-    qty_loss = Column(Numeric(10, 2))
     extruder_form_data = relationship("ExtruderFormData", back_populates="extruder_outputs")
 
 
@@ -112,7 +112,7 @@ class MachineDetail(Base, AuditMixin):
     rpm = Column(String(100))
     machine_datetime_start = Column(DateTime(timezone=True))
     machine_datetime_end = Column(DateTime(timezone=True))
-    is_vaccumeon = Column(Boolean, default=False, nullable=False)
+    is_vacuum_on = Column(Boolean, default=False, nullable=False)
 
     # --- FIX: Removed redundant/incorrect relationships ---
     extruder_form_data = relationship("ExtruderFormData", back_populates="machine_details")

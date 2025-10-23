@@ -1,12 +1,12 @@
 # app/views/extruder_form/entry_form/ui_setup.py
-
+from PyQt6.QtGui import QIntValidator
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGridLayout, QHBoxLayout, QFormLayout,
     QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QGroupBox,
     QDateTimeEdit, QTableWidget, QHeaderView, QAbstractItemView,
-    QTimeEdit, QDateEdit, QSpacerItem, QSizePolicy, QFrame
+    QTimeEdit, QDateEdit, QSpacerItem, QSizePolicy, QFrame, QCheckBox
 )
-from PyQt6.QtCore import QDateTime, QDate
+from PyQt6.QtCore import QDateTime, QDate, QTime
 
 from app.views.extruder_form.entry_form.widgets.lazy_loading_combo import LazyLoadingComboBox
 
@@ -14,47 +14,46 @@ from app.views.extruder_form.entry_form.widgets.lazy_loading_combo import LazyLo
 class Ui_ExtruderEntryForm:
 
     def setup_ui(self, parent_widget: QWidget):
-        """
-        Sets up the UI with the new, specified grid layout.
-        """
         main_layout = QVBoxLayout(parent_widget)
         grid_layout = QGridLayout()
         main_layout.addLayout(grid_layout)
 
-        # --- Create all the group box widgets first ---
+        # --- Row 1 (Unchanged) ---
         order_group = self._create_order_info_group()
-        machine_group = self._create_machine_config_group()
-        zones_group = self._create_zones_group()
-        output_log_group = self._create_output_log_group()
-        purging_group = self._create_purging_group()
-        resin_group = self._create_resin_consumption_group()
-        remarks_personnel_group = self._create_remarks_personnel_group()
-        summary_group = self._create_summary_group()
-
-        # --- Arrange widgets in the grid layout according to the new plan ---
-
-        # Row 1: (Spans from column 0 to 2)
         grid_layout.addWidget(order_group, 0, 0)
+        machine_group = self._create_machine_config_group()
         grid_layout.addWidget(machine_group, 0, 1)
+        zones_group = self._create_zones_group()
         grid_layout.addWidget(zones_group, 0, 2)
 
-        # Row 2 & 3, Column 1:
-        # addWidget(widget, fromRow, fromColumn, rowSpan, columnSpan)
-        grid_layout.addWidget(output_log_group, 1, 0, 2, 1)  # Start at row 1, col 0, span 2 rows, span 1 column
+        # --- Row 2 & 3 ---
+        output_log_group = self._create_output_log_group()
+        grid_layout.addWidget(output_log_group, 1, 0, 2, 1)
 
-        # Row 2, Column 2:
-        grid_layout.addWidget(purging_group, 1, 1)
+        # --- FIX: Create the container group with the "No Purging" checkbox ---
+        main_purging_resin_group = QGroupBox("Purging and Resin Details")
+        main_purging_resin_layout = QVBoxLayout(main_purging_resin_group)
 
-        # Row 2, Column 3:
-        grid_layout.addWidget(resin_group, 1, 2)
+        # The checkbox is now at the top with the new label
+        self.no_purging_checkbox = QCheckBox("No Purging")
+        main_purging_resin_layout.addWidget(self.no_purging_checkbox)
 
-        # Row 3, Column 2:
+        purging_resin_h_layout = QHBoxLayout()
+        self.purging_group = self._create_purging_group()
+        self.resin_group = self._create_resin_consumption_group()
+        purging_resin_h_layout.addWidget(self.purging_group)
+        purging_resin_h_layout.addWidget(self.resin_group)
+        main_purging_resin_layout.addLayout(purging_resin_h_layout)
+
+        grid_layout.addWidget(main_purging_resin_group, 1, 1, 1, 2)
+
+        # Row 3 (Unchanged)
+        remarks_personnel_group = self._create_remarks_personnel_group()
         grid_layout.addWidget(remarks_personnel_group, 2, 1)
-
-        # Row 3, Column 3:
+        summary_group = self._create_summary_group()
         grid_layout.addWidget(summary_group, 2, 2)
 
-        # --- Action Buttons (at the very bottom) ---
+        # Action Buttons
         action_layout = QHBoxLayout()
         action_layout.addStretch()
         self.clear_button = QPushButton("Clear Form")
@@ -126,6 +125,10 @@ class Ui_ExtruderEntryForm:
         return group
 
     def _create_machine_config_group(self):
+        """
+        Creates the machine config group with the checkbox aligned to the left
+        and its label on the right.
+        """
         group = QGroupBox("Machine and Configuration Settings")
         layout = QFormLayout(group)
         self.shift_combo = QComboBox()
@@ -134,12 +137,30 @@ class Ui_ExtruderEntryForm:
         self.rpm_input = QLineEdit("0.00")
         self.screen_size_combo = QComboBox()
         self.screw_config_combo = QComboBox()
+
+        # --- THIS IS THE FIX ---
+        # 1. Create a horizontal layout for the vacuum controls
+        vacuum_layout = QHBoxLayout()
+        self.is_vacuum_on_checkbox = QCheckBox()  # Create checkbox with no text
+        vacuum_label = QLabel("Vacuum ON")  # Create a separate label
+
+        # 2. Add the checkbox, then the label, to the horizontal layout
+        vacuum_layout.addWidget(self.is_vacuum_on_checkbox)
+        vacuum_layout.addWidget(vacuum_label)
+        vacuum_layout.addStretch()  # Push the checkbox and label to the left
+
+        # 3. Add the rows to the form layout
         layout.addRow("Shift:", self.shift_combo)
         layout.addRow("MC No.:", self.mc_no_combo)
         layout.addRow("Feed Rate:", self.feed_rate_input)
         layout.addRow("RPM:", self.rpm_input)
         layout.addRow("Screen Size:", self.screen_size_combo)
+
+        # 4. Add the horizontal layout. The label part of addRow is empty.
+        layout.addRow("", vacuum_layout)
+
         layout.addRow("Screw Config.:", self.screw_config_combo)
+
         return group
 
     def _create_zones_group(self):
@@ -158,18 +179,39 @@ class Ui_ExtruderEntryForm:
     def _create_purging_group(self):
         group = QGroupBox("Purging Details")
         layout = QFormLayout(group)
-        # --- FIX: Use the new LazyLoadingComboBox ---
+
         self.purging_product_code_combo = LazyLoadingComboBox()
         self.purging_product_code_combo.setPlaceholderText("Type to search Product Codes...")
 
         self.purging_start_time = QTimeEdit()
         self.purging_end_time = QTimeEdit()
+
+        self.purging_start_time.setDisplayFormat("HH:mm")
+        self.purging_start_time.setTime(QTime(0, 0))
+
+        self.purging_end_time.setDisplayFormat("HH:mm")
+        self.purging_end_time.setTime(QTime(0, 0))
+
+        self.purging_time_used_label = QLabel("00:00")
+
         self.purging_resin_combo = QComboBox()
-        self.purging_palletizer_input = QLineEdit("0.00")
-        self.purging_siever_input = QLineEdit("0.00")
+        self.purging_palletizer_input = QLineEdit("0")
+        self.purging_siever_input = QLineEdit("0")
+
+        # --- THIS IS THE FIX ---
+        # 1. Create a validator with the 'group' (a QGroupBox) as its proper Qt parent.
+        #    It no longer needs to be stored as a 'self' attribute.
+        int_validator = QIntValidator(0, 20, group)
+
+        # 2. Apply this safely parented validator to the input fields.
+        self.purging_palletizer_input.setValidator(int_validator)
+        self.purging_siever_input.setValidator(int_validator)
+        # --- END FIX ---
+
         layout.addRow("Product Code:", self.purging_product_code_combo)
         layout.addRow("Start Time:", self.purging_start_time)
         layout.addRow("End Time:", self.purging_end_time)
+        layout.addRow("Time Used (HH:mm):", self.purging_time_used_label)
         layout.addRow("Resin:", self.purging_resin_combo)
         layout.addRow("Pelletizer:", self.purging_palletizer_input)
         layout.addRow("Siever:", self.purging_siever_input)
@@ -178,17 +220,27 @@ class Ui_ExtruderEntryForm:
     def _create_resin_consumption_group(self):
         group = QGroupBox("Resin Consumption")
         layout = QVBoxLayout(group)
-        self.resin_table = QTableWidget(0, 2)
-        self.resin_table.setHorizontalHeaderLabels(["Resin", "Qty (Kg.)"])
-        self.resin_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        layout.addWidget(self.resin_table)
+
+        self.purging_details_table = QTableWidget(0, 3)
+        self.purging_details_table.setHorizontalHeaderLabels(["Resin", "Notes/Additives", "Qty (Kg.)"])
+
+        self.purging_details_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.purging_details_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.purging_details_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+
+        layout.addWidget(self.purging_details_table)
+
         resin_button_layout = QHBoxLayout()
         resin_button_layout.addStretch()
+
+        # --- THIS IS THE FIX: Rename the buttons to match main.py ---
         self.add_resin_btn = QPushButton("Add Resin")
         self.remove_resin_btn = QPushButton("Remove Selected")
+
         resin_button_layout.addWidget(self.add_resin_btn)
         resin_button_layout.addWidget(self.remove_resin_btn)
         layout.addLayout(resin_button_layout)
+
         return group
 
     def _create_summary_group(self):
@@ -213,10 +265,21 @@ class Ui_ExtruderEntryForm:
     def _create_output_log_group(self):
         group = QGroupBox("Extruder Output Log")
         layout = QVBoxLayout(group)
+
+        # --- FIX: Column count is now 5 (Date, Start, End, Used, Output) ---
         self.output_log_table = QTableWidget(0, 5)
-        self.output_log_table.setHorizontalHeaderLabels(["Date", "Time Start", "Time End", "Output (kg)", "Loss (kg)"])
+
+        # --- FIX: Updated header labels ---
+        self.output_log_table.setHorizontalHeaderLabels([
+            "Date", "Time Start", "Time End", "Time Used", "Output (kg)"
+        ])
+
         self.output_log_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.output_log_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.output_log_table.horizontalHeader().setSectionResizeMode(0,
+                                                                      QHeaderView.ResizeMode.ResizeToContents)  # Date
+        self.output_log_table.horizontalHeader().setSectionResizeMode(3,
+                                                                      QHeaderView.ResizeMode.ResizeToContents)  # Time Used
+
         layout.addWidget(self.output_log_table)
         log_button_layout = QHBoxLayout()
         log_button_layout.addStretch()

@@ -1,7 +1,7 @@
 # app/views/extruder_form/entry_form/ops.py
 
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import func, or_, cast, String, distinct
+from sqlalchemy import func, or_, cast, String, distinct, not_
 from typing import Type, List, Dict, Any
 from decimal import Decimal
 
@@ -118,21 +118,39 @@ class ExtruderOpsController:
 
     def get_lot_numbers_paginated(self, page: int = 1, page_size: int = 100, search_term: str = None,
                                   product_code: str = None, customer: str = None) -> List[Dict[str, Any]]:
-        """
-        Fetches a paginated list of lot numbers with a more robust filter.
-        """
         with self.Session() as session:
             query = session.query(
-                TblProd01.T_PRODID, TblProd01.T_LOTNUM, TblProd01.T_PRODCODE,
-                TblProd01.T_QTYREQ, TblProd01.T_CUSTOMER, TblProd01.T_FID,
+                TblProd01.T_PRODID,
+                TblProd01.T_LOTNUM,
+                TblProd01.T_PRODCODE,
+                TblProd01.T_QTYREQ,
+                TblProd01.T_CUSTOMER,
+                TblProd01.T_FID,
                 TblProd01.T_ORDERNUM,
                 TblProd01.T_QTYPROD
             ).filter(
-                TblProd01.T_LOTNUM.isnot(None),
-                TblProd01.T_LOTNUM != '',
-                # --- THE FIX IS HERE: Accept records where T_DELETED is False OR NULL ---
+                func.trim(TblProd01.T_LOTNUM).isnot(None),
+                func.trim(TblProd01.T_LOTNUM) != '',
                 or_(TblProd01.T_DELETED.is_(False), TblProd01.T_DELETED.is_(None))
             )
+
+            # --- NEW FEATURE: Filter to exclude DC Product Codes ---
+            # Define the patterns for DC codes using regular expressions.
+            # Pattern 1: Starts with two letters, then a hyphen (e.g., 'DP-V15273E')
+            dc_compound_filter = TblProd01.T_PRODCODE.op("~")("^[A-Za-z]{2}-")
+            # Pattern 2: Starts with numbers and ends with one letter (e.g., '7081X')
+            dc_colorant_filter = TblProd01.T_PRODCODE.op("~")("^[0-9]+[A-Za-z]$")
+
+            # Apply a filter to exclude records matching either of the DC patterns.
+            query = query.filter(
+                not_(
+                    or_(
+                        dc_compound_filter,
+                        dc_colorant_filter
+                    )
+                )
+            )
+            # --- END NEW FEATURE ---
 
             if search_term:
                 search_filter = or_(
@@ -140,22 +158,20 @@ class ExtruderOpsController:
                     cast(TblProd01.T_PRODID, String).ilike(f"%{search_term}%")
                 )
                 query = query.filter(search_filter)
-            if product_code:
-                query = query.filter(TblProd01.T_PRODCODE == product_code)
-            if customer:
-                query = query.filter(TblProd01.T_CUSTOMER == customer)
-
+            if product_code: query = query.filter(TblProd01.T_PRODCODE == product_code)
+            if customer: query = query.filter(TblProd01.T_CUSTOMER == customer)
             results = query.order_by(TblProd01.T_PRODDATE.desc()).offset((page - 1) * page_size).limit(page_size).all()
 
-            return [{"prod_id": r.T_PRODID,
-                     "lot_num": r.T_LOTNUM,
-                     "product_code": r.T_PRODCODE,
-                     "batch_weight": r.T_QTYREQ,
-                     "customer": r.T_CUSTOMER,
-                     "formula_id": r.T_FID,
-                     "order_no": r.T_ORDERNUM,
-                     "qty_produced": r.T_QTYPROD
-                     } for r in results]
+            return [{
+                "prod_id": r.T_PRODID,
+                "lot_num": r.T_LOTNUM,
+                "product_code": r.T_PRODCODE,
+                "batch_weight": r.T_QTYREQ,
+                "customer": r.T_CUSTOMER,
+                "formula_id": r.T_FID,
+                "order_no": r.T_ORDERNUM,
+                "qty_produced": r.T_QTYPROD
+            } for r in results]
 
     def get_materials_for_prod_ids(self, prod_ids: List[Decimal]) -> List[Dict[str, Any]]:
         # This method remains correct and unchanged
@@ -217,17 +233,20 @@ class ExtruderOpsController:
                     total_input=form_data.get("summary", {}).get("resin_qty_total")
                 )
 
-                mc_info = form_data.get("machine_config", {})
-                new_mc_config = MachineDetail(
+                mc_info = form_data.get("machine_details", {})
+                new_machine_details = MachineDetail(
                     feed_rate=mc_info.get('feed_rate'),
                     rpm=mc_info.get('rpm'),
                     screen_size_id=mc_info.get('screen_size_id'),
-                    screw_config=mc_info.get('screw_config')
+                    screw_config=mc_info.get('screw_config'),
+                    # NEW: Get the boolean value for the vacuum status
+                    is_vacuum_on=mc_info.get('is_vacuum_on', False)
                 )
-                new_form_entry.machine_configs.append(new_mc_config)
+                # Assign the single object to the one-to-one relationship
+                new_form_entry.machine_details = new_machine_details
 
-                purging_info = form_data.get("purging", {})
-                # Only create a purging header if a valid resin was selected
+
+                purging_info = form_data.get("purging") # No default needed
                 if purging_info and purging_info.get('resin_id') is not None:
                     new_purging_header = PurgingHeader(
                         product_code=purging_info.get('product_code_name'),
@@ -246,7 +265,6 @@ class ExtruderOpsController:
                         time_start=output_data.get('time_start'),
                         time_end=output_data.get('time_end'),
                         qty_output=Decimal(output_data.get('output', '0')),
-                        qty_loss=Decimal(output_data.get('loss', '0'))
                     )
                     new_form_entry.extruder_outputs.append(new_output)
 
