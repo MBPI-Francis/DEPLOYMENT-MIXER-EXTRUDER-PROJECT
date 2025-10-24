@@ -62,44 +62,108 @@ class Ui_ExtruderEntryForm:
         action_layout.addWidget(self.save_button)
         main_layout.addLayout(action_layout)
 
+    # def _create_remarks_personnel_group(self):
+    #     """
+    #     Creates a group for Remarks and a dynamic list of Personnel.
+    #     """
+    #     group = QGroupBox("Remarks & Personnel")
+    #     main_v_layout = QVBoxLayout(group)
+    #
+    #     # Remarks (Top Section)
+    #     main_v_layout.addWidget(QLabel("Remarks:"))
+    #     self.remarks_input = QTextEdit()
+    #     self.remarks_input.setFixedHeight(80)
+    #     main_v_layout.addWidget(self.remarks_input)
+    #
+    #     # Separator
+    #     separator = QFrame()
+    #     separator.setFrameShape(QFrame.Shape.HLine)
+    #     separator.setFrameShadow(QFrame.Shadow.Sunken)
+    #     main_v_layout.addWidget(separator)
+    #
+    #     # --- FIX: New Dynamic Personnel Layout ---
+    #
+    #     # Static "Prepared By" field
+    #     prepared_by_layout = QFormLayout()
+    #     self.prepared_by_combo = QComboBox()
+    #     self.prepared_by_combo.setEditable(True)  # Make it editable
+    #     prepared_by_layout.addRow("Prepared By:", self.prepared_by_combo)
+    #     main_v_layout.addLayout(prepared_by_layout)
+    #
+    #     # Container for dynamic personnel rows
+    #     main_v_layout.addWidget(QLabel("Personnel:"))
+    #     personnel_container_widget = QWidget()
+    #     self.personnel_container_layout = QVBoxLayout(personnel_container_widget)
+    #     self.personnel_container_layout.setContentsMargins(0, 0, 0, 0)  # Remove padding
+    #     main_v_layout.addWidget(personnel_container_widget)
+    #
+    #     # Add/Remove buttons for the dynamic list
+    #     personnel_buttons_layout = QHBoxLayout()
+    #     personnel_buttons_layout.addStretch()
+    #     self.add_personnel_btn = QPushButton("Add Personnel")
+    #     self.remove_personnel_btn = QPushButton("Remove Last")
+    #     personnel_buttons_layout.addWidget(self.add_personnel_btn)
+    #     personnel_buttons_layout.addWidget(self.remove_personnel_btn)
+    #     main_v_layout.addLayout(personnel_buttons_layout)
+    #
+    #     return group
 
     def _create_remarks_personnel_group(self):
         """
-        Creates a single group box for Remarks (top) and Personnel (bottom).
-        The operator selection is now two simple combo boxes.
+        Creates a group for Remarks and a dynamic list of Personnel with
+        an indented/aligned layout.
         """
         group = QGroupBox("Remarks & Personnel")
         main_v_layout = QVBoxLayout(group)
 
-        # Remarks
+        # Remarks (Top Section) - Unchanged
         main_v_layout.addWidget(QLabel("Remarks:"))
         self.remarks_input = QTextEdit()
         self.remarks_input.setFixedHeight(80)
         main_v_layout.addWidget(self.remarks_input)
 
-        # Separator
+        # Separator - Unchanged
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
         separator.setFrameShadow(QFrame.Shadow.Sunken)
         main_v_layout.addWidget(separator)
 
-        # --- THE FIX: Simplified Personnel Section with correct widgets ---
+        # --- THIS IS THE NEW, IMPROVED LAYOUT ---
+        # 1. Use a QFormLayout for the entire personnel section for proper alignment.
         personnel_form_layout = QFormLayout()
+        personnel_form_layout.setContentsMargins(0, 5, 0, 0)  # Add a little top margin
 
+        # 2. "Prepared By" is the first row.
         self.prepared_by_combo = QComboBox()
-        self.operator_combo = QComboBox()  # This widget is now created
-        self.position_combo = QComboBox()  # This widget is now created
-
+        self.prepared_by_combo.setEditable(True)
         personnel_form_layout.addRow("Prepared By:", self.prepared_by_combo)
-        personnel_form_layout.addRow("Operator:", self.operator_combo)
-        personnel_form_layout.addRow("Position:", self.position_combo)
 
+        # 3. Create the container that will hold all the dynamic rows.
+        personnel_container_widget = QWidget()
+        self.personnel_container_layout = QVBoxLayout(personnel_container_widget)
+        self.personnel_container_layout.setContentsMargins(0, 0, 0, 0)
+        self.personnel_container_layout.setSpacing(5)  # Spacing between dynamic rows
+
+        # 4. Add the container to the QFormLayout. The "Personnel:" label will be on the left,
+        #    and the entire container for the rows will be on the right, perfectly aligned.
+        personnel_form_layout.addRow("Personnel:", personnel_container_widget)
+
+        # Add this beautifully aligned section to the main group box layout
         main_v_layout.addLayout(personnel_form_layout)
-        # The table and buttons are removed from the UI definition.
+
+        # 5. Add/Remove buttons remain at the bottom
+        personnel_buttons_layout = QHBoxLayout()
+        personnel_buttons_layout.addStretch()
+        self.add_personnel_btn = QPushButton("Add Personnel")
+        self.remove_personnel_btn = QPushButton("Remove Last")
+        personnel_buttons_layout.addWidget(self.add_personnel_btn)
+        personnel_buttons_layout.addWidget(self.remove_personnel_btn)
+        main_v_layout.addLayout(personnel_buttons_layout)
 
         return group
 
-    # Other methods remain unchanged
+
+
     def _create_order_info_group(self):
         group = QGroupBox("Order Information")
         form_layout = QFormLayout(group)
@@ -250,12 +314,18 @@ class Ui_ExtruderEntryForm:
         self.output_percent_label = QLabel("0.00 %")
         self.loss_label = QLabel("0.00 KG")
         self.loss_percent_label = QLabel("0.00 %")
+        self.gain_label = QLabel("0.00 KG")
+        self.gain_percent_label = QLabel("0.00 %")
         self.output_per_hour_label = QLabel("0.00 KG/HR")
         self.resin_qty_label = QLabel("0.00 KG")
         layout.addRow("Total Output:", self.total_output_label)
         layout.addRow("Output %:", self.output_percent_label)
         layout.addRow("Loss:", self.loss_label)
         layout.addRow("Loss %:", self.loss_percent_label)
+
+        layout.addRow("Gain:", self.gain_label)
+        layout.addRow("Gain %:", self.gain_percent_label)
+
         layout.addRow("Output per hour:", self.output_per_hour_label)
         layout.addRow("Resin QTY:", self.resin_qty_label)
         spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)

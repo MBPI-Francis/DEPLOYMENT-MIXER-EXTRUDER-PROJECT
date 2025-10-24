@@ -10,7 +10,7 @@ from sqlalchemy import (
     SmallInteger,
     Integer,
     Numeric,
-    Text
+    Text, Time
 )
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
@@ -70,8 +70,8 @@ class PurgingHeader(Base, AuditMixin):
     id = Column(Integer, primary_key=True, autoincrement=True)
     extruder_form_data_id = Column(Integer, ForeignKey("tbl_extruder_form_data.id"), nullable=False)
     product_code = Column(String(100))
-    time_start = Column(DateTime(timezone=True))
-    time_end = Column(DateTime(timezone=True))
+    time_start = Column(Time(timezone=False))
+    time_end = Column(Time(timezone=False))
     resin_used_id = Column(SmallInteger, ForeignKey("tbl_extruder_resins.id"), nullable=False)
     palletizer_used = Column(Numeric(10, 2))
     siever_used = Column(Numeric(10, 2))
@@ -96,8 +96,8 @@ class ExtruderOutput(Base, AuditMixin):
     id = Column(Integer, primary_key=True, autoincrement=True)
     extruder_form_data_id = Column(Integer, ForeignKey("tbl_extruder_form_data.id"), nullable=False)
     date = Column(DateTime(timezone=True))
-    time_start = Column(DateTime(timezone=True))
-    time_end = Column(DateTime(timezone=True))
+    time_start = Column(Time(timezone=False))
+    time_end = Column(Time(timezone=False))
     qty_output = Column(Numeric(10, 2))
     extruder_form_data = relationship("ExtruderFormData", back_populates="extruder_outputs")
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import relationship
 
 from models import Base
@@ -12,6 +12,7 @@ class ProductionEmployee(Base, AuditMixin):
     nickname = Column(String(100))
     first_name = Column(String(255), nullable=False)
     last_name = Column(String(255), nullable=False)
+    is_encoder = Column(Boolean, default=False, nullable=True)
 
     # Relationship to child table
     extruder_personnels = relationship("ExtruderPersonnel", back_populates="employee")

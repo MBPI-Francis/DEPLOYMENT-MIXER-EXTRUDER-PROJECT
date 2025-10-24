@@ -126,7 +126,7 @@ class LotNumberDialog(QDialog):
         self.material_table.setColumnCount(2)
         self.material_table.setHorizontalHeaderLabels(["Material Code", "Qty (kg)"])
         self.material_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.material_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.material_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.material_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.material_table.verticalHeader().setVisible(False)
         layout.addWidget(self.material_table)

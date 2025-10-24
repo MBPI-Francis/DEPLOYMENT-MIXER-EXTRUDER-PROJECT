@@ -11,7 +11,7 @@ from models import (
     ExtruderOutput, MachineTemp, ExtruderPersonnel,
     PurgingHeader, TblIncoming2, Shift
 )
-from models.ExtruderCore import ScrewConfig
+from models.ExtruderCore import ScrewConfig, PurgingDetail
 
 
 class ExtruderOpsController:
@@ -213,71 +213,52 @@ class ExtruderOpsController:
             return total_weight or Decimal("0.00")
 
 
-    # --- CORRECTED Save Method ---
+    def get_all_encoders(self) -> List[ProductionEmployee]:
+        """Fetches all production employees who are marked as encoders."""
+        with self.Session() as session:
+            return session.query(ProductionEmployee).filter(
+                ProductionEmployee.is_encoder == True,
+                ProductionEmployee.is_deleted == False
+            ).order_by(ProductionEmployee.nickname).all()
+
+
 
     def save_full_form(self, form_data: Dict[str, Any], zone_mapping: Dict[str, int]):
         """
-        Saves all data from the main form and its related child objects.
+        Saves all data from the UI by building a nested structure of SQLAlchemy objects.
         """
         with self.Session() as session:
-            with session.begin():
+            with session.begin():  # Start a transaction
                 main_info = form_data.get("main", {})
+
+                # 1. Create the top-level ExtruderFormData object
                 new_form_entry = ExtruderFormData(
                     lot_number=main_info.get('lot_number'),
-                    production_id=str(main_info.get('prod_id')),
+                    production_id=main_info.get('production_id'),
+                    formula_no=main_info.get('formula_no'),
+                    order_no=main_info.get('order_no'),
                     product_code=main_info.get('product_code'),
                     customer=main_info.get('customer'),
                     qty_order=Decimal(main_info.get('qty_order', '0')),
+                    qty_produced=Decimal(main_info.get('qty_produced', '0')),
                     prepared_by=main_info.get('prepared_by_name'),
                     machine_id=main_info.get('machine_id'),
-                    total_input=form_data.get("summary", {}).get("resin_qty_total")
+                    shift_id=main_info.get('shift_id'),
+                    remarks=form_data.get('remarks')
                 )
 
+                # 2. Create the child MachineDetail object and attach it
                 mc_info = form_data.get("machine_details", {})
                 new_machine_details = MachineDetail(
                     feed_rate=mc_info.get('feed_rate'),
                     rpm=mc_info.get('rpm'),
                     screen_size_id=mc_info.get('screen_size_id'),
-                    screw_config=mc_info.get('screw_config'),
-                    # NEW: Get the boolean value for the vacuum status
+                    screw_config_id=mc_info.get('screw_config_id'),
                     is_vacuum_on=mc_info.get('is_vacuum_on', False)
                 )
-                # Assign the single object to the one-to-one relationship
                 new_form_entry.machine_details = new_machine_details
 
-
-                purging_info = form_data.get("purging") # No default needed
-                if purging_info and purging_info.get('resin_id') is not None:
-                    new_purging_header = PurgingHeader(
-                        product_code=purging_info.get('product_code_name'),
-                        time_start=purging_info.get('start_time'),
-                        time_end=purging_info.get('end_time'),
-                        resin_used_id=purging_info.get('resin_id'),
-                        palletizer_used=Decimal(purging_info.get('palletizer', '0')),
-                        siever_used=Decimal(purging_info.get('siever', '0'))
-                    )
-                    new_form_entry.purging_headers.append(new_purging_header)
-
-
-                for output_data in form_data.get("output_log", []):
-                    new_output = ExtruderOutput(
-                        date=output_data.get('date'),
-                        time_start=output_data.get('time_start'),
-                        time_end=output_data.get('time_end'),
-                        qty_output=Decimal(output_data.get('output', '0')),
-                    )
-                    new_form_entry.extruder_outputs.append(new_output)
-
-                zone_temps = form_data.get("zone_temps", {})
-                for zone_name, temp_value in zone_temps.items():
-                    zone_id = zone_mapping.get(zone_name)
-                    if zone_id:
-                        new_temp = MachineTemp(
-                            zone_id=zone_id,
-                            temp_value=Decimal(temp_value or '0')
-                        )
-                        new_form_entry.machine_temps.append(new_temp)
-
+                # 3. Create the child ExtruderPersonnel objects and attach them
                 for person_data in form_data.get("personnel", []):
                     if person_data.get('employee_id') and person_data.get('position_id'):
                         new_personnel = ExtruderPersonnel(
@@ -286,18 +267,140 @@ class ExtruderOpsController:
                         )
                         new_form_entry.extruder_personnels.append(new_personnel)
 
-                # Add the fully constructed object to the session
+                # 4. Create the child ExtruderOutput objects
+                for output_data in form_data.get("output_log", []):
+                    new_output = ExtruderOutput(
+                        date=output_data.get('date'),
+                        time_start=output_data.get('time_start'),
+                        time_end=output_data.get('time_end'),
+                        qty_output=Decimal(output_data.get('output', '0'))
+                    )
+                    new_form_entry.extruder_outputs.append(new_output)
+
+                # 5. Create the child MachineTemp objects
+                zone_temps = form_data.get("zone_temps", {})
+                for zone_name, temp_value in zone_temps.items():
+                    zone_id = zone_mapping.get(zone_name)
+                    if zone_id and (temp_value or '0').isdigit():
+                        new_temp = MachineTemp(
+                            zone_id=zone_id,
+                            temp_value=Decimal(temp_value or '0')
+                        )
+                        new_form_entry.machine_temps.append(new_temp)
+
+                # 6. Create the PurgingHeader and its child PurgingDetail objects
+                header_info = form_data.get("purging_header")
+                details_list = form_data.get("purging_details", [])
+                if header_info and header_info.get('resin_id') is not None:
+                    new_purging_header = PurgingHeader(
+                        product_code=header_info.get('product_code_name'),
+                        time_start=header_info.get('start_time'),
+                        time_end=header_info.get('end_time'),
+                        resin_used_id=header_info.get('resin_id'),
+                        palletizer_used=Decimal(header_info.get('palletizer', '0')),
+                        siever_used=Decimal(header_info.get('siever', '0'))
+                    )
+                    for detail_data in details_list:
+                        if detail_data.get('resin_id'):
+                            new_purging_detail = PurgingDetail(
+                                resin_id=detail_data.get('resin_id'),
+                                notes=detail_data.get('notes'),
+                                qty=Decimal(detail_data.get('qty', '0'))
+                            )
+                            new_purging_header.purging_details.append(new_purging_detail)
+                    new_form_entry.purging_headers.append(new_purging_header)
+
+                # 7. Add the single, top-level object to the session.
+                #    SQLAlchemy will automatically save all the attached child objects.
                 session.add(new_form_entry)
 
-            print("--- SIMULATING SAVE ---")
-            import json
-            # Using a custom default function to handle non-serializable types like Decimal
-            def custom_serializer(obj):
-                if isinstance(obj, Decimal):
-                    return str(obj)
-                if hasattr(obj, '__str__'):
-                    return str(obj)
-                raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+            # --- SIMULATION IS REMOVED, THIS IS NOW A REAL SAVE ---
+            # You can add a logging statement here if desired
+            print("--- Database Save Successful ---")
 
-            print(json.dumps(form_data, indent=2, default=custom_serializer))
-            print("--- SAVE COMPLETE (SIMULATED) ---")
+    # def save_full_form(self, form_data: Dict[str, Any], zone_mapping: Dict[str, int]):
+    #     """
+    #     Saves all data from the main form and its related child objects.
+    #     """
+    #     with self.Session() as session:
+    #         with session.begin():
+    #             main_info = form_data.get("main", {})
+    #             new_form_entry = ExtruderFormData(
+    #                 lot_number=main_info.get('lot_number'),
+    #                 production_id=str(main_info.get('prod_id')),
+    #                 product_code=main_info.get('product_code'),
+    #                 customer=main_info.get('customer'),
+    #                 qty_order=Decimal(main_info.get('qty_order', '0')),
+    #                 prepared_by=main_info.get('prepared_by_name'),
+    #                 machine_id=main_info.get('machine_id'),
+    #                 total_input=form_data.get("summary", {}).get("resin_qty_total")
+    #             )
+    #
+    #             mc_info = form_data.get("machine_details", {})
+    #             new_machine_details = MachineDetail(
+    #                 feed_rate=mc_info.get('feed_rate'),
+    #                 rpm=mc_info.get('rpm'),
+    #                 screen_size_id=mc_info.get('screen_size_id'),
+    #                 screw_config=mc_info.get('screw_config'),
+    #                 # NEW: Get the boolean value for the vacuum status
+    #                 is_vacuum_on=mc_info.get('is_vacuum_on', False)
+    #             )
+    #             # Assign the single object to the one-to-one relationship
+    #             new_form_entry.machine_details = new_machine_details
+    #
+    #
+    #             purging_info = form_data.get("purging") # No default needed
+    #             if purging_info and purging_info.get('resin_id') is not None:
+    #                 new_purging_header = PurgingHeader(
+    #                     product_code=purging_info.get('product_code_name'),
+    #                     time_start=purging_info.get('start_time'),
+    #                     time_end=purging_info.get('end_time'),
+    #                     resin_used_id=purging_info.get('resin_id'),
+    #                     palletizer_used=Decimal(purging_info.get('palletizer', '0')),
+    #                     siever_used=Decimal(purging_info.get('siever', '0'))
+    #                 )
+    #                 new_form_entry.purging_headers.append(new_purging_header)
+    #
+    #
+    #             for output_data in form_data.get("output_log", []):
+    #                 new_output = ExtruderOutput(
+    #                     date=output_data.get('date'),
+    #                     time_start=output_data.get('time_start'),
+    #                     time_end=output_data.get('time_end'),
+    #                     qty_output=Decimal(output_data.get('output', '0')),
+    #                 )
+    #                 new_form_entry.extruder_outputs.append(new_output)
+    #
+    #             zone_temps = form_data.get("zone_temps", {})
+    #             for zone_name, temp_value in zone_temps.items():
+    #                 zone_id = zone_mapping.get(zone_name)
+    #                 if zone_id:
+    #                     new_temp = MachineTemp(
+    #                         zone_id=zone_id,
+    #                         temp_value=Decimal(temp_value or '0')
+    #                     )
+    #                     new_form_entry.machine_temps.append(new_temp)
+    #
+    #             for person_data in form_data.get("personnel", []):
+    #                 if person_data.get('employee_id') and person_data.get('position_id'):
+    #                     new_personnel = ExtruderPersonnel(
+    #                         employee_id=person_data.get('employee_id'),
+    #                         position_id=person_data.get('position_id')
+    #                     )
+    #                     new_form_entry.extruder_personnels.append(new_personnel)
+    #
+    #             # Add the fully constructed object to the session
+    #             session.add(new_form_entry)
+    #
+    #         print("--- SIMULATING SAVE ---")
+    #         import json
+    #         # Using a custom default function to handle non-serializable types like Decimal
+    #         def custom_serializer(obj):
+    #             if isinstance(obj, Decimal):
+    #                 return str(obj)
+    #             if hasattr(obj, '__str__'):
+    #                 return str(obj)
+    #             raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+    #
+    #         print(json.dumps(form_data, indent=2, default=custom_serializer))
+    #         print("--- SAVE COMPLETE (SIMULATED) ---")

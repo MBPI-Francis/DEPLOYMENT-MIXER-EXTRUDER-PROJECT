@@ -1,7 +1,8 @@
 # app/views/extruder_form/entry_form/main.py
 
 from PyQt6.QtCore import QDate, QTime, Qt, QEvent, QObject
-from PyQt6.QtWidgets import QWidget, QMessageBox, QComboBox, QTableWidgetItem, QLineEdit, QDateEdit, QTimeEdit
+from PyQt6.QtWidgets import QWidget, QMessageBox, QComboBox, QTableWidgetItem, QLineEdit, QDateEdit, QTimeEdit, \
+    QHBoxLayout
 from typing import Type
 from sqlalchemy.orm import sessionmaker
 from decimal import Decimal, InvalidOperation
@@ -36,6 +37,9 @@ class ExtruderEntryFormView(QWidget):
         self.ui.purging_start_time.timeChanged.connect(self._calculate_purging_time_used)
         self.ui.purging_end_time.timeChanged.connect(self._calculate_purging_time_used)
 
+        self.ui.add_personnel_btn.clicked.connect(self._add_personnel_row)
+        self.ui.remove_personnel_btn.clicked.connect(self._remove_personnel_row)
+
         self.ui.lot_number_select_btn.clicked.connect(self._open_lot_number_dialog)
         self.ui.add_resin_btn.clicked.connect(self._add_resin_row)
         self.ui.remove_resin_btn.clicked.connect(self._remove_selected_resin)
@@ -66,38 +70,102 @@ class ExtruderEntryFormView(QWidget):
         duration_text = f"{hours:02d}:{minutes:02d}"
         self.ui.purging_time_used_label.setText(duration_text)
 
+    # def _initial_load(self):
+    #     try:
+    #         self.employee_list = self.controller.get_all_employees()
+    #         self.position_list = self.controller.get_all_positions()
+    #         self.ui.prepared_by_combo.addItem("- Select -", None)
+    #         self.ui.operator_combo.addItem("- Select -", None)
+    #         for emp in self.employee_list:
+    #             full_name = f"{emp.first_name} {emp.last_name}"
+    #             self.ui.prepared_by_combo.addItem(full_name, emp.id)
+    #             self.ui.operator_combo.addItem(full_name, emp.id)
+    #         self.ui.position_combo.addItem("- Select -", None)
+    #
+    #
+    #
+    #         for pos in self.position_list:
+    #             self.ui.position_combo.addItem(pos.name, pos.id)
+    #         self.ui.shift_combo.addItems(["- Select -", "1st Shift", "2nd Shift", "3rd Shift"])
+    #         machines = self.controller.get_all_machines()
+    #         self.ui.mc_no_combo.addItem("- Select -", None)
+    #         for m in machines: self.ui.mc_no_combo.addItem(m.name, m.id)
+    #         screen_sizes = self.controller.get_all_screen_sizes()
+    #         self.ui.screen_size_combo.addItem("- Select -", None)
+    #         for s in screen_sizes: self.ui.screen_size_combo.addItem(s.size, s.id)
+    #
+    #
+    #
+    #         # --- FIX: Populate Shift from the database ---
+    #         self.ui.shift_combo.clear() # Clear any existing items
+    #         shifts = self.controller.get_all_shifts()
+    #         self.ui.shift_combo.addItem("- Select -", None)
+    #         for s in shifts:
+    #             self.ui.shift_combo.addItem(s.name, s.id)
+    #
+    #         # --- FIX: Populate Screw Config from the database ---
+    #         self.ui.screw_config_combo.clear() # Clear any existing items
+    #         screw_configs = self.controller.get_all_screw_configs()
+    #         self.ui.screw_config_combo.addItem("- Select -", None)
+    #         for sc in screw_configs:
+    #             self.ui.screw_config_combo.addItem(sc.name, sc.id)
+    #
+    #         # --- Purging & Resin Data ---
+    #         self.resin_list = self.controller.get_all_resins()
+    #         self.ui.purging_resin_combo.addItem("- Select -", None)
+    #         for r in self.resin_list:
+    #             self.ui.purging_resin_combo.addItem(r.abbreviation, r.id)
+    #
+    #         self.ui.purging_product_code_combo.set_data_fetcher(
+    #             self.controller.get_distinct_product_codes_paginated
+    #         )
+    #         self.ui.purging_product_code_combo.load_initial_data()
+    #
+    #
+    #         zones = self.controller.get_all_zones()
+    #         self.zone_mapping = {zone.name: zone.id for zone in zones}
+    #
+    #         self.ui.no_purging_checkbox.setChecked(False)
+    #         self._on_no_purging_toggled(False)
+    #     except Exception as e:
+    #         QMessageBox.critical(self, "Database Error", f"Could not load initial data: {e}")
+
+    # --- NEW DYNAMIC PERSONNEL METHODS ---
+
     def _initial_load(self):
+        """
+        Loads all necessary data from the database to populate the form's combo boxes.
+        """
         try:
+            # --- FIX: Load data for dynamic personnel and filtered "Prepared By" ---
+            # 1. Fetch the list of encoders for the "Prepared By" combo box.
+            encoders = self.controller.get_all_encoders()
+            self.ui.prepared_by_combo.clear()
+            self.ui.prepared_by_combo.addItem("")  # Start with a blank, editable entry
+            for encoder in encoders:
+                self.ui.prepared_by_combo.addItem(encoder.nickname, encoder.id)
+
+            # 2. Fetch the full lists needed for the dynamic personnel rows.
             self.employee_list = self.controller.get_all_employees()
             self.position_list = self.controller.get_all_positions()
-            self.ui.prepared_by_combo.addItem("- Select -", None)
-            self.ui.operator_combo.addItem("- Select -", None)
-            for emp in self.employee_list:
-                full_name = f"{emp.first_name} {emp.last_name}"
-                self.ui.prepared_by_combo.addItem(full_name, emp.id)
-                self.ui.operator_combo.addItem(full_name, emp.id)
-            self.ui.position_combo.addItem("- Select -", None)
-            for pos in self.position_list:
-                self.ui.position_combo.addItem(pos.name, pos.id)
-            self.ui.shift_combo.addItems(["- Select -", "1st Shift", "2nd Shift", "3rd Shift"])
-            machines = self.controller.get_all_machines()
-            self.ui.mc_no_combo.addItem("- Select -", None)
-            for m in machines: self.ui.mc_no_combo.addItem(m.name, m.id)
-            screen_sizes = self.controller.get_all_screen_sizes()
-            self.ui.screen_size_combo.addItem("- Select -", None)
-            for s in screen_sizes: self.ui.screen_size_combo.addItem(s.size, s.id)
+            # The old logic for operator_combo and position_combo is now removed.
 
-
-
-            # --- FIX: Populate Shift from the database ---
-            self.ui.shift_combo.clear() # Clear any existing items
+            # --- Machine and Config Data ---
+            self.ui.shift_combo.clear()
             shifts = self.controller.get_all_shifts()
             self.ui.shift_combo.addItem("- Select -", None)
             for s in shifts:
                 self.ui.shift_combo.addItem(s.name, s.id)
 
-            # --- FIX: Populate Screw Config from the database ---
-            self.ui.screw_config_combo.clear() # Clear any existing items
+            machines = self.controller.get_all_machines()
+            self.ui.mc_no_combo.addItem("- Select -", None)
+            for m in machines: self.ui.mc_no_combo.addItem(m.name, m.id)
+
+            screen_sizes = self.controller.get_all_screen_sizes()
+            self.ui.screen_size_combo.addItem("- Select -", None)
+            for s in screen_sizes: self.ui.screen_size_combo.addItem(s.size, s.id)
+
+            self.ui.screw_config_combo.clear()
             screw_configs = self.controller.get_all_screw_configs()
             self.ui.screw_config_combo.addItem("- Select -", None)
             for sc in screw_configs:
@@ -114,14 +182,60 @@ class ExtruderEntryFormView(QWidget):
             )
             self.ui.purging_product_code_combo.load_initial_data()
 
-
             zones = self.controller.get_all_zones()
             self.zone_mapping = {zone.name: zone.id for zone in zones}
 
             self.ui.no_purging_checkbox.setChecked(False)
             self._on_no_purging_toggled(False)
+
+        #     ADD INITIAL ROW FOR PERSONNEL
+            self._add_personnel_row()
         except Exception as e:
             QMessageBox.critical(self, "Database Error", f"Could not load initial data: {e}")
+
+
+    def _add_personnel_row(self):
+        """Dynamically creates and adds a new row for personnel entry."""
+        # Create a container widget and a horizontal layout for the row
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Create Name ComboBox
+        name_combo = QComboBox()
+        name_combo.setEditable(True)
+        name_combo.addItem("- Select Name -", None)
+        for emp in self.employee_list:
+            name_combo.addItem(f"{emp.first_name} {emp.last_name}", emp.id)
+
+        # Create Position ComboBox
+        pos_combo = QComboBox()
+        pos_combo.setEditable(True)
+        pos_combo.addItem("- Select Position -", None)
+        for pos in self.position_list:
+            pos_combo.addItem(pos.name, pos.id)
+
+        pos_combo.model().item(0).setEnabled(False)
+        name_combo.model().item(0).setEnabled(False)
+
+        row_layout.addWidget(name_combo)
+        row_layout.addWidget(pos_combo)
+
+        # Add the new row widget to our container layout
+        self.ui.personnel_container_layout.addWidget(row_widget)
+
+    def _remove_personnel_row(self):
+        """Removes the last added personnel row."""
+        layout = self.ui.personnel_container_layout
+        count = layout.count()
+        if count > 0:
+            # Get the widget at the last index
+            widget_to_remove = layout.itemAt(count - 1).widget()
+            if widget_to_remove:
+                # Remove it from the layout and schedule it for deletion
+                widget_to_remove.setParent(None)
+                widget_to_remove.deleteLater()
+
 
 
     # --- NEW METHOD with INVERTED LOGIC ---
@@ -323,7 +437,6 @@ class ExtruderEntryFormView(QWidget):
 
     def _update_production_summary(self):
         try:
-            # 1. Sum total output from the output log table
             total_output = Decimal("0.00")
             for row in range(self.ui.output_log_table.rowCount()):
                 output_item = self.ui.output_log_table.item(row, 4)
@@ -331,14 +444,21 @@ class ExtruderEntryFormView(QWidget):
                     total_output += Decimal(output_item.text() or '0')
             self.ui.total_output_label.setText(f"{total_output:.2f} KG")
 
-            # 2. Get the QTY Order from its input field
-            qty_ordered = Decimal(self.ui.qty_order_input.text() or '0')
+            # Qty Produced is the new baseline for "input"
+            qty_produced_input = Decimal(self.ui.qty_produced_input.text() or '0')
 
-            # --- THIS IS THE FIX: Calculate Loss based on your formula ---
-            total_loss = qty_ordered - total_output
-            self.ui.loss_label.setText(f"{total_loss:.2f} KG")
+            # Calculate the difference (can be negative for loss, positive for gain)
+            total_diff = total_output - qty_produced_input
 
-            # --- FIX: Sum the Qty from the correct table widget ---
+            if total_diff < 0:
+                # It's a loss
+                self.ui.loss_label.setText(f"{abs(total_diff):.2f} KG")
+                self.ui.gain_label.setText("0.00 KG")
+            else:
+                # It's a gain (or zero)
+                self.ui.loss_label.setText("0.00 KG")
+                self.ui.gain_label.setText(f"{total_diff:.2f} KG")
+
             total_resin = Decimal("0.00")
             for row in range(self.ui.purging_details_table.rowCount()):
                 qty_item = self.ui.purging_details_table.item(row, 2)
@@ -346,19 +466,25 @@ class ExtruderEntryFormView(QWidget):
                     total_resin += Decimal(qty_item.text() or '0')
             self.ui.resin_qty_label.setText(f"{total_resin:.2f} KG")
 
-            # 4. Calculate percentages
-            output_percent = (total_output / qty_ordered * 100) if qty_ordered > 0 else Decimal("0.00")
+            # Calculate percentages
+            output_percent = (total_output / qty_produced_input * 100) if qty_produced_input > 0 else Decimal("0.00")
             self.ui.output_percent_label.setText(f"{output_percent:.2f} %")
 
-            # Note: The Loss % calculation might need clarification.
-            # Currently it is (Loss / Total Resin). If it should be (Loss / QTY Order),
-            # change 'total_resin' to 'qty_ordered' in the line below.
-            loss_percent = (total_loss / qty_ordered * 100) if qty_ordered > 0 else Decimal("0.00")
-            self.ui.loss_percent_label.setText(f"{loss_percent:.2f} %")
+            # --- FIX: Initialize percent_diff before the if block to prevent NameError ---
+            percent_diff = Decimal("0.00")
+            if qty_produced_input > 0:
+                percent_diff = (total_diff / qty_produced_input * 100)
+
+            if percent_diff < 0:
+                self.ui.loss_percent_label.setText(f"{abs(percent_diff):.2f} %")
+                self.ui.gain_percent_label.setText("0.00 %")
+            else:
+                self.ui.loss_percent_label.setText("0.00 %")
+                self.ui.gain_percent_label.setText(f"{percent_diff:.2f} %")
 
         except (InvalidOperation, TypeError):
-            # This block prevents crashes while the user is typing non-numeric values
             pass
+
 
     # def _clear_form(self):
     #     self.aggregated_prod_ids.clear()
@@ -439,9 +565,13 @@ class ExtruderEntryFormView(QWidget):
         for widget in self.ui.zone_inputs.values():
             widget.setText("0")
         self.ui.remarks_input.clear()
+
+        while self.ui.personnel_container_layout.count() > 0:
+            self._remove_personnel_row()
+
         self.ui.prepared_by_combo.setCurrentIndex(0)
-        self.ui.operator_combo.setCurrentIndex(0)
-        self.ui.position_combo.setCurrentIndex(0)
+        self._add_personnel_row()
+
 
         # Update summary calculations
         self._update_production_summary()
@@ -449,46 +579,140 @@ class ExtruderEntryFormView(QWidget):
         QMessageBox.information(self, "Cleared", "Form has been cleared.")
 
 
+    # def _gather_data_from_ui(self) -> dict:
+    #     prod_id_str = "; ".join(sorted([item for item in self.aggregated_prod_ids if item]))
+    #     formula_no_str = "; ".join(sorted([item for item in self.aggregated_formula_ids if item]))
+    #     order_no_str = "; ".join(sorted([item for item in self.aggregated_order_nos if item]))
+    #     def get_table_cell_data(table, row, col):
+    #         widget = table.cellWidget(row, col)
+    #         if isinstance(widget, QComboBox): return widget.currentData(), widget.currentText()
+    #         item = table.item(row, col)
+    #         return (item.text() if item else None), None
+    #     data = {
+    #         "main": { "lot_number": self.ui.lot_number_input.text(), "production_id": prod_id_str, "formula_no": formula_no_str, "order_no": order_no_str, "product_code": self.ui.product_code_input.text(), "customer": self.ui.customer_input.text(), "qty_order": self.ui.qty_order_input.text(), "prepared_by_id": self.ui.prepared_by_combo.currentData(), "prepared_by_name": self.ui.prepared_by_combo.currentText(), "machine_id": self.ui.mc_no_combo.currentData(),
+    #         # --- FIX: Add shift_id to the data being saved ---
+    #         "shift_id": self.ui.shift_combo.currentData()
+    #         },
+    #         "machine_details": {
+    #             "screw_config": self.ui.screw_config_combo.currentText(),
+    #             "feed_rate": self.ui.feed_rate_input.text(),
+    #             "rpm": self.ui.rpm_input.text(),
+    #             "screen_size_id": self.ui.screen_size_combo.currentData(),
+    #             # --- NEW: Get the boolean value from the checkbox ---
+    #             "is_vacuum_on": self.ui.is_vacuum_on_checkbox.isChecked()
+    #         },
+    #         "purging": {
+    #             # "product_code_id": self.ui.purging_product_code_combo.currentData(),
+    #             "product_code_name": self.ui.purging_product_code_combo.currentText(),
+    #             "start_time": self.ui.purging_start_time.time().toPyTime(),
+    #             "end_time": self.ui.purging_end_time.time().toPyTime(),
+    #             "resin_id": self.ui.purging_resin_combo.currentData(),
+    #             "palletizer": self.ui.purging_palletizer_input.text(),
+    #             "siever": self.ui.purging_siever_input.text(),
+    #         },
+    #         "resin_consumption": [ { "resin_id": get_table_cell_data(self.ui.resin_table, r, 0)[0], "resin_name": get_table_cell_data(self.ui.resin_table, r, 0)[1], "qty": get_table_cell_data(self.ui.resin_table, r, 1)[0] } for r in range(self.ui.resin_table.rowCount()) ],
+    #         "output_log": [ { "date": self.ui.output_log_table.cellWidget(r, 0).date().toPyDate(), "time_start": self.ui.output_log_table.cellWidget(r, 1).time().toPyTime(), "time_end": self.ui.output_log_table.cellWidget(r, 2).time().toPyTime(), "output": get_table_cell_data(self.ui.output_log_table, r, 3)[0], "loss": get_table_cell_data(self.ui.output_log_table, r, 4)[0], } for r in range(self.ui.output_log_table.rowCount()) ],
+    #         "zone_temps": {name: widget.text() for name, widget in self.ui.zone_inputs.items()},
+    #         "personnel": [{"employee_id": self.ui.operator_combo.currentData(), "position_id": self.ui.position_combo.currentData()}],
+    #         "summary": { "resin_qty_total": Decimal(self.ui.resin_qty_label.text().replace(" KG", "")) }
+    #     }
+    #
+    #     personnel_list = []
+    #     layout = self.ui.personnel_container_layout
+    #     for i in range(layout.count()):
+    #         row_widget = layout.itemAt(i).widget()
+    #         if row_widget:
+    #             # Find the QComboBoxes within the row widget
+    #             name_combo = row_widget.findChild(QComboBox)
+    #             pos_combo = row_widget.findChildren(QComboBox)[1] # Second combobox
+    #
+    #             # Only add if a valid employee is selected
+    #             if name_combo.currentData() is not None:
+    #                 personnel_list.append({
+    #                     "employee_id": name_combo.currentData(),
+    #                     "position_id": pos_combo.currentData()
+    #                 })
+    #     data["personnel"] = personnel_list
+    #
+    #
+    #
+    #     if not self.ui.no_purging_checkbox.isChecked():
+    #         data["purging"] = {
+    #             "product_code_name": self.ui.purging_product_code_combo.currentText(),
+    #             "start_time": self.ui.purging_start_time.time().toPyTime(),
+    #             "end_time": self.ui.purging_end_time.time().toPyTime(),
+    #             "resin_id": self.ui.purging_resin_combo.currentData(),
+    #             "palletizer": self.ui.purging_palletizer_input.text(),
+    #             "siever": self.ui.purging_siever_input.text(),
+    #         }
+    #         data["resin_consumption"] = [
+    #             {
+    #                 "resin_id": get_table_cell_data(self.ui.resin_table, r, 0)[0],
+    #                 "resin_name": get_table_cell_data(self.ui.resin_table, r, 0)[1],
+    #                 "qty": get_table_cell_data(self.ui.resin_table, r, 1)[0]
+    #             } for r in range(self.ui.resin_table.rowCount())
+    #         ]
+    #
+    #     return data
+
     def _gather_data_from_ui(self) -> dict:
+        """
+        Gathers all data from the UI into a structured dictionary, ready for saving.
+        """
         prod_id_str = "; ".join(sorted([item for item in self.aggregated_prod_ids if item]))
         formula_no_str = "; ".join(sorted([item for item in self.aggregated_formula_ids if item]))
         order_no_str = "; ".join(sorted([item for item in self.aggregated_order_nos if item]))
-        def get_table_cell_data(table, row, col):
-            widget = table.cellWidget(row, col)
-            if isinstance(widget, QComboBox): return widget.currentData(), widget.currentText()
-            item = table.item(row, col)
-            return (item.text() if item else None), None
+
         data = {
-            "main": { "lot_number": self.ui.lot_number_input.text(), "production_id": prod_id_str, "formula_no": formula_no_str, "order_no": order_no_str, "product_code": self.ui.product_code_input.text(), "customer": self.ui.customer_input.text(), "qty_order": self.ui.qty_order_input.text(), "prepared_by_id": self.ui.prepared_by_combo.currentData(), "prepared_by_name": self.ui.prepared_by_combo.currentText(), "machine_id": self.ui.mc_no_combo.currentData(),
-            # --- FIX: Add shift_id to the data being saved ---
-            "shift_id": self.ui.shift_combo.currentData()
+            "main": {
+                "lot_number": self.ui.lot_number_input.text(),
+                "production_id": prod_id_str,
+                "formula_no": formula_no_str,
+                "order_no": order_no_str,
+                "product_code": self.ui.product_code_input.text(),
+                "customer": self.ui.customer_input.text(),
+                "qty_order": self.ui.qty_order_input.text(),
+                "qty_produced": self.ui.qty_produced_input.text(),
+                "prepared_by_name": self.ui.prepared_by_combo.currentText(),
+                "machine_id": self.ui.mc_no_combo.currentData(),
+                "shift_id": self.ui.shift_combo.currentData()
             },
             "machine_details": {
-                "screw_config": self.ui.screw_config_combo.currentText(),
+                "screw_config_id": self.ui.screw_config_combo.currentData(),
                 "feed_rate": self.ui.feed_rate_input.text(),
                 "rpm": self.ui.rpm_input.text(),
                 "screen_size_id": self.ui.screen_size_combo.currentData(),
-                # --- NEW: Get the boolean value from the checkbox ---
                 "is_vacuum_on": self.ui.is_vacuum_on_checkbox.isChecked()
             },
-            "purging": {
-                # "product_code_id": self.ui.purging_product_code_combo.currentData(),
-                "product_code_name": self.ui.purging_product_code_combo.currentText(),
-                "start_time": self.ui.purging_start_time.time().toPyTime(),
-                "end_time": self.ui.purging_end_time.time().toPyTime(),
-                "resin_id": self.ui.purging_resin_combo.currentData(),
-                "palletizer": self.ui.purging_palletizer_input.text(),
-                "siever": self.ui.purging_siever_input.text(),
-            },
-            "resin_consumption": [ { "resin_id": get_table_cell_data(self.ui.resin_table, r, 0)[0], "resin_name": get_table_cell_data(self.ui.resin_table, r, 0)[1], "qty": get_table_cell_data(self.ui.resin_table, r, 1)[0] } for r in range(self.ui.resin_table.rowCount()) ],
-            "output_log": [ { "date": self.ui.output_log_table.cellWidget(r, 0).date().toPyDate(), "time_start": self.ui.output_log_table.cellWidget(r, 1).time().toPyTime(), "time_end": self.ui.output_log_table.cellWidget(r, 2).time().toPyTime(), "output": get_table_cell_data(self.ui.output_log_table, r, 3)[0], "loss": get_table_cell_data(self.ui.output_log_table, r, 4)[0], } for r in range(self.ui.output_log_table.rowCount()) ],
+            "output_log": [
+                {
+                    "date": self.ui.output_log_table.cellWidget(r, 0).date().toPyDate(),
+                    "time_start": self.ui.output_log_table.cellWidget(r, 1).time().toPyTime(),
+                    "time_end": self.ui.output_log_table.cellWidget(r, 2).time().toPyTime(),
+                    "output": self.ui.output_log_table.item(r, 4).text(),
+                } for r in range(self.ui.output_log_table.rowCount())
+            ],
             "zone_temps": {name: widget.text() for name, widget in self.ui.zone_inputs.items()},
-            "personnel": [{"employee_id": self.ui.operator_combo.currentData(), "position_id": self.ui.position_combo.currentData()}],
-            "summary": { "resin_qty_total": Decimal(self.ui.resin_qty_label.text().replace(" KG", "")) }
+            "remarks": self.ui.remarks_input.toPlainText()
         }
 
+        # Conditionally add purging and personnel data
+        personnel_list = []
+        layout = self.ui.personnel_container_layout
+        for i in range(layout.count()):
+            row_widget = layout.itemAt(i).widget()
+            if row_widget:
+                name_combo = row_widget.findChild(QComboBox)
+                pos_combo = row_widget.findChildren(QComboBox)[1]
+                if name_combo.currentData() is not None:
+                    personnel_list.append({
+                        "employee_id": name_combo.currentData(),
+                        "position_id": pos_combo.currentData()
+                    })
+        data["personnel"] = personnel_list
+
         if not self.ui.no_purging_checkbox.isChecked():
-            data["purging"] = {
+            data["purging_header"] = {
                 "product_code_name": self.ui.purging_product_code_combo.currentText(),
                 "start_time": self.ui.purging_start_time.time().toPyTime(),
                 "end_time": self.ui.purging_end_time.time().toPyTime(),
@@ -496,15 +720,35 @@ class ExtruderEntryFormView(QWidget):
                 "palletizer": self.ui.purging_palletizer_input.text(),
                 "siever": self.ui.purging_siever_input.text(),
             }
-            data["resin_consumption"] = [
+            data["purging_details"] = [
                 {
-                    "resin_id": get_table_cell_data(self.ui.resin_table, r, 0)[0],
-                    "resin_name": get_table_cell_data(self.ui.resin_table, r, 0)[1],
-                    "qty": get_table_cell_data(self.ui.resin_table, r, 1)[0]
-                } for r in range(self.ui.resin_table.rowCount())
+                    "resin_id": self.ui.purging_details_table.cellWidget(r, 0).currentData(),
+                    "notes": self.ui.purging_details_table.item(r, 1).text().strip(),
+                    "qty": self.ui.purging_details_table.item(r, 2).text()
+                } for r in range(self.ui.purging_details_table.rowCount())
             ]
 
         return data
+
+    def _save_form_data(self):
+        if not self._validate_purging_data():
+            return
+        if not self.ui.lot_number_input.text():
+            QMessageBox.warning(self, "Missing Data", "Please select a lot number before saving.")
+            return
+
+        form_data = self._gather_data_from_ui()
+
+        try:
+            # --- The simulation is removed, this is a real save now ---
+            self.controller.save_full_form(form_data, self.zone_mapping)
+            QMessageBox.information(self, "Success", "Form data has been saved to the database.")
+            self._clear_form()
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Could not save the form: {e}\n\nCheck console for details.")
+            import traceback
+            traceback.print_exc()
+
 
     def _validate_purging_data(self) -> bool:
         """
