@@ -67,10 +67,29 @@ class ExtruderOpsController:
 
         # --- NEW METHOD ---
 
-    # --- NEW PAGINATED METHOD for the lazy loading combo box ---
-    def get_distinct_product_codes_paginated(self, page: int, page_size: int, search_term: str = None) -> List[str]:
+    # # --- NEW PAGINATED METHOD for the lazy loading combo box ---
+    # def get_distinct_product_codes_paginated(self, page: int, page_size: int, search_term: str = None) -> List[str]:
+    #     """
+    #     Fetches a unique, paginated, and searchable list of T_PRODCODE values.
+    #     """
+    #     with self.Session() as session:
+    #         query = session.query(distinct(TblProd01.T_PRODCODE)).filter(
+    #             TblProd01.T_PRODCODE.isnot(None),
+    #             TblProd01.T_PRODCODE != ''
+    #         )
+    #
+    #         if search_term:
+    #             query = query.filter(TblProd01.T_PRODCODE.ilike(f"%{search_term}%"))
+    #
+    #         results = query.order_by(TblProd01.T_PRODCODE).offset((page - 1) * page_size).limit(page_size).all()
+    #
+    #         return [code for (code,) in results]
+
+    def get_distinct_product_codes_paginated(self, page: int = 1, page_size: int = 50, search_term: str = None,
+                                             limit: int = None) -> List[str]:
         """
         Fetches a unique, paginated, and searchable list of T_PRODCODE values.
+        Can be limited for an initial fast load.
         """
         with self.Session() as session:
             query = session.query(distinct(TblProd01.T_PRODCODE)).filter(
@@ -81,7 +100,19 @@ class ExtruderOpsController:
             if search_term:
                 query = query.filter(TblProd01.T_PRODCODE.ilike(f"%{search_term}%"))
 
-            results = query.order_by(TblProd01.T_PRODCODE).offset((page - 1) * page_size).limit(page_size).all()
+            # --- THIS IS THE FIX ---
+            # 1. Apply the ORDER BY clause first. This is always needed.
+            query = query.order_by(TblProd01.T_PRODCODE)
+
+            # 2. Now, conditionally apply either the limit or the pagination.
+            if limit:
+                query = query.limit(limit)
+            else:
+                query = query.offset((page - 1) * page_size).limit(page_size)
+
+            # 3. Execute the fully constructed query.
+            results = query.all()
+            # --- END FIX ---
 
             return [code for (code,) in results]
 
@@ -241,6 +272,7 @@ class ExtruderOpsController:
                     customer=main_info.get('customer'),
                     qty_order=Decimal(main_info.get('qty_order', '0')),
                     qty_produced=Decimal(main_info.get('qty_produced', '0')),
+                    target_output_per_hour=Decimal(main_info.get('target_output_per_hour', '0')),
                     prepared_by=main_info.get('prepared_by_name'),
                     machine_id=main_info.get('machine_id'),
                     shift_id=main_info.get('shift_id'),
@@ -269,10 +301,10 @@ class ExtruderOpsController:
 
                 # 4. Create the child ExtruderOutput objects
                 for output_data in form_data.get("output_log", []):
+                    # --- FIX: Save to the new datetime columns ---
                     new_output = ExtruderOutput(
-                        date=output_data.get('date'),
-                        time_start=output_data.get('time_start'),
-                        time_end=output_data.get('time_end'),
+                        datetime_start=output_data.get('datetime_start'),
+                        datetime_end=output_data.get('datetime_end'),
                         qty_output=Decimal(output_data.get('output', '0'))
                     )
                     new_form_entry.extruder_outputs.append(new_output)

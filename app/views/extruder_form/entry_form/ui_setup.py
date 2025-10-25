@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QDateTime, QDate, QTime
 
 from app.views.extruder_form.entry_form.widgets.lazy_loading_combo import LazyLoadingComboBox
+from app.widgets.smart_combo_box import SmartComboBox
 
 
 class Ui_ExtruderEntryForm:
@@ -113,7 +114,7 @@ class Ui_ExtruderEntryForm:
         Creates a group for Remarks and a dynamic list of Personnel with
         an indented/aligned layout.
         """
-        group = QGroupBox("Remarks & Personnel")
+        group = QGroupBox("Remarks and Personnel")
         main_v_layout = QVBoxLayout(group)
 
         # Remarks (Top Section) - Unchanged
@@ -165,7 +166,7 @@ class Ui_ExtruderEntryForm:
 
 
     def _create_order_info_group(self):
-        group = QGroupBox("Order Information")
+        group = QGroupBox("Production Details")
         form_layout = QFormLayout(group)
         lot_layout = QHBoxLayout()
         self.lot_number_input = QLineEdit()
@@ -197,8 +198,8 @@ class Ui_ExtruderEntryForm:
         layout = QFormLayout(group)
         self.shift_combo = QComboBox()
         self.mc_no_combo = QComboBox()
-        self.feed_rate_input = QLineEdit("0.00")
-        self.rpm_input = QLineEdit("0.00")
+        self.feed_rate_input = QLineEdit("0")
+        self.rpm_input = QLineEdit("0")
         self.screen_size_combo = QComboBox()
         self.screw_config_combo = QComboBox()
 
@@ -244,7 +245,7 @@ class Ui_ExtruderEntryForm:
         group = QGroupBox("Purging Details")
         layout = QFormLayout(group)
 
-        self.purging_product_code_combo = LazyLoadingComboBox()
+        self.purging_product_code_combo = SmartComboBox()
         self.purging_product_code_combo.setPlaceholderText("Type to search Product Codes...")
 
         self.purging_start_time = QTimeEdit()
@@ -307,30 +308,63 @@ class Ui_ExtruderEntryForm:
 
         return group
 
+    # def _create_summary_group(self):
+    #     group = QGroupBox("Production Summary")
+    #     layout = QFormLayout(group)
+    #     self.total_output_label = QLabel("0.00 KG")
+    #     self.output_percent_label = QLabel("0.00 %")
+    #     self.loss_label = QLabel("0.00 KG")
+    #     self.loss_percent_label = QLabel("0.00 %")
+    #     self.gain_label = QLabel("0.00 KG")
+    #     self.gain_percent_label = QLabel("0.00 %")
+    #     self.output_per_hour_label = QLabel("0.00 KG/HR")
+    #     self.resin_qty_label = QLabel("0.00 KG")
+    #     layout.addRow("Total Output:", self.total_output_label)
+    #     layout.addRow("Output %:", self.output_percent_label)
+    #     layout.addRow("Loss:", self.loss_label)
+    #     layout.addRow("Loss %:", self.loss_percent_label)
+    #
+    #     layout.addRow("Gain:", self.gain_label)
+    #     layout.addRow("Gain %:", self.gain_percent_label)
+    #
+    #     layout.addRow("Output per hour:", self.output_per_hour_label)
+    #     layout.addRow("Resin QTY:", self.resin_qty_label)
+    #     spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+    #     layout.addItem(spacer)
+    #     return group
+
     def _create_summary_group(self):
         group = QGroupBox("Production Summary")
         layout = QFormLayout(group)
         self.total_output_label = QLabel("0.00 KG")
         self.output_percent_label = QLabel("0.00 %")
         self.loss_label = QLabel("0.00 KG")
-        self.loss_percent_label = QLabel("0.00 %")
         self.gain_label = QLabel("0.00 KG")
+        self.loss_percent_label = QLabel("0.00 %")
         self.gain_percent_label = QLabel("0.00 %")
+
+        # --- NEW: Create the label for the total time ---
+        self.total_time_used_label = QLabel("00:00")
+
         self.output_per_hour_label = QLabel("0.00 KG/HR")
         self.resin_qty_label = QLabel("0.00 KG")
+
         layout.addRow("Total Output:", self.total_output_label)
+
+        # --- NEW: Add the new label to the layout ---
+        layout.addRow("Total Time Used (HH:mm):", self.total_time_used_label)
+
         layout.addRow("Output %:", self.output_percent_label)
         layout.addRow("Loss:", self.loss_label)
-        layout.addRow("Loss %:", self.loss_percent_label)
-
         layout.addRow("Gain:", self.gain_label)
+        layout.addRow("Loss %:", self.loss_percent_label)
         layout.addRow("Gain %:", self.gain_percent_label)
-
         layout.addRow("Output per hour:", self.output_per_hour_label)
         layout.addRow("Resin QTY:", self.resin_qty_label)
         spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
         layout.addItem(spacer)
         return group
+
 
     def _create_output_log_group(self):
         group = QGroupBox("Extruder Output Log")

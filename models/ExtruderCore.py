@@ -31,6 +31,7 @@ class ExtruderFormData(Base, AuditMixin):
     lot_number = Column(String(100), index=True)
     qty_order = Column(Numeric(10, 2))
     qty_produced = Column(Numeric(10, 2))
+    target_output_per_hour = Column(Numeric(10, 2), nullable=True)
     remarks = Column(Text)
     prepared_by = Column(String(255))
     is_completed = Column(Boolean, default=False, nullable=False)
@@ -95,9 +96,8 @@ class ExtruderOutput(Base, AuditMixin):
     __tablename__ = "tbl_extruder_outputs"
     id = Column(Integer, primary_key=True, autoincrement=True)
     extruder_form_data_id = Column(Integer, ForeignKey("tbl_extruder_form_data.id"), nullable=False)
-    date = Column(DateTime(timezone=True))
-    time_start = Column(Time(timezone=False))
-    time_end = Column(Time(timezone=False))
+    datetime_start = Column(DateTime(timezone=True))
+    datetime_end = Column(DateTime(timezone=True))
     qty_output = Column(Numeric(10, 2))
     extruder_form_data = relationship("ExtruderFormData", back_populates="extruder_outputs")
 
@@ -110,8 +110,6 @@ class MachineDetail(Base, AuditMixin):
     screw_config_id = Column(Integer, ForeignKey("tbl_extruder_screw_configs.id"), nullable=False)
     feed_rate = Column(String(100))
     rpm = Column(String(100))
-    machine_datetime_start = Column(DateTime(timezone=True))
-    machine_datetime_end = Column(DateTime(timezone=True))
     is_vacuum_on = Column(Boolean, default=False, nullable=False)
 
     # --- FIX: Removed redundant/incorrect relationships ---

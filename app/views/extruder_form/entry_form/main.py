@@ -1,4 +1,6 @@
 # app/views/extruder_form/entry_form/main.py
+import traceback
+from datetime import datetime, timedelta
 
 from PyQt6.QtCore import QDate, QTime, Qt, QEvent, QObject
 from PyQt6.QtWidgets import QWidget, QMessageBox, QComboBox, QTableWidgetItem, QLineEdit, QDateEdit, QTimeEdit, \
@@ -6,6 +8,8 @@ from PyQt6.QtWidgets import QWidget, QMessageBox, QComboBox, QTableWidgetItem, Q
 from typing import Type
 from sqlalchemy.orm import sessionmaker
 from decimal import Decimal, InvalidOperation
+from .widgets.success_dialog import SuccessDialog
+from .widgets.error_dialog import ErrorDialog
 
 from .ui_setup import Ui_ExtruderEntryForm
 from .ops import ExtruderOpsController
@@ -50,6 +54,8 @@ class ExtruderEntryFormView(QWidget):
         self.ui.qty_order_input.textChanged.connect(self._update_production_summary)
         self.ui.save_button.clicked.connect(self._save_form_data)
         self.ui.clear_button.clicked.connect(self._clear_form)
+
+        self.ui.purging_product_code_combo.full_search_requested.connect(self._on_product_code_search_requested)
 
     def _calculate_purging_time_used(self):
         """Calculates and displays the duration between purging start and end times."""
@@ -177,10 +183,12 @@ class ExtruderEntryFormView(QWidget):
             for r in self.resin_list:
                 self.ui.purging_resin_combo.addItem(r.abbreviation, r.id)
 
-            self.ui.purging_product_code_combo.set_data_fetcher(
-                self.controller.get_distinct_product_codes_paginated
-            )
-            self.ui.purging_product_code_combo.load_initial_data()
+            # --- THIS IS THE FIX ---
+            # 1. Fetch the initial list of product codes.
+            initial_codes = self.controller.get_distinct_product_codes_paginated(page=1, page_size=1000, limit=1000)
+
+            # 2. Use the correct method 'populate_initial' to load the data.
+            self.ui.purging_product_code_combo.populate_initial(initial_codes)
 
             zones = self.controller.get_all_zones()
             self.zone_mapping = {zone.name: zone.id for zone in zones}
@@ -191,7 +199,28 @@ class ExtruderEntryFormView(QWidget):
         #     ADD INITIAL ROW FOR PERSONNEL
             self._add_personnel_row()
         except Exception as e:
-            QMessageBox.critical(self, "Database Error", f"Could not load initial data: {e}")
+            # --- FIX: Use the new ErrorDialog ---
+            error_dialog = ErrorDialog(
+                title="Database Error",
+                message="Could not load the initial data required for the form.",
+                details=traceback.format_exc(),
+                parent=self
+            )
+            error_dialog.exec()
+
+    def _on_product_code_search_requested(self, search_term: str):
+        try:
+            # Fetch search results from the database
+            results = self.controller.get_distinct_product_codes_paginated(
+                page=1,
+                page_size=50, # Limit server-side results
+                search_term=search_term
+            )
+            # Push the results back into the combo box
+            self.ui.purging_product_code_combo.update_with_search_results(results)
+        except Exception as e:
+            print(f"Error during product code search: {e}")
+
 
 
     def _add_personnel_row(self):
@@ -249,8 +278,16 @@ class ExtruderEntryFormView(QWidget):
         self.ui.resin_group.setEnabled(is_enabled)
 
         if is_enabled:
-            # --- FIX: When the section is RE-ENABLED, reload the initial data ---
-            self.ui.purging_product_code_combo.load_initial_data()
+            # --- THIS IS THE FIX ---
+            # When the section is RE-ENABLED, we need to re-populate the
+            # initial list of items in the SmartComboBox.
+            try:
+                initial_codes = self.controller.get_distinct_product_codes_paginated(page=1, page_size=1000, limit=1000)
+                self.ui.purging_product_code_combo.populate_initial(initial_codes)
+            except Exception as e:
+                error_dialog = ErrorDialog("Load Error", "Could not reload product codes.",
+                                           details=traceback.format_exc(), parent=self)
+                error_dialog.exec()
         else:
             # When the section is DISABLED, clear everything
             self.ui.purging_product_code_combo.clear()
@@ -276,8 +313,16 @@ class ExtruderEntryFormView(QWidget):
                 self.lot_number_dialog = LotNumberDialog(self.controller, self._handle_lot_selection, self, initial_product_code=initial_product_code, initial_customer=initial_customer)
                 self.lot_number_dialog.show()
             self.lot_number_dialog.activateWindow()
+
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Could not open lot number selector: {e}")
+            # --- FIX: Use the new ErrorDialog ---
+            error_dialog = ErrorDialog(
+                title="Dialog Error",
+                message="An unexpected error occurred while trying to open the lot number selector.",
+                details=traceback.format_exc(),
+                parent=self
+            )
+            error_dialog.exec()
 
     def _handle_lot_selection(self, selection_data: dict):
         lot_data = selection_data.get("lot_data")
@@ -303,8 +348,17 @@ class ExtruderEntryFormView(QWidget):
             elif not self.production_cut_active:
                 total_produced = self.controller.get_total_produced_weight_for_lots(final_lots)
                 self.ui.qty_produced_input.setText(f"{total_produced:.2f}")
+
         except Exception as e:
-            QMessageBox.critical(self, "Calculation Error", f"Could not set quantity values: {e}")
+            # --- FIX: Use the new ErrorDialog ---
+            error_dialog = ErrorDialog(
+                title="Calculation Error",
+                message="Could not set the quantity values after selecting a lot.",
+                details=traceback.format_exc(),
+                parent=self
+            )
+            error_dialog.exec()
+
         if len(final_lots) == 1:
             self._prepopulate_static_fields(final_lots[0])
 
@@ -354,17 +408,11 @@ class ExtruderEntryFormView(QWidget):
         row_position = self.ui.output_log_table.rowCount()
         self.ui.output_log_table.insertRow(row_position)
 
-        # This line now creates an instance of our new, powerful widget.
-        # It will be blank by default.
         date_edit = SmartDateEdit()
-
-        # The rest of the setup is correct.
         time_start_edit = QTimeEdit(QTime(0, 0))
         time_start_edit.setDisplayFormat("HH:mm")
-
         time_end_edit = QTimeEdit(QTime(0, 0))
         time_end_edit.setDisplayFormat("HH:mm")
-
         time_end_edit.installEventFilter(self)
 
         time_used_item = QTableWidgetItem("00:00")
@@ -376,10 +424,14 @@ class ExtruderEntryFormView(QWidget):
         self.ui.output_log_table.setItem(row_position, 3, time_used_item)
         self.ui.output_log_table.setItem(row_position, 4, QTableWidgetItem("0.00"))
 
+        # --- FIX: Connect all three widgets to the new calculation logic ---
+        date_edit.dateChanged.connect(lambda date, r=row_position: self._calculate_output_log_time_used(r))
         time_start_edit.timeChanged.connect(lambda time, r=row_position: self._calculate_output_log_time_used(r))
         time_end_edit.timeChanged.connect(lambda time, r=row_position: self._calculate_output_log_time_used(r))
 
-        # --- NEW: The event filter method ---
+        # Manually trigger a calculation to set initial "00:00" state
+        self._calculate_output_log_time_used(row_position)
+
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         """
@@ -404,28 +456,54 @@ class ExtruderEntryFormView(QWidget):
         # For all other events, pass them to the default handler
         return super().eventFilter(obj, event)
 
-
     def _calculate_output_log_time_used(self, row: int):
-        """Calculates duration for a specific row in the output log table."""
+        """
+        Calculates the duration for a row in the output log, correctly
+        handling overnight shifts for the end date.
+        """
         try:
+            date_widget = self.ui.output_log_table.cellWidget(row, 0)
             start_widget = self.ui.output_log_table.cellWidget(row, 1)
             end_widget = self.ui.output_log_table.cellWidget(row, 2)
             time_used_item = self.ui.output_log_table.item(row, 3)
 
-            if not all([start_widget, end_widget, time_used_item]):
+            if not all([date_widget, start_widget, end_widget, time_used_item]):
                 return
 
-            start_time = start_widget.time()
-            end_time = end_widget.time()
+            start_qdate = date_widget.date()
+            start_qtime = start_widget.time()
+            end_qtime = end_widget.time()
 
-            total_seconds = start_time.secsTo(end_time)
-            if total_seconds < 0:
-                total_seconds += 86400  # Account for overnight
+            if start_qdate.isNull():
+                time_used_item.setText("00:00")
+                return  # Can't calculate without a start date
 
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
+            # --- THIS IS THE NEW LOGIC ---
+            # Convert to Python types
+            start_date = start_qdate.toPyDate()
+            start_time = start_qtime.toPyTime()
+            end_time = end_qtime.toPyTime()
+
+            # 1. Construct the start datetime
+            datetime_start = datetime.combine(start_date, start_time)
+
+            # 2. Determine the end date based on the overnight rule
+            end_date = start_date
+            if end_time <= start_time:
+                end_date += timedelta(days=1)
+
+            # 3. Construct the end datetime
+            datetime_end = datetime.combine(end_date, end_time)
+
+            # 4. Calculate the duration
+            duration = datetime_end - datetime_start
+            total_seconds = duration.total_seconds()
+
+            hours = int(total_seconds // 3600)
+            minutes = int((total_seconds % 3600) // 60)
 
             time_used_item.setText(f"{hours:02d}:{minutes:02d}")
+
         except Exception as e:
             print(f"Error calculating time used for row {row}: {e}")
 
@@ -435,27 +513,118 @@ class ExtruderEntryFormView(QWidget):
         if current_row >= 0:
             self.ui.output_log_table.removeRow(current_row)
 
+
+
+    # def _update_production_summary(self):
+    #     try:
+    #         total_output = Decimal("0.00")
+    #         # --- NEW: Initialize total minutes for summing ---
+    #         total_minutes_used = 0
+    #
+    #         # 1. Loop through the output log to sum output AND time
+    #         for row in range(self.ui.output_log_table.rowCount()):
+    #             output_item = self.ui.output_log_table.item(row, 4)
+    #             if output_item:
+    #                 total_output += Decimal(output_item.text() or '0')
+    #
+    #             # --- NEW: Parse and sum the "Time Used" column ---
+    #             time_used_item = self.ui.output_log_table.item(row, 3)
+    #             if time_used_item:
+    #                 time_parts = time_used_item.text().split(':')
+    #                 if len(time_parts) == 2:
+    #                     hours = int(time_parts[0])
+    #                     minutes = int(time_parts[1])
+    #                     total_minutes_used += (hours * 60) + minutes
+    #
+    #         self.ui.total_output_label.setText(f"{total_output:.2f} KG")
+    #
+    #         # --- NEW: Format the total minutes and update the label ---
+    #         total_hours = total_minutes_used // 60
+    #         remaining_minutes = total_minutes_used % 60
+    #         self.ui.total_time_used_label.setText(f"{total_hours:02d}:{remaining_minutes:02d}")
+    #
+    #         # 2. Continue with other calculations
+    #         qty_produced_input = Decimal(self.ui.qty_produced_input.text() or '0')
+    #         total_diff = total_output - qty_produced_input
+    #
+    #         if total_diff < 0:
+    #             self.ui.loss_label.setText(f"{abs(total_diff):.2f} KG")
+    #             self.ui.gain_label.setText("0.00 KG")
+    #         else:
+    #             self.ui.loss_label.setText("0.00 KG")
+    #             self.ui.gain_label.setText(f"{total_diff:.2f} KG")
+    #
+    #         total_resin = Decimal("0.00")
+    #         for row in range(self.ui.purging_details_table.rowCount()):
+    #             qty_item = self.ui.purging_details_table.item(row, 2)
+    #             if qty_item:
+    #                 total_resin += Decimal(qty_item.text() or '0')
+    #         self.ui.resin_qty_label.setText(f"{total_resin:.2f} KG")
+    #
+    #         output_percent = (total_output / qty_produced_input * 100) if qty_produced_input > 0 else Decimal("0.00")
+    #         self.ui.output_percent_label.setText(f"{output_percent:.2f} %")
+    #
+    #         percent_diff = Decimal("0.00")
+    #         if qty_produced_input > 0:
+    #             percent_diff = (total_diff / qty_produced_input * 100)
+    #
+    #         if percent_diff < 0:
+    #             self.ui.loss_percent_label.setText(f"{abs(percent_diff):.2f} %")
+    #             self.ui.gain_percent_label.setText("0.00 %")
+    #         else:
+    #             self.ui.loss_percent_label.setText("0.00 %")
+    #             self.ui.gain_percent_label.setText(f"{percent_diff:.2f} %")
+    #
+    #     except (InvalidOperation, TypeError, ValueError):
+    #         # Added ValueError to safely handle potential int conversion errors
+    #         pass
+
     def _update_production_summary(self):
         try:
             total_output = Decimal("0.00")
+            total_minutes_used = 0
+
+            # 1. Sum total output and total minutes from the log table
             for row in range(self.ui.output_log_table.rowCount()):
                 output_item = self.ui.output_log_table.item(row, 4)
                 if output_item:
                     total_output += Decimal(output_item.text() or '0')
+
+                time_used_item = self.ui.output_log_table.item(row, 3)
+                if time_used_item:
+                    time_parts = time_used_item.text().split(':')
+                    if len(time_parts) == 2:
+                        hours = int(time_parts[0])
+                        minutes = int(time_parts[1])
+                        total_minutes_used += (hours * 60) + minutes
+
+            # Update the display for Total Output and Total Time
             self.ui.total_output_label.setText(f"{total_output:.2f} KG")
+            total_hours = total_minutes_used // 60
+            remaining_minutes = total_minutes_used % 60
+            self.ui.total_time_used_label.setText(f"{total_hours:02d}:{remaining_minutes:02d}")
 
-            # Qty Produced is the new baseline for "input"
+            # --- THIS IS THE FIX ---
+            # 2. Calculate Output per Hour
+            output_per_hour = Decimal("0.00")
+            if total_minutes_used > 0:
+                # Convert total minutes to decimal hours
+                total_hours_decimal = Decimal(total_minutes_used) / Decimal(60)
+                # Calculate the rate
+                output_per_hour = total_output / total_hours_decimal
+
+            # 3. Update the label with the decimal value
+            self.ui.output_per_hour_label.setText(f"{output_per_hour:.2f} KG/HR")
+            # --- END FIX ---
+
+            # 4. Continue with other calculations (Loss, Gain, Percentages)
             qty_produced_input = Decimal(self.ui.qty_produced_input.text() or '0')
-
-            # Calculate the difference (can be negative for loss, positive for gain)
             total_diff = total_output - qty_produced_input
 
             if total_diff < 0:
-                # It's a loss
                 self.ui.loss_label.setText(f"{abs(total_diff):.2f} KG")
                 self.ui.gain_label.setText("0.00 KG")
             else:
-                # It's a gain (or zero)
                 self.ui.loss_label.setText("0.00 KG")
                 self.ui.gain_label.setText(f"{total_diff:.2f} KG")
 
@@ -466,11 +635,9 @@ class ExtruderEntryFormView(QWidget):
                     total_resin += Decimal(qty_item.text() or '0')
             self.ui.resin_qty_label.setText(f"{total_resin:.2f} KG")
 
-            # Calculate percentages
             output_percent = (total_output / qty_produced_input * 100) if qty_produced_input > 0 else Decimal("0.00")
             self.ui.output_percent_label.setText(f"{output_percent:.2f} %")
 
-            # --- FIX: Initialize percent_diff before the if block to prevent NameError ---
             percent_diff = Decimal("0.00")
             if qty_produced_input > 0:
                 percent_diff = (total_diff / qty_produced_input * 100)
@@ -482,45 +649,9 @@ class ExtruderEntryFormView(QWidget):
                 self.ui.loss_percent_label.setText("0.00 %")
                 self.ui.gain_percent_label.setText(f"{percent_diff:.2f} %")
 
-        except (InvalidOperation, TypeError):
+        except (InvalidOperation, TypeError, ValueError):
             pass
 
-
-    # def _clear_form(self):
-    #     self.aggregated_prod_ids.clear()
-    #     self.aggregated_formula_ids.clear()
-    #     self.aggregated_order_nos.clear()
-    #     self.production_cut_active = False
-    #     self.ui.lot_number_input.clear()
-    #     self.ui.product_code_input.clear()
-    #     self.ui.customer_input.clear()
-    #     self.ui.qty_order_input.setText("0.00")
-    #     self.ui.qty_produced_input.setText("0.00")
-    #     self.ui.target_output_hr_input.setText("0.00")
-    #     self.ui.prepared_by_combo.setCurrentIndex(0)
-    #     self.ui.operator_combo.setCurrentIndex(0)
-    #     self.ui.position_combo.setCurrentIndex(0)
-    #     self.ui.shift_combo.setCurrentIndex(0)
-    #     self.ui.mc_no_combo.setCurrentIndex(0)
-    #     self.ui.feed_rate_input.setText("0.00")
-    #     self.ui.rpm_input.setText("0.00")
-    #     self.ui.screen_size_combo.setCurrentIndex(0)
-    #     self.ui.is_vacuum_on_checkbox.setChecked(False)
-    #     self.ui.screw_config_combo.setCurrentIndex(0)
-    #     self.ui.purging_product_code_combo.setCurrentIndex(0)
-    #     self.ui.purging_resin_combo.setCurrentIndex(0)
-    #     self.ui.purging_palletizer_input.setText("0")
-    #     self.ui.purging_siever_input.setText("0")
-    #     self.ui.purging_details_table.setRowCount(0)
-    #     self.ui.output_log_table.setRowCount(0)
-    #     self.ui.no_purging_checkbox.setChecked(False)
-    #     self.ui.purging_start_time.setTime(QTime(0, 0))
-    #     self.ui.purging_end_time.setTime(QTime(0, 0))
-    #
-    #     for widget in self.ui.zone_inputs.values(): widget.setText("0")
-    #     self.ui.remarks_input.clear()
-    #     self._update_production_summary()
-    #     QMessageBox.information(self, "Cleared", "Form has been cleared.")
 
     def _clear_form(self):
         # Clear main form fields
@@ -538,8 +669,8 @@ class ExtruderEntryFormView(QWidget):
         # Clear machine config fields
         self.ui.shift_combo.setCurrentIndex(0)
         self.ui.mc_no_combo.setCurrentIndex(0)
-        self.ui.feed_rate_input.setText("0.00")
-        self.ui.rpm_input.setText("0.00")
+        self.ui.feed_rate_input.setText("0")
+        self.ui.rpm_input.setText("0")
         self.ui.screen_size_combo.setCurrentIndex(0)
         self.ui.screw_config_combo.setCurrentIndex(0)
         self.ui.is_vacuum_on_checkbox.setChecked(False)
@@ -663,6 +794,34 @@ class ExtruderEntryFormView(QWidget):
         formula_no_str = "; ".join(sorted([item for item in self.aggregated_formula_ids if item]))
         order_no_str = "; ".join(sorted([item for item in self.aggregated_order_nos if item]))
 
+        # --- FIX: This logic is now moved into a dedicated block ---
+        output_log_list = []
+        for r in range(self.ui.output_log_table.rowCount()):
+            date_widget = self.ui.output_log_table.cellWidget(r, 0)
+            start_time_widget = self.ui.output_log_table.cellWidget(r, 1)
+            end_time_widget = self.ui.output_log_table.cellWidget(r, 2)
+            output_item = self.ui.output_log_table.item(r, 4)
+
+            if not all([date_widget, start_time_widget, end_time_widget, output_item]) or date_widget.date().isNull():
+                continue
+
+            start_date = date_widget.date().toPyDate()
+            start_time = start_time_widget.time().toPyTime()
+            end_time = end_time_widget.time().toPyTime()
+
+            datetime_start = datetime.combine(start_date, start_time)
+            end_date = start_date
+            if end_time <= start_time:
+                end_date += timedelta(days=1)
+            datetime_end = datetime.combine(end_date, end_time)
+
+            output_log_list.append({
+                "datetime_start": datetime_start,
+                "datetime_end": datetime_end,
+                "output": output_item.text(),
+            })
+
+
         data = {
             "main": {
                 "lot_number": self.ui.lot_number_input.text(),
@@ -673,6 +832,7 @@ class ExtruderEntryFormView(QWidget):
                 "customer": self.ui.customer_input.text(),
                 "qty_order": self.ui.qty_order_input.text(),
                 "qty_produced": self.ui.qty_produced_input.text(),
+                "target_output_per_hour": self.ui.target_output_hr_input.text(),
                 "prepared_by_name": self.ui.prepared_by_combo.currentText(),
                 "machine_id": self.ui.mc_no_combo.currentData(),
                 "shift_id": self.ui.shift_combo.currentData()
@@ -684,14 +844,7 @@ class ExtruderEntryFormView(QWidget):
                 "screen_size_id": self.ui.screen_size_combo.currentData(),
                 "is_vacuum_on": self.ui.is_vacuum_on_checkbox.isChecked()
             },
-            "output_log": [
-                {
-                    "date": self.ui.output_log_table.cellWidget(r, 0).date().toPyDate(),
-                    "time_start": self.ui.output_log_table.cellWidget(r, 1).time().toPyTime(),
-                    "time_end": self.ui.output_log_table.cellWidget(r, 2).time().toPyTime(),
-                    "output": self.ui.output_log_table.item(r, 4).text(),
-                } for r in range(self.ui.output_log_table.rowCount())
-            ],
+            "output_log": output_log_list,
             "zone_temps": {name: widget.text() for name, widget in self.ui.zone_inputs.items()},
             "remarks": self.ui.remarks_input.toPlainText()
         }
@@ -713,7 +866,7 @@ class ExtruderEntryFormView(QWidget):
 
         if not self.ui.no_purging_checkbox.isChecked():
             data["purging_header"] = {
-                "product_code_name": self.ui.purging_product_code_combo.currentText(),
+                "product_code_name": self.ui.purging_product_code_combo.text(),
                 "start_time": self.ui.purging_start_time.time().toPyTime(),
                 "end_time": self.ui.purging_end_time.time().toPyTime(),
                 "resin_id": self.ui.purging_resin_combo.currentData(),
@@ -730,91 +883,110 @@ class ExtruderEntryFormView(QWidget):
 
         return data
 
-    def _save_form_data(self):
-        if not self._validate_purging_data():
-            return
-        if not self.ui.lot_number_input.text():
-            QMessageBox.warning(self, "Missing Data", "Please select a lot number before saving.")
-            return
-
-        form_data = self._gather_data_from_ui()
-
-        try:
-            # --- The simulation is removed, this is a real save now ---
-            self.controller.save_full_form(form_data, self.zone_mapping)
-            QMessageBox.information(self, "Success", "Form data has been saved to the database.")
-            self._clear_form()
-        except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"Could not save the form: {e}\n\nCheck console for details.")
-            import traceback
-            traceback.print_exc()
-
-
-    def _validate_purging_data(self) -> bool:
+    def _validate_required_fields(self) -> bool:
         """
-        Validates all purging data before saving.
+        Checks all required fields and business rules, grouping errors by section.
         Returns True if valid, False otherwise (and shows a message).
         """
-        # This validation only runs if the user intends to save purging data.
-        if self.ui.no_purging_checkbox.isChecked():
-            return True
+        # --- FIX: Define fields in a structured dictionary by group ---
+        validation_map = {
+            "Production Details": [
+                (self.ui.lot_number_input, "Lot Number"),
+                (self.ui.product_code_input, "Product Code"),
+                (self.ui.customer_input, "Customer"),
+                (self.ui.qty_order_input, "QTY Order (kg)"),
+                (self.ui.qty_produced_input, "QTY Produced (kg)"),
+                (self.ui.target_output_hr_input, "Targer Output per Hour (Kg/Hr)"),
 
-        # Check if the user has started entering purging data
-        product_code_selected = bool(self.ui.purging_product_code_combo.currentText())
-        resin_selected = self.ui.purging_resin_combo.currentIndex() > 0
+            ],
+            "Machine & Configuration": [
+                (self.ui.shift_combo, "Shift"),
+                (self.ui.mc_no_combo, "MC No."),
+                (self.ui.feed_rate_input, "Feed Rate"),
+                (self.ui.rpm_input, "RPM"),
+                (self.ui.screen_size_combo, "Screen Size"),
+                (self.ui.screw_config_combo, "Screw Config."),
+            ],
+            "Personnel": [
+                (self.ui.prepared_by_combo, "Prepared By"),
 
-        # If they haven't selected a product code or resin, we don't need to validate
-        if not product_code_selected and not resin_selected:
-            return True
+            ]
+        }
 
-        # 1. Validate Times
-        start_time = self.ui.purging_start_time.time()
-        end_time = self.ui.purging_end_time.time()
-        if end_time <= start_time:
-            QMessageBox.warning(self, "Purging Validation Error",
-                                "The Purging End Time must be after the Purging Start Time.")
+        if not self.ui.no_purging_checkbox.isChecked():
+            validation_map["Purging Details"] = [
+                (self.ui.purging_product_code_combo, "Product Code"),
+                (self.ui.purging_resin_combo, "Resin"),
+                (self.ui.purging_palletizer_input, "Pelletizer"),
+                (self.ui.purging_siever_input, "Siever"),
+            ]
+
+        missing_issues = []
+        for group_name, fields in validation_map.items():
+            group_errors = []
+            for widget, field_name in fields:
+                is_missing = False
+                if isinstance(widget, QLineEdit):
+                    if (widget.text().strip() in ('', '0', '0.00')):
+                        is_missing = True
+                elif isinstance(widget, QComboBox):
+                    if widget.isEditable():
+                        if not widget.currentText().strip():
+                            is_missing = True
+                    elif widget.currentIndex() <= 0:
+                        is_missing = True
+
+                if is_missing:
+                    group_errors.append(field_name)
+
+            if group_errors:
+                missing_issues.append(
+                    f"<b>{group_name}:</b><ul>{''.join(f'<li>{err}</li>' for err in group_errors)}</ul>")
+
+        # --- Check dynamic/custom rules ---
+        custom_rules_errors = []
+        if self.ui.personnel_container_layout.count() == 0:
+            custom_rules_errors.append("At least one Personnel must be added.")
+        if self.ui.output_log_table.rowCount() == 0:
+            custom_rules_errors.append("At least one Extruder Output Log entry is required.")
+        all_zones_zero = all(int(z.text() or 0) == 0 for z in self.ui.zone_inputs.values())
+        if all_zones_zero:
+            custom_rules_errors.append("All Zone Temperatures cannot be zero.")
+
+        # --- THIS IS THE FIX: The incorrect time validation block has been removed. ---
+        # The logic to check if end_time <= start_time is no longer here.
+        # The "Time Used" calculation already handles the overnight logic correctly.
+
+        if custom_rules_errors:
+            missing_issues.append(
+                f"<b>Other Issues:</b><ul>{''.join(f'<li>{err}</li>' for err in custom_rules_errors)}</ul>")
+
+        # --- Final Check ---
+        if missing_issues:
+            final_issue_list_html = "<br>".join(missing_issues)
+            error_dialog = ErrorDialog(
+                title="Validation Error",
+                message=f"Please correct the following issues before saving:<br>{final_issue_list_html}",
+                parent=self
+            )
+            error_dialog.exec()
             return False
 
-        # 2. Validate Pelletizer and Siever Quantities
-        try:
-            palletizer_qty = int(self.ui.purging_palletizer_input.text() or 0)
-            siever_qty = int(self.ui.purging_siever_input.text() or 0)
-
-            if not (1 <= palletizer_qty <= 20):
-                QMessageBox.warning(self, "Purging Validation Error",
-                                    "If entering purging data, the Pelletizer quantity must be a whole number between 1 and 20.")
-                return False
-
-            if not (1 <= siever_qty <= 20):
-                QMessageBox.warning(self, "Purging Validation Error",
-                                    "If entering purging data, the Siever quantity must be a whole number between 1 and 20.")
-                return False
-
-        except ValueError:
-            QMessageBox.warning(self, "Purging Validation Error",
-                                "Pelletizer and Siever quantities must be valid whole numbers.")
-            return False
-
-        return True  # All validations passed
+        return True
 
 
 
     def _save_form_data(self):
-
-
-        if not self._validate_purging_data():
-            return  # Stop the save if validation fails
-
-
-        if not self.ui.lot_number_input.text():
-            QMessageBox.warning(self, "Missing Data", "Please select a lot number before saving.")
+        # --- FIX: Only call the one comprehensive validation method ---
+        if not self._validate_required_fields():
             return
+
         form_data = self._gather_data_from_ui()
         try:
             self.controller.save_full_form(form_data, self.zone_mapping)
-            QMessageBox.information(self, "Success", "Form data has been saved (simulated).")
+            success_dialog = SuccessDialog("Save Successful", "The extruder form data has been saved.", parent=self)
+            success_dialog.exec()
             self._clear_form()
         except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"Could not save the form: {e}\n\nCheck console for details.")
-            import traceback
-            traceback.print_exc()
+            error_dialog = ErrorDialog("Save Error", "Could not save the form data.", details=traceback.format_exc(), parent=self)
+            error_dialog.exec()
