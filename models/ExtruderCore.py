@@ -22,6 +22,7 @@ from .Mixins import AuditMixin
 class ExtruderFormData(Base, AuditMixin):
     __tablename__ = "tbl_extruder_form_data"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    ref_no = Column(Integer, autoincrement=True)
     process_id = Column(String(100), index=True)
     production_id = Column(String(100), index=True)
     formula_no = Column(String(100))

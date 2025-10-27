@@ -679,8 +679,8 @@ class ExtruderEntryFormView(QWidget):
         # 1. Do NOT touch the 'no_purging_checkbox'.
 
         # 2. Explicitly clear and reload the product code combo.
-        self.ui.purging_product_code_combo.clear()
-        self.ui.purging_product_code_combo.load_initial_data()
+        initial_codes = self.controller.get_distinct_product_codes_paginated(page=1, page_size=1000, limit=1000)
+        self.ui.purging_product_code_combo.populate_initial(initial_codes)
 
         # 3. Clear the other purging fields.
         self.ui.purging_resin_combo.setCurrentIndex(0)
