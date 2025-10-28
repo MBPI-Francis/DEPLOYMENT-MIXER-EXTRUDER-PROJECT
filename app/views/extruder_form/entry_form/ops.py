@@ -381,14 +381,50 @@ class ExtruderOpsController:
                     record_to_update.machine_details.screw_config_id = mc_info.get('screw_config_id')
                     record_to_update.machine_details.is_vacuum_on = mc_info.get('is_vacuum_on', False)
 
-                record_to_update.machine_temps.clear();
+
+
+                # 1. Get data from the form and map existing DB objects by their ID
+                form_personnel_data = form_data.get("personnel", [])
+                existing_personnel_map = {p.id: p for p in record_to_update.extruder_personnels}
+
+                form_ids = set()
+
+                # 2. Loop through UI data to UPDATE existing and CREATE new records
+                for person_data in form_personnel_data:
+                    person_id = person_data.get("id")
+
+                    if person_id in existing_personnel_map:
+                        # This is an existing record, so UPDATE it
+                        person_to_update = existing_personnel_map[person_id]
+                        person_to_update.employee_id = person_data["employee_id"]
+                        person_to_update.position_id = person_data["position_id"]
+                        form_ids.add(person_id)
+                    else:
+                        # This is a new record (ID is None), so CREATE it
+                        if person_data.get('employee_id') and person_data.get('position_id'):
+                            new_personnel = ExtruderPersonnel(
+                                employee_id=person_data["employee_id"],
+                                position_id=person_data["position_id"]
+                            )
+                            record_to_update.extruder_personnels.append(new_personnel)
+
+                # 3. Determine which records to DELETE
+                ids_to_delete = set(existing_personnel_map.keys()) - form_ids
+                if ids_to_delete:
+                    # Create a list of objects to remove from the collection.
+                    # SQLAlchemy's delete-orphan cascade will handle the database DELETE.
+                    personnel_to_remove = [p for p in record_to_update.extruder_personnels if p.id in ids_to_delete]
+                    for p in personnel_to_remove:
+                        record_to_update.extruder_personnels.remove(p)
+
+                # --- END OF PERSONNEL FIX ---
+
+                record_to_update.machine_temps.clear()
                 record_to_update.extruder_outputs.clear()
-                record_to_update.extruder_personnels.clear();
+                record_to_update.extruder_personnels.clear()
                 record_to_update.purging_headers.clear()
 
-                for person_data in form_data.get("personnel", []):
-                    if person_data.get('employee_id') and person_data.get('position_id'):
-                        record_to_update.extruder_personnels.append(ExtruderPersonnel(**person_data))
+
 
                 for output_data in form_data.get("output_log", []):
                     record_to_update.extruder_outputs.append(ExtruderOutput(

@@ -166,23 +166,23 @@ class ExtruderEntryFormView(QWidget):
         except Exception as e:
             print(f"Error during product code search: {e}")
 
-
-
     def _add_personnel_row(self):
         """Dynamically creates and adds a new row for personnel entry."""
-        # Create a container widget and a horizontal layout for the row
         row_widget = QWidget()
+        # --- THIS IS THE FIX (Part 1) ---
+        # When creating a brand new row, stamp it with a None ID.
+        row_widget.setProperty("db_id", None)
+        # --- END FIX ---
+
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Create Name ComboBox
         name_combo = QComboBox()
         name_combo.setEditable(True)
         name_combo.addItem("- Select Name -", None)
         for emp in self.employee_list:
             name_combo.addItem(f"{emp.first_name} {emp.last_name}", emp.id)
 
-        # Create Position ComboBox
         pos_combo = QComboBox()
         pos_combo.setEditable(True)
         pos_combo.addItem("- Select Position -", None)
@@ -194,8 +194,6 @@ class ExtruderEntryFormView(QWidget):
 
         row_layout.addWidget(name_combo)
         row_layout.addWidget(pos_combo)
-
-        # Add the new row widget to our container layout
         self.ui.personnel_container_layout.addWidget(row_widget)
 
     def _remove_personnel_row(self):
@@ -719,19 +717,24 @@ class ExtruderEntryFormView(QWidget):
             "remarks": self.ui.remarks_input.toPlainText()
         }
 
-        # Conditionally add purging and personnel data
         personnel_list = []
         layout = self.ui.personnel_container_layout
         for i in range(layout.count()):
             row_widget = layout.itemAt(i).widget()
             if row_widget:
-                name_combo = row_widget.findChild(QComboBox)
+                # Read the database ID we stamped onto the widget
+                db_id = row_widget.property("db_id")
+
+                name_combo = row_widget.findChildren(QComboBox)[0]
                 pos_combo = row_widget.findChildren(QComboBox)[1]
+
                 if name_combo.currentData() is not None:
                     personnel_list.append({
+                        "id": db_id,  # Include the ID (will be None for new rows)
                         "employee_id": name_combo.currentData(),
                         "position_id": pos_combo.currentData()
                     })
+
         data["personnel"] = personnel_list
 
         if not self.ui.no_purging_checkbox.isChecked():
@@ -1053,8 +1056,8 @@ class ExtruderEntryFormView(QWidget):
                     qty_item.setText(f"{output.qty_output or '0.00'}")
                     # --- END FIX ---
                 finally:
-                    date_widget.blockSignals(False);
-                    start_widget.blockSignals(False);
+                    date_widget.blockSignals(False)
+                    start_widget.blockSignals(False)
                     end_widget.blockSignals(False)
 
                 self._calculate_output_log_time_used(row)
@@ -1065,30 +1068,33 @@ class ExtruderEntryFormView(QWidget):
                     message=f"A critical error occurred while displaying data for output log entry #{i + 1}.",
                     details=traceback.format_exc(), parent=self
                 )
-                error_dialog.exec();
+                error_dialog.exec()
                 return
 
+            # --- THIS IS THE FIX (Part 3) ---
+            # Populate Personnel
         while self.ui.personnel_container_layout.count() > 0: self._remove_personnel_row()
         self.ui.prepared_by_combo.setCurrentText(record.prepared_by)
 
         if record.extruder_personnels:
-
             for p in record.extruder_personnels:
                 self._add_personnel_row()
                 row_widget = self.ui.personnel_container_layout.itemAt(
                     self.ui.personnel_container_layout.count() - 1).widget()
-                name_combo = row_widget.findChildren(QComboBox)[0];
+
+                # Stamp the widget with its database ID
+                row_widget.setProperty("db_id", p.id)
+
+                name_combo = row_widget.findChildren(QComboBox)[0]
                 pos_combo = row_widget.findChildren(QComboBox)[1]
                 name_combo.setCurrentText(f"{p.employee.first_name} {p.employee.last_name}" if p.employee else "")
                 pos_combo.setCurrentText(p.position.name if p.position else "")
-
-
         else:
-            self._add_personnel_row()
+            self._add_personnel_row()  # Add one blank row if none exist
+        # --- END FIX ---
 
         if not record.purging_headers:
             self.ui.no_purging_checkbox.setChecked(True)
-
 
 
 
