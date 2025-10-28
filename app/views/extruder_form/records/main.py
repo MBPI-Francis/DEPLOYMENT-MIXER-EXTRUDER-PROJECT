@@ -1,12 +1,13 @@
 # app/views/extruder_form/records/main.py
 
 import decimal
-from PyQt6.QtWidgets import QWidget, QTableWidgetItem, QMessageBox, QApplication, QMenu
+from PyQt6.QtWidgets import QWidget, QTableWidgetItem, QMessageBox, QApplication, QMenu, QDialog
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QDate, QPoint
 from PyQt6.QtGui import QColor, QBrush, QAction
 from sqlalchemy.orm import Session
 from typing import Type
 
+from .edit_dialog import ExtruderEditDialog
 from .ui_setup import Ui_ExtruderRecordsList
 from .ops import ExtruderRecordsOperations
 from .view_dialog import ExtruderRecordViewDialog
@@ -32,7 +33,7 @@ class ExtruderRecordsView(QWidget):
         self.ui.date_from_input.dateChanged.connect(self.refresh_data)
         self.ui.date_to_input.dateChanged.connect(self.refresh_data)
         self.ui.show_deleted_checkbox.stateChanged.connect(self.refresh_data)
-        self.ui.table_widget.doubleClicked.connect(self._edit_view_record)
+        self.ui.table_widget.doubleClicked.connect(self._view_record)
         self.ui.table_widget.customContextMenuRequested.connect(self._show_context_menu)
 
     def _show_context_menu(self, position: QPoint):
@@ -44,14 +45,19 @@ class ExtruderRecordsView(QWidget):
 
         context_menu = QMenu(self)
         view_action = QAction("View Record", self)
+        # --- NEW: Add Edit action ---
+        edit_action = QAction("Edit Record", self)
         delete_action = QAction("Delete Record", self)
         restore_action = QAction("Restore Record", self)
-        view_action.triggered.connect(self._edit_view_record)
+        view_action.triggered.connect(self._view_record)
+        edit_action.triggered.connect(self._edit_record)
         delete_action.triggered.connect(self._delete_record)
         restore_action.triggered.connect(self._restore_record)
 
         if not is_deleted:
             context_menu.addAction(view_action)
+            context_menu.addAction(edit_action) # <-- Add to menu
+            context_menu.addSeparator()
             context_menu.addAction(delete_action)
         else:
             context_menu.addAction(restore_action)
@@ -138,7 +144,7 @@ class ExtruderRecordsView(QWidget):
         else:
             QMessageBox.critical(self, "Error", "Failed to restore the record.")
 
-    def _edit_view_record(self):
+    def _view_record(self):
         record_id, is_deleted = self._get_selected_record_info()
         if record_id is None or is_deleted: return
         full_data = self.ops.get_full_record_by_id(record_id)
@@ -148,3 +154,19 @@ class ExtruderRecordsView(QWidget):
             view_dialog.exec()
         else:
             QMessageBox.warning(self, "Not Found", "Could not retrieve full record details.")
+
+    def _edit_record(self):  # New method for editing
+        record_id, is_deleted = self._get_selected_record_info()
+        if record_id is None or is_deleted: return
+
+        full_data = self.ops.get_full_record_by_id(record_id)
+        if full_data:
+            # Create and execute the edit dialog
+
+            edit_dialog = ExtruderEditDialog(self.ops.Session, full_data, self)
+
+            # When the dialog is accepted (saved), refresh the main table.
+            if edit_dialog.exec() == QDialog.DialogCode.Accepted:
+                self.refresh_data()
+        else:
+            QMessageBox.warning(self, "Not Found", "Could not retrieve full record details for editing.")

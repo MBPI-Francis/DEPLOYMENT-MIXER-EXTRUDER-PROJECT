@@ -1,5 +1,5 @@
 # app/views/extruder_form/entry_form/ui_setup.py
-from PyQt6.QtGui import QIntValidator
+from PyQt6.QtGui import QIntValidator, QDoubleValidator
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGridLayout, QHBoxLayout, QFormLayout,
     QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QGroupBox,
@@ -235,10 +235,28 @@ class Ui_ExtruderEntryForm:
         zones = [("Z12 (Die head)", 0, 0), ("Z11 (Die head)", 0, 1), ("Z10 (Die head)", 0, 2), ("Z9", 1, 0),
                  ("Z8", 1, 1), ("Z7 (Die head)", 1, 2), ("Z6", 2, 0), ("Z5", 2, 1), ("Z4", 2, 2), ("Z3", 3, 0),
                  ("Z2", 3, 1), ("Z1", 3, 2)]
+
+        decimal_validator = QDoubleValidator(0.00, 999.99, 2)
+
+
+        # for label, row, col in zones:
+        #     self.zone_inputs[label.split(' ')[0]] = QLineEdit("0")
+        #     layout.addWidget(QLabel(label), row * 2, col)
+        #     layout.addWidget(self.zone_inputs[label.split(' ')[0]], row * 2 + 1, col)
+        # return group
+
         for label, row, col in zones:
-            self.zone_inputs[label.split(' ')[0]] = QLineEdit("0")
+            zone_key = label.split(' ')[0]
+            self.zone_inputs[zone_key] = QLineEdit("0")
+
+            # --- THIS IS THE FIX ---
+            # Apply the validator to the QLineEdit
+            self.zone_inputs[zone_key].setValidator(decimal_validator)
+            # --- END FIX ---
+
             layout.addWidget(QLabel(label), row * 2, col)
-            layout.addWidget(self.zone_inputs[label.split(' ')[0]], row * 2 + 1, col)
+            layout.addWidget(self.zone_inputs[zone_key], row * 2 + 1, col)
+
         return group
 
     def _create_purging_group(self):
