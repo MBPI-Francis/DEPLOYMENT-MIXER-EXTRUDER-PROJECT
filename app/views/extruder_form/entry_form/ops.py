@@ -387,6 +387,7 @@ class ExtruderOpsController:
                 form_personnel_data = form_data.get("personnel", [])
                 existing_personnel_map = {p.id: p for p in record_to_update.extruder_personnels}
 
+
                 form_ids = set()
 
                 # 2. Loop through UI data to UPDATE existing and CREATE new records
@@ -400,13 +401,14 @@ class ExtruderOpsController:
                         person_to_update.position_id = person_data["position_id"]
                         form_ids.add(person_id)
                     else:
-                        # This is a new record (ID is None), so CREATE it
                         if person_data.get('employee_id') and person_data.get('position_id'):
                             new_personnel = ExtruderPersonnel(
                                 employee_id=person_data["employee_id"],
                                 position_id=person_data["position_id"]
                             )
+                            # Add to the parent's collection AND explicitly to the session
                             record_to_update.extruder_personnels.append(new_personnel)
+                            session.add(new_personnel)
 
                 # 3. Determine which records to DELETE
                 ids_to_delete = set(existing_personnel_map.keys()) - form_ids
@@ -421,7 +423,7 @@ class ExtruderOpsController:
 
                 record_to_update.machine_temps.clear()
                 record_to_update.extruder_outputs.clear()
-                record_to_update.extruder_personnels.clear()
+                # record_to_update.extruder_personnels.clear()
                 record_to_update.purging_headers.clear()
 
 
