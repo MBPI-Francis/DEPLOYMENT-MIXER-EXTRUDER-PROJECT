@@ -76,8 +76,9 @@ class ExtruderFormView(QWidget):
 
         # --- Add Widgets as Tabs ---
         # As requested, you can easily comment out this line to hide the records tab
-        self.tab_widget.addTab( self.extruder_entry_form, "Extruder Entry Form")
         self.tab_widget.addTab( self.extruder_records, "Extruder Records")
+        self.tab_widget.addTab( self.extruder_entry_form, "Extruder Entry Form")
+
 
 
 

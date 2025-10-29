@@ -1117,6 +1117,23 @@ class ExtruderEntryFormView(QWidget):
     def populate_form_for_editing(self, record):
         """Fills the entire form with data from an existing record object."""
         self.edit_record_id = record.id
+
+        # --- THIS IS THE DEFINITIVE FIX ---
+        # 1. Clear any previous state before loading new data.
+        self.aggregated_prod_ids.clear()
+        self.aggregated_formula_ids.clear()
+        self.aggregated_order_nos.clear()
+
+        # 2. Re-initialize the internal sets from the record's stored strings.
+        if record.production_id:
+            self.aggregated_prod_ids = set(record.production_id.split('; '))
+        if record.formula_no:
+            self.aggregated_formula_ids = set(record.formula_no.split('; '))
+        if record.order_no:
+            self.aggregated_order_nos = set(record.order_no.split('; '))
+        # --- END FIX ---
+
+
         self.ui.lot_number_input.setText(record.lot_number)
         self.ui.product_code_input.setText(record.product_code)
         self.ui.customer_input.setText(record.customer)

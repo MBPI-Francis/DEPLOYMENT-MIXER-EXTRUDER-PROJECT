@@ -3,9 +3,10 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QTableWidget, QAbstractItemView,
-    QHeaderView, QLabel, QDateEdit, QCheckBox, QGroupBox
+    QHeaderView, QLabel, QDateEdit, QCheckBox, QGroupBox, QSpacerItem, QSizePolicy
 )
 from PyQt6.QtCore import QDate, Qt
+
 
 class Ui_ExtruderRecordsList(object):
     def setupUi(self, Form: QWidget):
@@ -15,42 +16,50 @@ class Ui_ExtruderRecordsList(object):
 
         self.filter_group_box = QGroupBox("Filter and Search")
         self.filter_layout = QHBoxLayout(self.filter_group_box)
+
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search by Lot No, Product Code, Customer...")
-        self.filter_layout.addWidget(self.search_input, 1)
+        self.search_input.setPlaceholderText("Global Search (Lot, Product, Customer...)")
+        self.filter_layout.addWidget(self.search_input, 2)
 
-        self.date_from_label = QLabel("Date From:")
-        self.date_from_input = QDateEdit()
-        self.date_from_input.setCalendarPopup(True)
-        self.date_from_input.setFixedWidth(120)
-        self.date_from_input.setSpecialValueText(" ")
-        self.date_from_input.setDate(QDate())
-
-        self.date_to_label = QLabel("Date To:")
-        self.date_to_input = QDateEdit()
-        self.date_to_input.setCalendarPopup(True)
-        self.date_to_input.setFixedWidth(120)
-        self.date_to_input.setSpecialValueText(" ")
-        self.date_to_input.setDate(QDate())
+        self.date_from_label = QLabel("From:")
+        self.date_from_input = QDateEdit(calendarPopup=True, date=QDate.currentDate().addMonths(-1))
+        self.date_to_label = QLabel("To:")
+        self.date_to_input = QDateEdit(calendarPopup=True, date=QDate.currentDate())
 
         self.filter_layout.addWidget(self.date_from_label)
         self.filter_layout.addWidget(self.date_from_input)
         self.filter_layout.addWidget(self.date_to_label)
         self.filter_layout.addWidget(self.date_to_input)
+        self.filter_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum))
 
-        self.show_deleted_checkbox = QCheckBox("Show Deleted Records")
-        self.filter_layout.addWidget(self.show_deleted_checkbox)
+        self.show_only_deleted_checkbox = QCheckBox("Show Only Deleted Records")
+        self.filter_layout.addWidget(self.show_only_deleted_checkbox)
+
+        # --- NEW: Add the Restore Selected button ---
+        self.restore_selected_button = QPushButton("Restore Selected")
+        self.filter_layout.addWidget(self.restore_selected_button)
+
+        self.advanced_filter_button = QPushButton("Advanced Filters...")
+        self.filter_layout.addWidget(self.advanced_filter_button)
+
+        self.clear_filters_button = QPushButton("Clear All Filters")
+        self.filter_layout.addWidget(self.clear_filters_button)
+
         self.filter_layout.addStretch()
         self.main_layout.addWidget(self.filter_group_box)
 
         self.table_widget = QTableWidget()
         self.table_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table_widget.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+
+        # --- MODIFIED: Enable multi-row selection ---
+        self.table_widget.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table_widget.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table_widget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+
         self.table_widget.setAlternatingRowColors(True)
         self.table_widget.verticalHeader().setVisible(False)
         self.table_widget.setSortingEnabled(True)
+
         self._setup_table_columns()
         self.main_layout.addWidget(self.table_widget, 1)
 
