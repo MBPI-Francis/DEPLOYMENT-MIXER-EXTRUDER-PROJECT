@@ -332,12 +332,14 @@ class ExtruderEntryFormView(QWidget):
         for resin in self.resin_list:
             resin_combo.addItem(resin.abbreviation, resin.id)
 
-        notes_item = QTableWidgetItem("")
+
         qty_item = QTableWidgetItem("0.00")
+        notes_item = QTableWidgetItem("")
 
         table.setCellWidget(row_position, 0, resin_combo)
-        table.setItem(row_position, 1, notes_item)
-        table.setItem(row_position, 2, qty_item)
+        table.setItem(row_position, 1, qty_item)
+        table.setItem(row_position, 2, notes_item)
+
 
     def _remove_selected_resin(self):
         """Removes the selected row from the Resin Consumption table."""
@@ -947,8 +949,9 @@ class ExtruderEntryFormView(QWidget):
                 data["purging_details"] = [
                     {
                         "resin_id": self.ui.purging_details_table.cellWidget(r, 0).currentData(),
-                        "notes": self.ui.purging_details_table.item(r, 1).text().strip(),
-                        "qty": self.ui.purging_details_table.item(r, 2).text()
+                        "qty": self.ui.purging_details_table.item(r, 1).text(),
+                        "notes": self.ui.purging_details_table.item(r, 2).text().strip(),
+
                     } for r in range(self.ui.purging_details_table.rowCount())
                 ]
             return data
@@ -1239,7 +1242,8 @@ class ExtruderEntryFormView(QWidget):
                 row = self.ui.purging_details_table.rowCount() - 1
                 self.ui.purging_details_table.cellWidget(row, 0).setCurrentText(
                     getattr(detail.resin, 'abbreviation', ''))
-                self.ui.purging_details_table.item(row, 1).setText(detail.notes)
-                self.ui.purging_details_table.item(row, 2).setText(f"{detail.qty or '0.00'}")
+                self.ui.purging_details_table.item(row, 1).setText(f"{detail.qty or '0.00'}")
+                self.ui.purging_details_table.item(row, 2).setText(detail.notes)
+
 
         self._update_production_summary()

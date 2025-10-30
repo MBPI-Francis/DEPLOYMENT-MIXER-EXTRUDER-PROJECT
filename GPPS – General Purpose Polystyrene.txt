@@ -1,0 +1,9 @@
+GPPS – General Purpose Polystyrene
+PET – Polyethylene terephthalate
+PP – Polypropylene 
+HDPE(HMI) – High Density Polyethylene (high melt index)
+HDPE(HMI) – High Density Polyethylene (low melt index)
+LDPE(LMI) -Low Density Polyethylene (low melt index)
+LDPE(HMI) - Low Density Polyethylene (high melt index)
+SCRAP
+

@@ -305,7 +305,7 @@ class Ui_ExtruderEntryForm:
         layout = QVBoxLayout(group)
 
         self.purging_details_table = QTableWidget(0, 3)
-        self.purging_details_table.setHorizontalHeaderLabels(["Resin", "Notes/Additives", "Qty (Kg.)"])
+        self.purging_details_table.setHorizontalHeaderLabels(["Resin","Qty (Kg.)", "Notes/Additives"])
 
         self.purging_details_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.purging_details_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)

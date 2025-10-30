@@ -157,7 +157,7 @@ class ExtruderRecordViewDialog(QDialog):
         resin_sub = QGroupBox("Resin Consumption")
         r_layout = QVBoxLayout(resin_sub)
         self.resin_table = QTableWidget(0, 3)
-        self.resin_table.setHorizontalHeaderLabels(["Resin", "Notes/Additives", "Qty (Kg.)"])
+        self.resin_table.setHorizontalHeaderLabels(["Resin", "Qty (Kg.)", "Notes/Additives",])
         self.resin_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.resin_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         r_layout.addWidget(self.resin_table)
@@ -318,8 +318,9 @@ class ExtruderRecordViewDialog(QDialog):
                 row = self.resin_table.rowCount();
                 self.resin_table.insertRow(row)
                 self.resin_table.setItem(row, 0, QTableWidgetItem(to_str(getattr(detail.resin, 'name', None))))
-                self.resin_table.setItem(row, 1, QTableWidgetItem(to_str(detail.notes)))
-                self.resin_table.setItem(row, 2, QTableWidgetItem(to_dec(detail.qty)))
+                self.resin_table.setItem(row, 1, QTableWidgetItem(to_dec(detail.qty)))
+                self.resin_table.setItem(row, 2, QTableWidgetItem(to_str(detail.notes)))
+
         # --- END FIX ---
 
         self.remarks_browser.setText(to_str(record.remarks))

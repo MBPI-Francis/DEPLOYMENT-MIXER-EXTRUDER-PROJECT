@@ -52,6 +52,11 @@ class SideMenu:
         # layout.addWidget(extruder_label)
         #
 
+
+        extruder_label = QLabel("EXTRUDER MODULES")
+        extruder_label.setObjectName("SectionHeader")
+        layout.addWidget(extruder_label)
+
         self.btn_extruder_config = self._create_menu_button("Extruder Configs", "fa5s.file-alt")
         layout.addWidget(self.btn_extruder_config )
 
@@ -60,7 +65,7 @@ class SideMenu:
         layout.addWidget(self.btn_extruder_form)
 
         self.btn_extruder_report = self._create_menu_button("Extruder Report", "fa5s.chart-pie")
-        layout.addWidget(self.btn_extruder_report)
+        # layout.addWidget(self.btn_extruder_report)
 
         layout.addStretch()
 
