@@ -1,0 +1,375 @@
+/* --- Main Module & Scroll Area Styling --- */
+#MixerFormModule {
+    background-color: #f8f9fa;
+    padding: 15px;
+}
+QScrollArea {
+    border: none;
+}
+#ScrollContainerWidget {
+    background-color: #f8f9fa;
+}
+
+/* --- GroupBox for the Details section --- */
+QGroupBox {
+    font-size: 16px;
+    font-weight: bold;
+    color: #495057; /* A slightly softer black for a more modern feel */
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding: 15px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 5px;
+    left: 10px;
+}
+
+
+/* --- Header Input Fields Styling --- */
+
+
+QLabel[class="HeaderLabel"] {
+    font-size: 11pt; /* A point size is often better for fonts. 11pt is a good, readable size. */
+    font-weight: bold;
+    margin-bottom: 3px; /* Adds a small space between the label and the input field below it */
+    color: #495057; /* A slightly softer black for a more modern feel */
+}
+
+QLineEdit, QDateEdit {
+    font-size: 14px;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    background-color: white;
+}
+QLineEdit:focus, QDateEdit:focus {
+    border-color: #80bdff;
+}
+
+QLineEdit:hover, QDateEdit:hover {
+    background-color: #e7f1ff;
+    border: 1px solid #80bdff;
+}
+
+QLineEdit:read-only {
+    background-color: #e9ecef;
+    font-weight: bold;
+}
+
+DetailRowWidget QLineEdit:hover, DetailRowWidget QComboBox:hover, 
+DetailRowWidget QSpinBox:hover, DetailRowWidget QDoubleSpinBox:hover {
+    background-color: #e7f1ff;
+    border: 1px solid #80bdff;
+}
+
+/* --- The container for our custom "table" of forms --- */
+#DetailsContainer {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background-color: white;
+}
+
+/* --- The static Header Row for our custom table --- */
+#DetailHeaderWidget {
+    background-color: white;
+    /* border-bottom: 2px solid #dee2e6; */
+    font-weight: bold;
+    font-size: 15px;
+    padding: 8px;
+    /* border-top-left-radius: 8px;
+    border-top-right-radius: 8px; */
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+#DetailHeaderWidget QLabel {
+    font-weight: bold;
+    font-size: 12px;
+}
+
+/* --- Styling for each individual Form Row Widget --- */
+DetailRowWidget {
+    border-bottom: 1px solid #e9ecef;
+    padding: 4px 8px;
+}
+DetailRowWidget:nth-child(even) {
+    background-color: #fdfdfe;
+}
+DetailRowWidget:nth-child(odd) {
+    background-color: #f8f9fa;
+}
+
+/* --- Styling for input widgets INSIDE each form row --- */
+DetailRowWidget QLineEdit, DetailRowWidget QSpinBox {
+    border: 1px solid transparent;
+    padding: 4px;
+    font-size: 13px;
+    background-color: transparent;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+}
+
+
+DetailRowWidget QComboBox {
+    border: 1px solid transparent;
+    padding: 4px;
+    font-size: 13px;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+}
+
+
+DetailRowWidget QLineEdit:focus, DetailRowWidget QComboBox:focus, 
+DetailRowWidget QSpinBox:focus, DetailRowWidget QDoubleSpinBox:focus {
+    background-color: #e7f1ff;
+    border: 1px solid #80bdff;
+}
+
+DetailRowWidget QLineEdit:hover, DetailRowWidget QComboBox:hover, 
+DetailRowWidget QSpinBox:hover, DetailRowWidget QDoubleSpinBox:hover {
+    background-color: #e7f1ff;
+    border: 1px solid #80bdff;
+}
+
+
+DetailRowWidget QPushButton {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* --- Styling for the Separator Line --- */
+QFrame[objectName="SeparatorLine"] {
+    border: 1px solid #dee2e6;
+}
+
+/* --- Main Action Button Styling --- */
+QPushButton {
+    padding: 8px 15px;
+    font-size: 13px;
+    font-weight: bold;
+    border-radius: 5px;
+    border: 1px solid #6c757d;
+    background-color: #6c757d;
+    color: white;
+}
+QPushButton:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+}
+
+QTextEdit {
+    background-color: #ffffff;
+    border-color: #545b62;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+QPushButton#PrimaryButton {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+QPushButton#PrimaryButton:hover { background-color: #0069d9; border-color: #0062cc;}
+
+QPushButton#SuccessButton {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+QPushButton#SuccessButton:hover { background-color: #218838; border-color: #1e7e34;}
+
+QPushButton#DangerButton {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+QPushButton#DangerButton:hover { background-color: #c82333; border-color: #bd2130;}
+
+DetailRowWidget QPushButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 15px;
+    padding: 0;
+    margin: 0;
+}
+DetailRowWidget QPushButton:hover {
+    background-color: #f8d7da;
+}
+
+/* --- NEW: Styling for the Remarks Button to look like a hyperlink --- */
+QPushButton#RemarksButton {
+    background-color: transparent;
+    border: none;
+    color: #007bff; /* A standard hyperlink blue */
+    font-weight: normal; /* Links are typically not bold */
+    font-size: 13px;
+    padding: 0; /* Remove padding to make it look like text */
+    text-align: left; /* Align the text to the left of its available space */
+}
+
+/* Add a hover effect for user feedback */
+QPushButton#RemarksButton:hover {
+    color: #0056b3; /* A darker blue on hover */
+    text-decoration: underline;
+}
+
+
+QDialog QPushButton {
+    padding: 8px 15px;
+    font-size: 13px;
+    font-weight: bold;
+    border-radius: 5px;
+    border: 1px solid #6c757d;
+    background-color: #6c757d;  
+    color: white;
+}
+
+QLabel#TimeCounterLabel {
+    font-weight: bold;
+    font-size: 9px;
+    color: #495057; /* A dark grey, but not quite black */
+    padding: 1px;
+    background-color: #e9ecef; /* A light grey to indicate it's read-only */
+    border-radius: 6px;
+}
+
+/* This targets the QLineEdit *inside* a ValidatingComboBox when its state is 'invalid' */
+ValidatingComboBox QLineEdit[state="invalid"] {
+    background-color: #FFCDD2; /* Light red background */
+    border: 1px solid #D32F2F; /* Red border */
+    color: #D32F2F; /* Red text */
+}
+
+
+DetailRowWidget QDoubleSpinBox {
+    background-color: white;
+    border: 1px solid #ced4da;
+    border-radius: 6px; /* Matched to your QComboBox for consistency */
+    padding: 4px;
+
+    font-size: 13px;
+}
+
+/* Style for when the user hovers over or clicks into the spin box */
+DetailRowWidget QDoubleSpinBox:hover,
+DetailRowWidget QDoubleSpinBox:focus {
+    background-color: #e7f1ff;
+    border-color: #80bdff;
+}
+
+/* Style for when the spin box is disabled */
+DetailRowWidget QDoubleSpinBox:disabled {
+    background-color: #f0f0f0;
+    color: #999;
+}
+
+/* General styling for the up and down buttons' container */
+DetailRowWidget QDoubleSpinBox::up-button,
+DetailRowWidget QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    width: 20px;
+     border: 1px solid #ced4da;
+    background-color: #f8f9fa;
+}
+
+DetailRowWidget QDoubleSpinBox::up-button:hover,
+DetailRowWidget QDoubleSpinBox::down-button:hover {
+    background-color: #e9ecef;
+}
+
+DetailRowWidget QDoubleSpinBox::up-button:pressed,
+DetailRowWidget QDoubleSpinBox::down-button:pressed {
+    background-color: #d1d5da;
+}
+
+/* Position the up button at the top right */
+DetailRowWidget QDoubleSpinBox::up-button {
+    subcontrol-position: top right;
+    border-top-right-radius: 6px;
+}
+
+/* Position the down button at the bottom right */
+DetailRowWidget QDoubleSpinBox::down-button {
+    subcontrol-position: bottom right;
+    border-bottom-right-radius: 6px;
+}
+
+/* Styling for the actual arrow icons inside the buttons */
+DetailRowWidget QDoubleSpinBox::up-arrow {
+    image: url(./app/widgets/widget_icons/chevron-up.svg);
+    width: 10px;
+    height: 10px;
+}
+
+DetailRowWidget QDoubleSpinBox::down-arrow {
+    image: url(./app/widgets/widget_icons/chevron-down.svg);
+    width: 10px;
+    height: 10px;
+}
+
+QToolTip {
+    background-color: #2c3e50; /* A professional, dark slate-gray */
+    color: #ecf0f1;             /* A soft, off-white text for good contrast */
+    border: 1px solid #1a242f;   /* A subtle, slightly darker border for depth */
+    padding: 8px;                /* Generous padding so text isn't cramped */
+    border-radius: 6px;          /* Soft, modern rounded corners */
+    font-family: "Segoe UI";      /* A clean, standard Windows font */
+    font-size: 10pt;               /* A comfortable, readable font size */
+    opacity: 240;                /* Slightly translucent (value is out of 255) */
+}
+
+QComboBox {
+    background-color: white;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 13px;
+
+    /* Change 1: Use specific padding to avoid vertical issues */
+    padding-left: 4px;
+    padding-right: 4px;
+
+
+}
+QComboBox:hover { background-color: #e7f1ff; border: 1px solid #80bdff; }
+QComboBox:focus { background-color: #e7f1ff; border: 1px solid #80bdff; }
+QComboBox:on {
+    border-color: #007bff; border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 25px;
+    border-left-width: 1px;
+    border-left-color: #ced4da;
+    border-left-style: solid;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #f8f9fa, stop: 1 #e9ecef);
+}
+QComboBox::down-arrow {
+    image: url(app/widgets/widget_icons/chevron-down.svg);
+    width: 12px;
+    height: 12px;
+}
+QComboBox::down-arrow:on { top: 1px; }
+QComboBox QAbstractItemView {
+    background-color: white;
+    color: black;
+    selection-background-color: #007bff;
+    selection-color: white;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 14px;
+    padding: 5px;
+}
+QComboBox QLineEdit {
+    background-color: transparent;
+    border: none;
+
+    /* Change 3: Vertically center the text in the line edit area */
+    padding-top: 0px;
+    padding-bottom: 0px;
+}

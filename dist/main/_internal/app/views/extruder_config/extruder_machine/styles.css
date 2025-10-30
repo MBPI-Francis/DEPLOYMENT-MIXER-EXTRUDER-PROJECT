@@ -1,0 +1,161 @@
+/* app/views/extruder_machines/records/styles.css */
+
+/* --- Main Container for the Extruder Machine Module --- */
+#ExtruderMachineModule {
+    background-color: #f7f9fc; /* A very light, clean background */
+    border: 1px solid #dfe4ea;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+/* --- General Dialog Styling --- */
+QDialog {
+    background-color: #ffffff;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+}
+
+/* --- General Button Styling --- */
+QPushButton {
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    border: 1px solid transparent;
+}
+
+/* --- Primary Action Button Style (Blue) --- */
+QPushButton#PrimaryButton {
+    background-color: #007bff;
+    color: white;
+    border-color: #0069d9;
+}
+QPushButton#PrimaryButton:hover { background-color: #0069d9; }
+QPushButton#PrimaryButton:pressed { background-color: #0056b3; }
+
+/* --- Secondary Action Button Style (Gray) --- */
+QPushButton#SecondaryButton {
+    background-color: #6c757d;
+    color: white;
+    border-color: #5a6268;
+}
+QPushButton#SecondaryButton:hover { background-color: #5a6268; }
+QPushButton#SecondaryButton:pressed { background-color: #545b62; }
+
+/* --- Success/Restore Button Style (Green) --- */
+QPushButton#SuccessButton {
+    background-color: #28a745;
+    color: white;
+    border-color: #218838;
+}
+QPushButton#SuccessButton:hover { background-color: #218838; }
+QPushButton#SuccessButton:pressed { background-color: #1e7e34; }
+
+/* --- Table Styling --- */
+QTableWidget {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background-color: white;
+    gridline-color: #e9ecef;
+    color: #212529; /* Dark text for readability */
+}
+
+QHeaderView::section {
+    background-color: #f1f3f5;
+    padding: 8px;
+    border: none;
+    font-weight: bold;
+    color: #495057;
+}
+
+QTableWidget::item:selected {
+    background-color: #007bff;
+    color: white;
+}
+
+/* --- Input Field Styling --- */
+QLineEdit {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    background-color: white;
+    font-size: 14px;
+}
+QLineEdit:focus {
+    border-color: #80bdff;
+}
+
+/* --- Modern Context Menu Styles --- */
+QMenu {
+    background-color: #ffffff;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 5px;
+    color: #212529;
+    /* Optional: add a subtle shadow to make it "pop" */
+    /* This requires a custom class and is more advanced */
+}
+
+QMenu::item {
+    padding: 8px 25px;
+    border-radius: 4px;
+}
+
+/* Highlighted item in the context menu */
+QMenu::item:selected {
+    background-color: #007bff; /* Match the primary selection color */
+    color: white;
+}
+
+/* A separator line in the menu */
+QMenu::separator {
+    height: 1px;
+    background: #e9ecef;
+    margin: 5px 0px;
+}
+
+/* --- Main Action Button Styling --- */
+QPushButton {
+    padding: 8px 15px;
+    font-size: 13px;
+    font-weight: bold;
+    border-radius: 5px;
+    border: 1px solid #6c757d;
+    background-color: #6c757d;
+    color: white;
+}
+QPushButton:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+}
+
+QTextEdit {
+    background-color: #ffffff;
+    border-color: #545b62;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+QPushButton#PrimaryButton {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+QPushButton#PrimaryButton:hover { background-color: #0069d9; border-color: #0062cc;}
+
+QPushButton#SuccessButton {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+QPushButton#SuccessButton:hover { background-color: #218838; border-color: #1e7e34;}
+
+QPushButton#DangerButton {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+QPushButton#DangerButton:hover { background-color: #c82333; border-color: #bd2130;}
+
+QPushButton#PrimaryButton:disabled {
+    background-color: #e9ecef;  /* A very light, muted gray */
+    color: #6c757d;             /* Muted gray text for low contrast */
+    border-color: #dee2e6;       /* A soft border to match */
+}

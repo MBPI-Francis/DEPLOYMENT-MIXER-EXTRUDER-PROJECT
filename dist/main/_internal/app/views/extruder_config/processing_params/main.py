@@ -1,0 +1,66 @@
+# app/views/extruder_config/processing_params/main.py
+
+import os
+from typing import Type
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView
+from sqlalchemy.orm import sessionmaker
+
+from .handlers import ProcessingParamsHandlers
+
+
+class ExtruderProcessingParamsView(QWidget):
+    def __init__(self, session_factory: Type[sessionmaker], parent=None):
+        super().__init__(parent)
+        self.setObjectName("ProcessingParamsModule")
+
+        # --- Load Stylesheet ---
+        # This is the key step to apply the modern look.
+        style_path = os.path.join(os.path.dirname(__file__), 'styles.css')
+        with open(style_path, 'r') as f:
+            self.setStyleSheet(f.read())
+
+
+        main_layout = QVBoxLayout(self)
+
+        top_bar_layout = QHBoxLayout()
+        top_bar_layout.addStretch()
+
+        # --- BUTTONS: CREATE AND RESTORE button ---
+        self.restore_button = QPushButton("Restore")
+        self.restore_button.setObjectName("SecondaryButton")
+
+        self.create_button = QPushButton("＋ Add Machine Settings")
+        self.create_button.setObjectName("PrimaryButton")
+
+        top_bar_layout.addWidget(self.restore_button)
+        top_bar_layout.addWidget(self.create_button)
+
+        # --- Main Table ---
+        self.table = QTableWidget()
+        self.table.setColumnCount(2)
+        self.table.setHorizontalHeaderLabels(["Machine Name", "Created By"])
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)  # Recommended
+
+        # --- NEW: Enable context menu ---
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+
+        main_layout.addLayout(top_bar_layout)
+        main_layout.addWidget(self.table)
+
+        # --- Setup Handler ---
+        self.handler = ProcessingParamsHandlers(parent_view=self)
+        self.handler.Session = session_factory
+        self.handler.setup_handlers(config={})
+
+    # --- UPDATED: To accept and store data (like an ID) ---
+    def create_item(self, text, data=None):
+        """Helper to create a non-editable table item with optional associated data."""
+        item = QTableWidgetItem(text)
+        item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        if data is not None:
+            item.setData(Qt.ItemDataRole.UserRole, data)
+        return item

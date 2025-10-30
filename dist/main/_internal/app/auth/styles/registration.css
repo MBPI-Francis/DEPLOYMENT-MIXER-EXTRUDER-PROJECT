@@ -1,0 +1,51 @@
+/* styles/registration.css */
+QWidget {
+    background-color: #ffffff;
+    font-family: 'Segoe UI';
+    font-size: 14px;
+    color: #333333;
+}
+
+QLabel {
+    font-size: 13px;
+    margin-top: 5px;
+    margin-bottom: 2px;
+}
+
+QLineEdit, QComboBox {
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #f9f9f9;
+}
+
+QLineEdit:focus, QComboBox:focus {
+    border: 1px solid #0078d7;
+    background-color: #ffffff;
+}
+
+QPushButton {
+    background-color: #0078d7;
+    color: white;
+    font-size: 15px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    /* cursor: pointer; */
+}
+
+QPushButton:hover {
+    background-color: #005a9e;
+}
+
+QComboBox {
+    padding-left: 8px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    /* selection-background-color: #0078d7; */
+    border: 1px solid #cccccc;
+    outline: 0;
+}
