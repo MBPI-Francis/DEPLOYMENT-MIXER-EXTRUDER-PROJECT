@@ -1021,9 +1021,9 @@ class ExtruderEntryFormView(QWidget):
         if self.ui.output_log_table.rowCount() == 0:
             custom_rules_errors.append("At least one Extruder Output Log entry is required.")
 
-        # --- FIX: Resin Consumption table is now always required ---
-        if self.ui.purging_details_table.rowCount() == 0:
-            custom_rules_errors.append("At least one Resin Consumption entry is required.")
+        # # --- REMOVED: This should be optional ---
+        # if self.ui.purging_details_table.rowCount() == 0:
+        #     custom_rules_errors.append("At least one Resin Consumption entry is required.")
 
         all_zones_zero = all(int(z.text() or 0) == 0 for z in self.ui.zone_inputs.values())
         if all_zones_zero:

@@ -69,7 +69,7 @@ class Ui_ExtruderEntryForm:
         Creates a group for Remarks and a dynamic list of Personnel with
         an indented/aligned layout.
         """
-        self.remarks_personnel_group = QGroupBox("Remarks & Personnel")
+        self.remarks_personnel_group = QGroupBox("Remarks and Personnel")
         main_v_layout = QVBoxLayout(self.remarks_personnel_group)
 
         # Remarks (Top Section) - Unchanged

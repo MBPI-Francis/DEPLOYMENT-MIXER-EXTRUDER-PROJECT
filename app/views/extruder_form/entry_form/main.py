@@ -1,4 +1,5 @@
 # app/views/extruder_form/entry_form/main.py
+import os
 import traceback
 from datetime import datetime, timedelta
 
@@ -43,6 +44,10 @@ class ExtruderEntryFormView(QWidget):
 
         # --- FIX: Restore the shortcut setup ---
         self._setup_shortcuts()
+
+        css_path = os.path.join(os.path.dirname(__file__), "styles.css")
+        if os.path.exists(css_path):
+            with open(css_path, "r") as f: self.setStyleSheet(f.read())
 
     # --- NEW: Method to create shortcuts ---
     def _setup_shortcuts(self):
@@ -1021,9 +1026,9 @@ class ExtruderEntryFormView(QWidget):
         if self.ui.output_log_table.rowCount() == 0:
             custom_rules_errors.append("At least one Extruder Output Log entry is required.")
 
-        # --- FIX: Resin Consumption table is now always required ---
-        if self.ui.purging_details_table.rowCount() == 0:
-            custom_rules_errors.append("At least one Resin Consumption entry is required.")
+        # # --- REMOVED: This should be optional ---
+        # if self.ui.purging_details_table.rowCount() == 0:
+        #     custom_rules_errors.append("At least one Resin Consumption entry is required.")
 
         all_zones_zero = all(int(z.text() or 0) == 0 for z in self.ui.zone_inputs.values())
         if all_zones_zero:
