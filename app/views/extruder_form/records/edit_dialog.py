@@ -19,12 +19,12 @@ class ExtruderEditDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Edit Extruder Production Record")
 
-        # --- THIS IS THE FIX (Part 1) ---
-        # Set a reasonable starting size, not a minimum, and allow resizing.
+        self.setObjectName("EditDialog")
         self.resize(1400, 900)
         self.setSizeGripEnabled(True)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMinMaxButtonsHint)
-        # --- END FIX ---
+
+
 
         # The main layout for the dialog window itself
         layout = QVBoxLayout(self)
@@ -33,6 +33,7 @@ class ExtruderEditDialog(QDialog):
         # --- THIS IS THE FIX (Part 2) ---
         # 1. Create a QScrollArea
         scroll_area = QScrollArea()
+        scroll_area.setObjectName("scroll_area")
         # This is critical: it tells the scroll area's content to resize horizontally
         scroll_area.setWidgetResizable(True)
         # Optional: hide the horizontal scrollbar if the content always fits width-wise
@@ -40,9 +41,11 @@ class ExtruderEditDialog(QDialog):
 
         # 2. The ExtruderEntryFormView will be the content of the scroll area
         self.form_view = ExtruderEntryFormView(session_factory)
+        self.form_view.setObjectName("scroll_content_widget")
 
         # 3. Set the form as the widget for the scroll area
         scroll_area.setWidget(self.form_view)
+
 
         # 4. Add the scroll_area (not the form itself) to the dialog's main layout
         layout.addWidget(scroll_area)

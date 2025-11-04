@@ -11,6 +11,15 @@ from .ops import ExtruderRecordsOperations
 
 
 class Ui_FilterDialog(object):
+    def __init__(self):
+        self.show_deleted_checkbox = None
+        self.layout = None
+        self.total_output_min = None
+        self.operator_combo = None
+        self.lot_number_combo = None
+        self.product_code_combo = None
+        self.machine_combo = None
+
     def setupUi(self, Dialog: QDialog):
         Dialog.setWindowTitle("Advanced Record Filters")
         Dialog.setMinimumWidth(450)
@@ -21,12 +30,14 @@ class Ui_FilterDialog(object):
         basic_group = QGroupBox("Basic Filters")
         basic_layout = QFormLayout(basic_group)
         self.machine_combo = QComboBox()
+        self.machine_combo.setObjectName("FilterComboBox")
 
         # --- MODIFIED: Use SmartComboBox for Product Code and Lot Number ---
         self.product_code_combo = SmartComboBox()
         self.lot_number_combo = SmartComboBox()
 
         self.operator_combo = QComboBox()
+        self.operator_combo.setObjectName("FilterComboBox")
         basic_layout.addRow("Machine No.:", self.machine_combo)
         basic_layout.addRow("Product Code:", self.product_code_combo)
         basic_layout.addRow("Lot Number:", self.lot_number_combo)

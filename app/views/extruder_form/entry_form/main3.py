@@ -77,15 +77,6 @@ class ExtruderEntryFormView(QWidget):
         self.ui.purging_details_table.cellChanged.connect(self._update_production_summary)
         self.ui.output_log_table.cellChanged.connect(self._update_production_summary)
         self.ui.qty_order_input.textChanged.connect(self._update_production_summary)
-
-        # --- NEW: Connect the custom signals from our new tables ---
-        self.ui.output_log_table.tabbed_out_of_last_cell.connect(
-            lambda: self.ui.no_purging_checkbox.setFocus()
-        )
-        self.ui.purging_details_table.tabbed_out_of_last_cell.connect(
-            lambda: self.ui.remarks_input.setFocus()
-        )
-
         self.ui.save_button.clicked.connect(self._save_form_data)
         self.ui.clear_button.clicked.connect(self._clear_form)
 
@@ -159,79 +150,26 @@ class ExtruderEntryFormView(QWidget):
                                        parent=self)
             error_dialog.exec()
 
-    # def _on_add_row_shortcut(self):
-    #     """Handler for the Shift+Enter shortcut to add a new row."""
-    #     # Check if the focus is in the output log's group box
-    #     if self.ui.output_log_table.hasFocus() or \
-    #             (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget())):
-    #         self._add_output_log_row()
-    #
-    #     # Check if focus is in the resin consumption group box
-    #     elif self.ui.resin_group.hasFocus() or \
-    #             (self.focusWidget() and self.ui.resin_group.isAncestorOf(self.focusWidget())):
-    #         self._add_resin_row()
-    #
-    #
-    #     elif self.ui.remarks_personnel_group.hasFocus() or \
-    #          (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
-    #         self._add_personnel_row()
-    #
-    # def _on_delete_shortcut(self):
-    #     """Handler for the Ctrl+D shortcut to delete a row."""
-    #     # Check output log
-    #     if self.ui.output_log_table.hasFocus() or \
-    #             (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget())):
-    #         if self.ui.output_log_table.rowCount() > 0 and self.ui.output_log_table.currentRow() >= 0:
-    #             reply = QMessageBox.question(self, "Confirm Delete",
-    #                                          "Are you sure you want to remove the selected log entry?",
-    #                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-    #                                          QMessageBox.StandardButton.No)
-    #             if reply == QMessageBox.StandardButton.Yes:
-    #                 self._remove_selected_output_log()
-    #
-    #     # Check resin consumption
-    #     elif self.ui.resin_group.hasFocus() or \
-    #             (self.focusWidget() and self.ui.resin_group.isAncestorOf(self.focusWidget())):
-    #         if self.ui.purging_details_table.rowCount() > 0 and self.ui.purging_details_table.currentRow() >= 0:
-    #             reply = QMessageBox.question(self, "Confirm Delete",
-    #                                          "Are you sure you want to remove the selected resin entry?",
-    #                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-    #                                          QMessageBox.StandardButton.No)
-    #             if reply == QMessageBox.StandardButton.Yes:
-    #                 self._remove_selected_resin()
-    #
-    #     # --- NEW: Check personnel ---
-    #     elif self.ui.remarks_personnel_group.hasFocus() or \
-    #             (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
-    #         # Since the dynamic rows aren't selectable, we can just remove the last one.
-    #         if self.ui.personnel_container_layout.count() > 0:
-    #             reply = QMessageBox.question(self, "Confirm Delete",
-    #                                          "Are you sure you want to remove the last personnel entry?",
-    #                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-    #                                          QMessageBox.StandardButton.No)
-    #             if reply == QMessageBox.StandardButton.Yes:
-    #                 self._remove_personnel_row()
-
     def _on_add_row_shortcut(self):
         """Handler for the Shift+Enter shortcut to add a new row."""
-        # Check output log table
+        # Check if the focus is in the output log's group box
         if self.ui.output_log_table.hasFocus() or \
                 (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget())):
             self._add_output_log_row()
 
-        # Check resin consumption table
+        # Check if focus is in the resin consumption group box
         elif self.ui.resin_group.hasFocus() or \
                 (self.focusWidget() and self.ui.resin_group.isAncestorOf(self.focusWidget())):
             self._add_resin_row()
 
-        # --- FIX: Use the correct group box name 'remarks_personnel_group' ---
+
         elif self.ui.remarks_personnel_group.hasFocus() or \
-                (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
+             (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
             self._add_personnel_row()
 
     def _on_delete_shortcut(self):
         """Handler for the Ctrl+D shortcut to delete a row."""
-        # Check output log table
+        # Check output log
         if self.ui.output_log_table.hasFocus() or \
                 (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget())):
             if self.ui.output_log_table.rowCount() > 0 and self.ui.output_log_table.currentRow() >= 0:
@@ -242,7 +180,7 @@ class ExtruderEntryFormView(QWidget):
                 if reply == QMessageBox.StandardButton.Yes:
                     self._remove_selected_output_log()
 
-        # Check resin consumption table
+        # Check resin consumption
         elif self.ui.resin_group.hasFocus() or \
                 (self.focusWidget() and self.ui.resin_group.isAncestorOf(self.focusWidget())):
             if self.ui.purging_details_table.rowCount() > 0 and self.ui.purging_details_table.currentRow() >= 0:
@@ -253,9 +191,10 @@ class ExtruderEntryFormView(QWidget):
                 if reply == QMessageBox.StandardButton.Yes:
                     self._remove_selected_resin()
 
-        # --- FIX: Use the correct group box name 'remarks_personnel_group' ---
+        # --- NEW: Check personnel ---
         elif self.ui.remarks_personnel_group.hasFocus() or \
                 (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
+            # Since the dynamic rows aren't selectable, we can just remove the last one.
             if self.ui.personnel_container_layout.count() > 0:
                 reply = QMessageBox.question(self, "Confirm Delete",
                                              "Are you sure you want to remove the last personnel entry?",
@@ -263,8 +202,6 @@ class ExtruderEntryFormView(QWidget):
                                              QMessageBox.StandardButton.No)
                 if reply == QMessageBox.StandardButton.Yes:
                     self._remove_personnel_row()
-
-                    
 
 
     def _on_product_code_search_requested(self, search_term: str):
@@ -501,37 +438,16 @@ class ExtruderEntryFormView(QWidget):
         self.ui.output_log_table.setCurrentCell(row_position, 0)
         self.ui.output_log_table.editItem(self.ui.output_log_table.item(row_position, 0))
 
-    # def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-    #     # This event filter is now only for the Tab key functionality
-    #     if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Tab and isinstance(obj, QTimeEdit):
-    #         for row in range(self.ui.output_log_table.rowCount()):
-    #             if self.ui.output_log_table.cellWidget(row, 2) is obj:
-    #                 target_item = self.ui.output_log_table.item(row, 4)
-    #                 if target_item:
-    #                     self.ui.output_log_table.setCurrentItem(target_item)
-    #                     self.ui.output_log_table.editItem(target_item)
-    #                 return True
-    #     return super().eventFilter(obj, event)
-
-
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        """
-        This event filter is now ONLY for handling the Tab key press on the
-        'Time End' widget to skip the non-editable 'Time Used' column.
-        """
-        if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Tab:
-            if isinstance(obj, QTimeEdit):
-                for row in range(self.ui.output_log_table.rowCount()):
-                    # Check if the event is coming from a 'Time End' widget
-                    if self.ui.output_log_table.cellWidget(row, 2) is obj:
-                        # If so, find the 'Output (kg)' item in the next editable column
-                        target_item = self.ui.output_log_table.item(row, 4)
-                        if target_item:
-                            self.ui.output_log_table.setCurrentItem(target_item)
-                            self.ui.output_log_table.editItem(target_item)
-                        return True  # Event handled
-
-        # For all other events, let the default handler process them
+        # This event filter is now only for the Tab key functionality
+        if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Tab and isinstance(obj, QTimeEdit):
+            for row in range(self.ui.output_log_table.rowCount()):
+                if self.ui.output_log_table.cellWidget(row, 2) is obj:
+                    target_item = self.ui.output_log_table.item(row, 4)
+                    if target_item:
+                        self.ui.output_log_table.setCurrentItem(target_item)
+                        self.ui.output_log_table.editItem(target_item)
+                    return True
         return super().eventFilter(obj, event)
 
 

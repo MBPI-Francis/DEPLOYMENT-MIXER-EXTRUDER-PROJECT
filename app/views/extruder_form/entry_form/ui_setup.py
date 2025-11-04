@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QDateTime, QDate, QTime
 
 from app.views.extruder_form.entry_form.widgets.lazy_loading_combo import LazyLoadingComboBox
+from app.views.extruder_form.entry_form.widgets.tab_aware_table import TabAwareTableWidget
 from app.widgets.smart_combo_box import SmartComboBox
 
 
@@ -78,11 +79,7 @@ class Ui_ExtruderEntryForm:
         self.remarks_input.setFixedHeight(80)
         main_v_layout.addWidget(self.remarks_input)
 
-        # Separator - Unchanged
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        main_v_layout.addWidget(separator)
+
 
         # --- THIS IS THE NEW, IMPROVED LAYOUT ---
         # 1. Use a QFormLayout for the entire personnel section for proper alignment.
@@ -91,6 +88,7 @@ class Ui_ExtruderEntryForm:
 
         # 2. "Prepared By" is the first row.
         self.prepared_by_combo = QComboBox()
+        self.prepared_by_combo.setObjectName("ComboBox")
         self.prepared_by_combo.setEditable(True)
         personnel_form_layout.addRow("Prepared By:", self.prepared_by_combo)
 
@@ -152,11 +150,15 @@ class Ui_ExtruderEntryForm:
         group = QGroupBox("Machine and Configuration Settings")
         layout = QFormLayout(group)
         self.shift_combo = QComboBox()
+        self.shift_combo.setObjectName("ComboBox")
         self.mc_no_combo = QComboBox()
+        self.mc_no_combo.setObjectName("ComboBox")
         self.feed_rate_input = QLineEdit("0")
         self.rpm_input = QLineEdit("0")
         self.screen_size_combo = QComboBox()
+        self.screen_size_combo.setObjectName("ComboBox")
         self.screw_config_combo = QComboBox()
+        self.screw_config_combo.setObjectName("ComboBox")
 
         # --- THIS IS THE FIX ---
         # 1. Create a horizontal layout for the vacuum controls
@@ -194,11 +196,6 @@ class Ui_ExtruderEntryForm:
         decimal_validator = QDoubleValidator(0.00, 999.99, 2)
 
 
-        # for label, row, col in zones:
-        #     self.zone_inputs[label.split(' ')[0]] = QLineEdit("0")
-        #     layout.addWidget(QLabel(label), row * 2, col)
-        #     layout.addWidget(self.zone_inputs[label.split(' ')[0]], row * 2 + 1, col)
-        # return group
 
         for label, row, col in zones:
             zone_key = label.split(' ')[0]
@@ -219,10 +216,13 @@ class Ui_ExtruderEntryForm:
         layout = QFormLayout(group)
 
         self.purging_product_code_combo = SmartComboBox()
+        self.purging_product_code_combo.setObjectName("ComboBox")
         self.purging_product_code_combo.setPlaceholderText("Type to search Product Codes...")
 
         self.purging_start_time = QTimeEdit()
+        self.purging_start_time.setObjectName("TimeEdit")
         self.purging_end_time = QTimeEdit()
+        self.purging_end_time.setObjectName("TimeEdit")
 
         self.purging_start_time.setDisplayFormat("HH:mm")
         self.purging_start_time.setTime(QTime(0, 0))
@@ -233,6 +233,7 @@ class Ui_ExtruderEntryForm:
         self.purging_time_used_label = QLabel("00:00")
 
         self.purging_resin_combo = QComboBox()
+        self.purging_resin_combo.setObjectName("ComboBox")
         self.purging_palletizer_input = QLineEdit("0")
         self.purging_siever_input = QLineEdit("0")
 
@@ -259,7 +260,8 @@ class Ui_ExtruderEntryForm:
         group = QGroupBox("Resin Consumption")
         layout = QVBoxLayout(group)
 
-        self.purging_details_table = QTableWidget(0, 3)
+        # self.purging_details_table = QTableWidget(0, 3)
+        self.purging_details_table = TabAwareTableWidget(0, 3)
         self.purging_details_table.setHorizontalHeaderLabels(["Resin","Qty (Kg.)", "Notes/Additives"])
 
         self.purging_details_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -281,30 +283,7 @@ class Ui_ExtruderEntryForm:
 
         return group
 
-    # def _create_summary_group(self):
-    #     group = QGroupBox("Production Summary")
-    #     layout = QFormLayout(group)
-    #     self.total_output_label = QLabel("0.00 KG")
-    #     self.output_percent_label = QLabel("0.00 %")
-    #     self.loss_label = QLabel("0.00 KG")
-    #     self.loss_percent_label = QLabel("0.00 %")
-    #     self.gain_label = QLabel("0.00 KG")
-    #     self.gain_percent_label = QLabel("0.00 %")
-    #     self.output_per_hour_label = QLabel("0.00 KG/HR")
-    #     self.resin_qty_label = QLabel("0.00 KG")
-    #     layout.addRow("Total Output:", self.total_output_label)
-    #     layout.addRow("Output %:", self.output_percent_label)
-    #     layout.addRow("Loss:", self.loss_label)
-    #     layout.addRow("Loss %:", self.loss_percent_label)
-    #
-    #     layout.addRow("Gain:", self.gain_label)
-    #     layout.addRow("Gain %:", self.gain_percent_label)
-    #
-    #     layout.addRow("Output per hour:", self.output_per_hour_label)
-    #     layout.addRow("Resin QTY:", self.resin_qty_label)
-    #     spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
-    #     layout.addItem(spacer)
-    #     return group
+
 
     def _create_summary_group(self):
         group = QGroupBox("Production Summary")
@@ -344,11 +323,12 @@ class Ui_ExtruderEntryForm:
         layout = QVBoxLayout(group)
 
         # --- FIX: Column count is now 5 (Date, Start, End, Used, Output) ---
-        self.output_log_table = QTableWidget(0, 5)
+        # self.output_log_table = QTableWidget(0, 5)
+        self.output_log_table = TabAwareTableWidget(0, 5)
 
         # --- FIX: Updated header labels ---
         self.output_log_table.setHorizontalHeaderLabels([
-            "Date", "Time Start", "Time End", "Time Used", "Output (kg)"
+            "Date", "Time Start", "Time End", "Duration", "Output (kg)"
         ])
 
         self.output_log_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)

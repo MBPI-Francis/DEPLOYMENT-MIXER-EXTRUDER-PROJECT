@@ -26,8 +26,8 @@ QGroupBox {
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    padding: 0 10px;
-    background-color: #f8f9fa;
+    padding: 0 3px;
+    background-color: #ffffff;
     color: #495057;
     font-size: 16px;
     font-weight: bold;
@@ -38,10 +38,8 @@ QGroupBox::title {
 /* This section styles all standard input widgets that are NOT inside a table. */
 
 QLineEdit,
-QDateEdit,
-QTimeEdit,
-QDoubleSpinBox,
-QComboBox {
+#TimeEdit,
+QDoubleSpinBox {
     background-color: #ffffff;
     border: 1px solid #ced4da;
     border-radius: 4px;
@@ -60,7 +58,8 @@ QDateEdit:focus,
 QTimeEdit:focus,
 QDoubleSpinBox:focus,
 QComboBox:focus {
-    border-color: #80bdff;
+    background-color: #e7f1ff;
+    border: 1px solid #80bdff;
 }
 
 /* Special styling for larger text entry fields */
@@ -80,19 +79,25 @@ QTextEdit:focus {
 /* === COMBOBOX-SPECIFIC STYLES (Applies to ALL ComboBoxes) === */
 /* This is the key fix for your dropdown menu problem. */
 
-QComboBox QAbstractItemView {
-    background-color: white;
-    color: black;
-    /* Ensures selected text is always white on a blue background */
-    selection-background-color: #007bff;
-    selection-color: white;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
+QComboBox QLineEdit{
+
+    border-radius: 4px;
+    padding: 6px;
     font-size: 10pt;
-    padding: 5px;
 }
 
-/* Dropdown arrow and button for standard (non-table) combo boxes */
+#ComboBox {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 10pt;
+}
+
+
+
+#ComboBox:on {
+    border-color: #007bff; border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;
+}
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
@@ -100,8 +105,8 @@ QComboBox::drop-down {
     border-left-width: 1px;
     border-left-color: #ced4da;
     border-left-style: solid;
-    border-top-right-radius: 4px;
-    border-bottom-right-radius: 4px;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
     background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #f8f9fa, stop: 1 #e9ecef);
 }
 QComboBox::down-arrow {
@@ -110,76 +115,75 @@ QComboBox::down-arrow {
     height: 12px;
 }
 QComboBox::down-arrow:on { top: 1px; }
-
-/* When a non-table combo box is open */
-QComboBox:on {
-    border-color: #007bff;
-    border-bottom-left-radius: 0px;
-    border-bottom-right-radius: 0px;
+QComboBox QAbstractItemView {
+    background-color: white;
+    color: black;
+    border-radius: 6px;                  /* Rounded corners for the dropdown itself */
+    font-size: 14px;
+    padding: 5px;
+    outline: 1px;
+    border: 1px solid #ced4da;
 }
 
-/* LineEdit part of an editable non-table combo box */
-QComboBox QLineEdit {
-    background-color: transparent;
-    border: none;
-    padding-top: 0px;
-    padding-bottom: 0px;
-}
 
 
 /* === TABLE-SPECIFIC STYLES === */
 
 QTableWidget {
-    background-color: #ffffff;
     border: 1px solid #dee2e6;
-    border-radius: 8px;
+    border-radius: 6px;
+    background-color: #ffffff;
     gridline-color: #e9ecef;
-    font-size: 10pt;
+    color: #212529;
 }
 
 QHeaderView::section {
-    background-color: #f8f9fa;
-    color: #495057;
+    background-color: #f1f3f5;
     padding: 8px;
     border: none;
-    border-bottom: 2px solid #dee2e6;
     font-weight: bold;
+    color: #495057;
 }
 
-/* Table Cells */
 QTableWidget::item {
-    padding: 8px;
+    padding: 1px;
     border-bottom: 1px solid #e9ecef;
 }
-
 QTableWidget::item:selected {
     background-color: #cfe2ff;
     color: #000;
 }
 
-/* --- Styles for widgets INSIDE a QTableWidget --- */
-/* This targets ONLY the widgets placed inside table cells. */
+/* --- 3. Style override for widgets INSIDE a QTableWidget --- */
+/* This gives widgets in a table a simpler, "flat" look. */
 QTableWidget QLineEdit,
+
+QTableWidget QDateEdit,
+QTableWidget QTimeEdit {
+    border: none;
+    border-radius: 0px;
+    padding: 2px;
+    background-color: transparent;
+}
+
 QTableWidget QComboBox {
     border: none;
     border-radius: 0px;
     padding: 2px;
     font-size: 10pt;
-    background-color: transparent;
 }
+
+
 
 /* Highlight the cell being focused/edited */
 QTableWidget QLineEdit:focus,
-QTableWidget QComboBox:focus {
+QTableWidget QComboBox:focus,
+QTableWidget QDateEdit:focus,
+QTableWidget QTimeEdit:focus {
     border: 1px solid #007bff;
     background-color: #e7f1ff;
 }
 
-/* Remove the dropdown button from combo boxes inside a table for a cleaner look */
-QTableWidget QComboBox::drop-down {
-    border: none;
-    width: 0px;
-}
 
 
 /* === BUTTONS & OTHER WIDGETS === */
@@ -246,22 +250,27 @@ QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
     border: 1px solid #ced4da;
     background-color: #f8f9fa;
 }
+
 QTimeEdit::up-button:hover, QTimeEdit::down-button:hover,
 QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
     background-color: #e9ecef;
 }
+
 QTimeEdit::up-button, QDoubleSpinBox::up-button {
     subcontrol-position: top right;
     border-top-right-radius: 4px;
 }
+
 QTimeEdit::down-button, QDoubleSpinBox::down-button {
     subcontrol-position: bottom right;
     border-bottom-right-radius: 4px;
 }
+
 QTimeEdit::up-arrow, QDoubleSpinBox::up-arrow {
     image: url(app/widgets/widget_icons/chevron-up.svg);
     width: 10px; height: 10px;
 }
+
 QTimeEdit::down-arrow, QDoubleSpinBox::down-arrow {
     image: url(app/widgets/widget_icons/chevron-down.svg);
     width: 10px; height: 10px;
@@ -304,4 +313,17 @@ QTableWidget QScrollBar::handle:vertical:hover {
 QTableWidget QScrollBar::add-line:vertical, QTableWidget QScrollBar::sub-line:vertical {
     height: 0;
     background: none;
+}
+
+
+QComboBox QAbstractItemView {
+    background-color: white;
+    color: black;
+    border-radius: 6px;                  /* Rounded corners for the dropdown itself */
+    font-size: 14px;
+    padding: 5px;
+    outline: 1px;
+    selection-background-color: #007bff;
+    selection-color: white;
+    border: 1px solid #ced4da;
 }
