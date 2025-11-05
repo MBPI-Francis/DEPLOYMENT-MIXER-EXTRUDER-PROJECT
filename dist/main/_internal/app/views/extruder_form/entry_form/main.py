@@ -1,4 +1,5 @@
 # app/views/extruder_form/entry_form/main.py
+import os
 import traceback
 from datetime import datetime, timedelta
 
@@ -44,6 +45,10 @@ class ExtruderEntryFormView(QWidget):
         # --- FIX: Restore the shortcut setup ---
         self._setup_shortcuts()
 
+        css_path = os.path.join(os.path.dirname(__file__), "styles.css")
+        if os.path.exists(css_path):
+            with open(css_path, "r") as f: self.setStyleSheet(f.read())
+
     # --- NEW: Method to create shortcuts ---
     def _setup_shortcuts(self):
         """Creates and connects keyboard shortcuts for the form."""
@@ -72,6 +77,15 @@ class ExtruderEntryFormView(QWidget):
         self.ui.purging_details_table.cellChanged.connect(self._update_production_summary)
         self.ui.output_log_table.cellChanged.connect(self._update_production_summary)
         self.ui.qty_order_input.textChanged.connect(self._update_production_summary)
+
+        # --- NEW: Connect the custom signals from our new tables ---
+        self.ui.output_log_table.tabbed_out_of_last_cell.connect(
+            lambda: self.ui.no_purging_checkbox.setFocus()
+        )
+        self.ui.purging_details_table.tabbed_out_of_last_cell.connect(
+            lambda: self.ui.remarks_input.setFocus()
+        )
+
         self.ui.save_button.clicked.connect(self._save_form_data)
         self.ui.clear_button.clicked.connect(self._clear_form)
 
@@ -145,26 +159,79 @@ class ExtruderEntryFormView(QWidget):
                                        parent=self)
             error_dialog.exec()
 
+    # def _on_add_row_shortcut(self):
+    #     """Handler for the Shift+Enter shortcut to add a new row."""
+    #     # Check if the focus is in the output log's group box
+    #     if self.ui.output_log_table.hasFocus() or \
+    #             (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget())):
+    #         self._add_output_log_row()
+    #
+    #     # Check if focus is in the resin consumption group box
+    #     elif self.ui.resin_group.hasFocus() or \
+    #             (self.focusWidget() and self.ui.resin_group.isAncestorOf(self.focusWidget())):
+    #         self._add_resin_row()
+    #
+    #
+    #     elif self.ui.remarks_personnel_group.hasFocus() or \
+    #          (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
+    #         self._add_personnel_row()
+    #
+    # def _on_delete_shortcut(self):
+    #     """Handler for the Ctrl+D shortcut to delete a row."""
+    #     # Check output log
+    #     if self.ui.output_log_table.hasFocus() or \
+    #             (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget())):
+    #         if self.ui.output_log_table.rowCount() > 0 and self.ui.output_log_table.currentRow() >= 0:
+    #             reply = QMessageBox.question(self, "Confirm Delete",
+    #                                          "Are you sure you want to remove the selected log entry?",
+    #                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+    #                                          QMessageBox.StandardButton.No)
+    #             if reply == QMessageBox.StandardButton.Yes:
+    #                 self._remove_selected_output_log()
+    #
+    #     # Check resin consumption
+    #     elif self.ui.resin_group.hasFocus() or \
+    #             (self.focusWidget() and self.ui.resin_group.isAncestorOf(self.focusWidget())):
+    #         if self.ui.purging_details_table.rowCount() > 0 and self.ui.purging_details_table.currentRow() >= 0:
+    #             reply = QMessageBox.question(self, "Confirm Delete",
+    #                                          "Are you sure you want to remove the selected resin entry?",
+    #                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+    #                                          QMessageBox.StandardButton.No)
+    #             if reply == QMessageBox.StandardButton.Yes:
+    #                 self._remove_selected_resin()
+    #
+    #     # --- NEW: Check personnel ---
+    #     elif self.ui.remarks_personnel_group.hasFocus() or \
+    #             (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
+    #         # Since the dynamic rows aren't selectable, we can just remove the last one.
+    #         if self.ui.personnel_container_layout.count() > 0:
+    #             reply = QMessageBox.question(self, "Confirm Delete",
+    #                                          "Are you sure you want to remove the last personnel entry?",
+    #                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+    #                                          QMessageBox.StandardButton.No)
+    #             if reply == QMessageBox.StandardButton.Yes:
+    #                 self._remove_personnel_row()
+
     def _on_add_row_shortcut(self):
         """Handler for the Shift+Enter shortcut to add a new row."""
-        # Check if the focus is in the output log's group box
+        # Check output log table
         if self.ui.output_log_table.hasFocus() or \
                 (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget())):
             self._add_output_log_row()
 
-        # Check if focus is in the resin consumption group box
+        # Check resin consumption table
         elif self.ui.resin_group.hasFocus() or \
                 (self.focusWidget() and self.ui.resin_group.isAncestorOf(self.focusWidget())):
             self._add_resin_row()
 
-
+        # --- FIX: Use the correct group box name 'remarks_personnel_group' ---
         elif self.ui.remarks_personnel_group.hasFocus() or \
-             (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
+                (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
             self._add_personnel_row()
 
     def _on_delete_shortcut(self):
         """Handler for the Ctrl+D shortcut to delete a row."""
-        # Check output log
+        # Check output log table
         if self.ui.output_log_table.hasFocus() or \
                 (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget())):
             if self.ui.output_log_table.rowCount() > 0 and self.ui.output_log_table.currentRow() >= 0:
@@ -175,7 +242,7 @@ class ExtruderEntryFormView(QWidget):
                 if reply == QMessageBox.StandardButton.Yes:
                     self._remove_selected_output_log()
 
-        # Check resin consumption
+        # Check resin consumption table
         elif self.ui.resin_group.hasFocus() or \
                 (self.focusWidget() and self.ui.resin_group.isAncestorOf(self.focusWidget())):
             if self.ui.purging_details_table.rowCount() > 0 and self.ui.purging_details_table.currentRow() >= 0:
@@ -186,10 +253,9 @@ class ExtruderEntryFormView(QWidget):
                 if reply == QMessageBox.StandardButton.Yes:
                     self._remove_selected_resin()
 
-        # --- NEW: Check personnel ---
+        # --- FIX: Use the correct group box name 'remarks_personnel_group' ---
         elif self.ui.remarks_personnel_group.hasFocus() or \
                 (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
-            # Since the dynamic rows aren't selectable, we can just remove the last one.
             if self.ui.personnel_container_layout.count() > 0:
                 reply = QMessageBox.question(self, "Confirm Delete",
                                              "Are you sure you want to remove the last personnel entry?",
@@ -197,6 +263,8 @@ class ExtruderEntryFormView(QWidget):
                                              QMessageBox.StandardButton.No)
                 if reply == QMessageBox.StandardButton.Yes:
                     self._remove_personnel_row()
+
+
 
 
     def _on_product_code_search_requested(self, search_term: str):
@@ -224,12 +292,14 @@ class ExtruderEntryFormView(QWidget):
         row_layout.setContentsMargins(0, 0, 0, 0)
 
         name_combo = QComboBox()
+        name_combo.setObjectName("ComboBox")
         name_combo.setEditable(True)
         name_combo.addItem("- Select Name -", None)
         for emp in self.employee_list:
             name_combo.addItem(f"{emp.first_name} {emp.last_name}", emp.id)
 
         pos_combo = QComboBox()
+        pos_combo.setObjectName("ComboBox")
         pos_combo.setEditable(True)
         pos_combo.addItem("- Select Position -", None)
         for pos in self.position_list:
@@ -254,53 +324,6 @@ class ExtruderEntryFormView(QWidget):
                 widget_to_remove.setParent(None)
                 widget_to_remove.deleteLater()
 
-
-
-    # def _on_no_purging_toggled(self, checked: bool):
-    #     """
-    #     Enables or disables specific fields based on the "No Purging" checkbox.
-    #     Resin, Pelletizer, and Siever in the Purging Details group always remain enabled.
-    #     """
-    #     # --- THIS IS THE NEW LOGIC ---
-    #     # 'checked' means "No Purging" is active, so the fields should be DISABLED.
-    #     # 'is_enabled' is True when the fields should be interactive.
-    #     is_enabled = not checked
-    #
-    #     # 1. Toggle the entire Resin Consumption group box.
-    #     self.ui.resin_group.setEnabled(is_enabled)
-    #
-    #     # 2. Toggle only the specific, process-related fields in the Purging Details group.
-    #     self.ui.purging_product_code_combo.setEnabled(is_enabled)
-    #     self.ui.purging_start_time.setEnabled(is_enabled)
-    #     self.ui.purging_end_time.setEnabled(is_enabled)
-    #     # The main purging_group widget itself is NOT disabled.
-    #
-    #     # 3. Handle clearing and reloading data.
-    #     if is_enabled:
-    #         # This runs when the user UNCHECKS the "No Purging" box.
-    #         # Re-enable the fields and reload the product codes.
-    #         try:
-    #             initial_codes = self.controller.get_distinct_product_codes_paginated(page=1, page_size=1000, limit=1000)
-    #             self.ui.purging_product_code_combo.populate_initial(initial_codes)
-    #         except Exception as e:
-    #             error_dialog = ErrorDialog("Load Error", "Could not reload product codes.",
-    #                                        details=traceback.format_exc(), parent=self)
-    #             error_dialog.exec()
-    #     else:
-    #         # This runs when the user CHECKS the "No Purging" box.
-    #         # Clear the fields that were just disabled.
-    #         self.ui.purging_product_code_combo.clear()
-    #         self.ui.purging_start_time.setTime(QTime(0, 0))
-    #         self.ui.purging_end_time.setTime(QTime(0, 0))
-    #
-    #         # Also clear the Resin Consumption table since its group was disabled.
-    #         self.ui.purging_details_table.setRowCount(0)
-    #
-    #         # It's good practice to also clear the fields that remain enabled
-    #         # to avoid confusion, though this is optional.
-    #         # self.ui.purging_resin_combo.setCurrentIndex(0)
-    #         # self.ui.purging_palletizer_input.setText("0")
-    #         # self.ui.purging_siever_input.setText("0")
 
     def _on_no_purging_toggled(self, checked: bool):
         """
@@ -478,62 +501,37 @@ class ExtruderEntryFormView(QWidget):
         self.ui.output_log_table.setCurrentCell(row_position, 0)
         self.ui.output_log_table.editItem(self.ui.output_log_table.item(row_position, 0))
 
-
-
     # def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-    #     """
-    #     Catches keyboard shortcuts. Now correctly handles shortcuts when the
-    #     output log table is empty.
-    #     """
-    #     if event.type() == QEvent.Type.KeyPress:
-    #         # --- THIS IS THE FIX ---
-    #         # 1. Check if the widget that currently has focus is the output log table
-    #         #    itself, or any widget that is a child of it (like a cell widget).
-    #         #    This works even when the table is empty and only the table widget
-    #         #    itself can be focused.
-    #         is_focus_inside_table = self.ui.output_log_table.hasFocus() or \
-    #                                 (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget()))
-    #
-    #         if is_focus_inside_table:
-    #             # Shortcut for Deleting a row (Ctrl + D)
-    #             if event.key() == Qt.Key.Key_D and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-    #                 reply = QMessageBox.question(self, "Confirm Delete",
-    #                                              "Are you sure you want to remove the selected log entry?",
-    #                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-    #                                              QMessageBox.StandardButton.No)
-    #                 if reply == QMessageBox.StandardButton.Yes:
-    #                     self._remove_selected_output_log()
-    #                 return True # Event handled
-    #
-    #             # Shortcut for Adding a new row (Shift + Enter)
-    #             if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and event.modifiers() == Qt.KeyboardModifier.ShiftModifier:
-    #                 self._add_output_log_row()
-    #                 return True # Event handled
-    #
-    #         # --- The existing Tab key logic is separate and still correct ---
-    #         if event.key() == Qt.Key.Key_Tab and isinstance(obj, QTimeEdit):
-    #             for row in range(self.ui.output_log_table.rowCount()):
-    #                 if self.ui.output_log_table.cellWidget(row, 2) is obj:
-    #                     target_item = self.ui.output_log_table.item(row, 4)
-    #                     if target_item:
-    #                         self.ui.output_log_table.setCurrentItem(target_item)
-    #                         self.ui.output_log_table.editItem(target_item)
-    #                     return True
-    #
-    #     # For all other events, pass them to the default handler
+    #     # This event filter is now only for the Tab key functionality
+    #     if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Tab and isinstance(obj, QTimeEdit):
+    #         for row in range(self.ui.output_log_table.rowCount()):
+    #             if self.ui.output_log_table.cellWidget(row, 2) is obj:
+    #                 target_item = self.ui.output_log_table.item(row, 4)
+    #                 if target_item:
+    #                     self.ui.output_log_table.setCurrentItem(target_item)
+    #                     self.ui.output_log_table.editItem(target_item)
+    #                 return True
     #     return super().eventFilter(obj, event)
 
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        # This event filter is now only for the Tab key functionality
-        if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Tab and isinstance(obj, QTimeEdit):
-            for row in range(self.ui.output_log_table.rowCount()):
-                if self.ui.output_log_table.cellWidget(row, 2) is obj:
-                    target_item = self.ui.output_log_table.item(row, 4)
-                    if target_item:
-                        self.ui.output_log_table.setCurrentItem(target_item)
-                        self.ui.output_log_table.editItem(target_item)
-                    return True
+        """
+        This event filter is now ONLY for handling the Tab key press on the
+        'Time End' widget to skip the non-editable 'Time Used' column.
+        """
+        if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Tab:
+            if isinstance(obj, QTimeEdit):
+                for row in range(self.ui.output_log_table.rowCount()):
+                    # Check if the event is coming from a 'Time End' widget
+                    if self.ui.output_log_table.cellWidget(row, 2) is obj:
+                        # If so, find the 'Output (kg)' item in the next editable column
+                        target_item = self.ui.output_log_table.item(row, 4)
+                        if target_item:
+                            self.ui.output_log_table.setCurrentItem(target_item)
+                            self.ui.output_log_table.editItem(target_item)
+                        return True  # Event handled
+
+        # For all other events, let the default handler process them
         return super().eventFilter(obj, event)
 
 
@@ -588,12 +586,6 @@ class ExtruderEntryFormView(QWidget):
 
         except Exception as e:
             print(f"Error calculating time used for row {row}: {e}")
-
-
-    # def _remove_selected_output_log(self):
-    #     current_row = self.ui.output_log_table.currentRow()
-    #     if current_row >= 0:
-    #         self.ui.output_log_table.removeRow(current_row)
 
 
     def _remove_selected_output_log(self):
@@ -843,122 +835,6 @@ class ExtruderEntryFormView(QWidget):
             error_dialog.exec();
             return None
 
-    # def _validate_required_fields(self) -> bool:
-    #     """
-    #     Checks all required fields and business rules, grouping errors by section.
-    #     Returns True if valid, False otherwise (and shows a message).
-    #     """
-    #
-    #
-    #     # --- FIX: Define fields in a structured dictionary by group ---
-    #     validation_map = {
-    #         "Production Details": [
-    #             (self.ui.lot_number_input, "Lot Number"),
-    #             (self.ui.product_code_input, "Product Code"),
-    #             (self.ui.customer_input, "Customer"),
-    #             (self.ui.qty_order_input, "QTY Order (kg)"),
-    #             (self.ui.qty_produced_input, "QTY Produced (kg)"),
-    #             (self.ui.target_output_hr_input, "Targer Output per Hour (Kg/Hr)"),
-    #
-    #         ],
-    #         "Machine & Configuration": [
-    #             (self.ui.shift_combo, "Shift"),
-    #             (self.ui.mc_no_combo, "MC No."),
-    #             (self.ui.feed_rate_input, "Feed Rate"),
-    #             (self.ui.rpm_input, "RPM"),
-    #             (self.ui.screen_size_combo, "Screen Size"),
-    #             (self.ui.screw_config_combo, "Screw Config."),
-    #         ],
-    #         "Personnel": [
-    #             (self.ui.prepared_by_combo, "Prepared By"),
-    #
-    #         ]
-    #     }
-    #
-    #
-    #     if not self.ui.no_purging_checkbox.isChecked():
-    #         validation_map["Purging Details"] = [
-    #             (self.ui.purging_product_code_combo, "Product Code"),
-    #             (self.ui.purging_resin_combo, "Resin used (carrier)"),
-    #             (self.ui.purging_palletizer_input, "Pelletizer used"),
-    #             (self.ui.purging_siever_input, "Siever used"),
-    #         ]
-    #
-    #
-    #     missing_issues = []
-    #     for group_name, fields in validation_map.items():
-    #         group_errors = []
-    #         for widget, field_name in fields:
-    #             is_missing = False
-    #             if isinstance(widget, QLineEdit):
-    #                 if (widget.text().strip() in ('', '0', '0.00')):
-    #                     is_missing = True
-    #             elif isinstance(widget, QComboBox):
-    #                 if widget.isEditable():
-    #                     if not widget.currentText().strip():
-    #                         is_missing = True
-    #                 elif widget.currentIndex() <= 0:
-    #                     is_missing = True
-    #
-    #             if is_missing:
-    #                 group_errors.append(field_name)
-    #
-    #         if group_errors:
-    #             missing_issues.append(
-    #                 f"<b>{group_name}:</b><ul>{''.join(f'<li>{err}</li>' for err in group_errors)}</ul>")
-    #
-    #
-    #     # --- Check dynamic/custom rules ---
-    #     custom_rules_errors = []
-    #     if self.ui.personnel_container_layout.count() == 0:
-    #         custom_rules_errors.append("At least one Personnel must be added.")
-    #
-    #     if self.ui.output_log_table.rowCount() == 0:
-    #         custom_rules_errors.append("At least one Extruder Output Log entry is required.")
-    #
-    #
-    #     # all_zones_zero = all(int(z.text() or 0) == 0 for z in self.ui.zone_inputs.values())
-    #     #
-    #     #
-    #     # if all_zones_zero:
-    #     #     custom_rules_errors.append("All Zone Temperatures cannot be zero.")
-    #
-    #     # --- THIS IS THE DEFINITIVE FIX ---
-    #     # A helper function to safely check if a zone value is zero.
-    #     def is_zone_zero(widget: QLineEdit) -> bool:
-    #         try:
-    #             # Use float() to correctly handle "150.5", "150.0", and "0" as numbers.
-    #             return float(widget.text() or 0.0) == 0.0
-    #         except (ValueError, TypeError):
-    #             # If text is not a valid number (e.g., "abc"), it's not zero, so validation passes this check.
-    #             return False
-    #
-    #     # Use the safe helper function in the all() check.
-    #     if all(is_zone_zero(z) for z in self.ui.zone_inputs.values()):
-    #         custom_rules_errors.append("All Zone Temperatures cannot be zero.")
-    #     # --- END FIX ---
-    #
-    #     # --- THIS IS THE FIX: The incorrect time validation block has been removed. ---
-    #     # The logic to check if end_time <= start_time is no longer here.
-    #     # The "Time Used" calculation already handles the overnight logic correctly.
-    #
-    #
-    #     if custom_rules_errors:
-    #         missing_issues.append(
-    #             f"<b>Other Issues:</b><ul>{''.join(f'<li>{err}</li>' for err in custom_rules_errors)}</ul>")
-    #
-    #     # --- Final Check ---
-    #     if missing_issues:
-    #         final_issue_list_html = "<br>".join(missing_issues)
-    #         error_dialog = ErrorDialog(
-    #             title="Validation Error",
-    #             message=f"Please correct the following issues before saving:<br>{final_issue_list_html}",
-    #             parent=self
-    #         )
-    #         error_dialog.exec()
-    #         return False
-    #
-    #     return True
 
     def _validate_required_fields(self) -> bool:
         """
@@ -1021,9 +897,6 @@ class ExtruderEntryFormView(QWidget):
         if self.ui.output_log_table.rowCount() == 0:
             custom_rules_errors.append("At least one Extruder Output Log entry is required.")
 
-        # # --- REMOVED: This should be optional ---
-        # if self.ui.purging_details_table.rowCount() == 0:
-        #     custom_rules_errors.append("At least one Resin Consumption entry is required.")
 
         all_zones_zero = all(int(z.text() or 0) == 0 for z in self.ui.zone_inputs.values())
         if all_zones_zero:

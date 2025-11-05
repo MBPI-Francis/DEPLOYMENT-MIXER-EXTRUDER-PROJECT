@@ -1,0 +1,329 @@
+/* === GENERAL LAYOUT & CONTAINER STYLES === */
+
+/* --- Main View Container --- */
+/* Targets the main widget of your module */
+#ExtruderRecordsView, #ExtruderEntryFormView {
+    padding: 15px;
+    background-color: #f8f9fa;
+}
+
+/* --- Dialogs --- */
+QDialog {
+    background-color: #ffffff;
+}
+QDialog#FilterDialog {
+    background-color: #f8f9fa;
+}
+
+/* --- Panels (QGroupBox) --- */
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding: 10px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 3px;
+    background-color: #ffffff;
+    color: #495057;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+
+/* === WIDGETS OUTSIDE OF TABLES === */
+/* This section styles all standard input widgets that are NOT inside a table. */
+
+QLineEdit,
+#TimeEdit,
+QDoubleSpinBox {
+    background-color: #ffffff;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 10pt;
+}
+
+/* Hover/Focus effect for all standard widgets */
+QLineEdit:hover,
+QDateEdit:hover,
+QTimeEdit:hover,
+QDoubleSpinBox:hover,
+QComboBox:hover,
+QLineEdit:focus,
+QDateEdit:focus,
+QTimeEdit:focus,
+QDoubleSpinBox:focus,
+QComboBox:focus {
+    background-color: #e7f1ff;
+    border: 1px solid #80bdff;
+}
+
+/* Special styling for larger text entry fields */
+QTextEdit {
+    background-color: #ffffff;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 6px;
+    font-size: 10pt;
+    min-height: 80px;
+}
+QTextEdit:focus {
+    border-color: #80bdff;
+}
+
+
+/* === COMBOBOX-SPECIFIC STYLES (Applies to ALL ComboBoxes) === */
+/* This is the key fix for your dropdown menu problem. */
+
+QComboBox QLineEdit{
+
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 10pt;
+}
+
+#ComboBox {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 10pt;
+}
+
+
+
+#ComboBox:on {
+    border-color: #007bff; border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 25px;
+    border-left-width: 1px;
+    border-left-color: #ced4da;
+    border-left-style: solid;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #f8f9fa, stop: 1 #e9ecef);
+}
+QComboBox::down-arrow {
+    image: url(app/widgets/widget_icons/chevron-down.svg);
+    width: 12px;
+    height: 12px;
+}
+QComboBox::down-arrow:on { top: 1px; }
+QComboBox QAbstractItemView {
+    background-color: white;
+    color: black;
+    border-radius: 6px;                  /* Rounded corners for the dropdown itself */
+    font-size: 14px;
+    padding: 5px;
+    outline: 1px;
+    border: 1px solid #ced4da;
+}
+
+
+
+/* === TABLE-SPECIFIC STYLES === */
+
+QTableWidget {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background-color: #ffffff;
+    gridline-color: #e9ecef;
+    color: #212529;
+}
+
+QHeaderView::section {
+    background-color: #f1f3f5;
+    padding: 8px;
+    border: none;
+    font-weight: bold;
+    color: #495057;
+}
+
+QTableWidget::item {
+    padding: 1px;
+    border-bottom: 1px solid #e9ecef;
+}
+QTableWidget::item:selected {
+    background-color: #cfe2ff;
+    color: #000;
+}
+
+/* --- 3. Style override for widgets INSIDE a QTableWidget --- */
+/* This gives widgets in a table a simpler, "flat" look. */
+QTableWidget QLineEdit,
+
+QTableWidget QDateEdit,
+QTableWidget QTimeEdit {
+    border: none;
+    border-radius: 0px;
+    padding: 2px;
+    background-color: transparent;
+}
+
+QTableWidget QComboBox {
+    border: none;
+    border-radius: 0px;
+    padding: 2px;
+    font-size: 10pt;
+}
+
+
+
+/* Highlight the cell being focused/edited */
+QTableWidget QLineEdit:focus,
+QTableWidget QComboBox:focus,
+QTableWidget QDateEdit:focus,
+QTableWidget QTimeEdit:focus {
+    border: 1px solid #007bff;
+    background-color: #e7f1ff;
+}
+
+
+
+/* === BUTTONS & OTHER WIDGETS === */
+
+/* Action Bar Buttons (e.g., in the Records List View) */
+#FilterBar QPushButton {
+    font-size: 10pt;
+    font-weight: bold;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+    background-color: #ffffff;
+    color: #495057;
+    min-width: 80px;
+}
+#FilterBar QPushButton:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+/* Generic PushButtons (like Add/Remove) */
+QPushButton {
+    font-size: 10pt;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+    background-color: #f8f9fa;
+    color: #495057;
+}
+QPushButton:hover {
+    background-color: #e9ecef;
+}
+
+/* Primary "Save" or "Apply" buttons */
+QPushButton#save_button {
+    font-weight: bold;
+    background-color: #007bff;
+    color: white;
+    border: none;
+}
+QPushButton#save_button:hover {
+    background-color: #0069d9;
+}
+QPushButton#save_button:disabled {
+    background-color: #a0cfff;
+}
+
+/* Secondary "Clear" button */
+QPushButton#clear_button {
+    font-weight: bold;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+}
+QPushButton#clear_button:hover {
+    background-color: #5a6268;
+}
+
+/* Styles for QTimeEdit and QDoubleSpinBox Arrows */
+QTimeEdit::up-button, QTimeEdit::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    width: 20px;
+    border: 1px solid #ced4da;
+    background-color: #f8f9fa;
+}
+
+QTimeEdit::up-button:hover, QTimeEdit::down-button:hover,
+QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
+    background-color: #e9ecef;
+}
+
+QTimeEdit::up-button, QDoubleSpinBox::up-button {
+    subcontrol-position: top right;
+    border-top-right-radius: 4px;
+}
+
+QTimeEdit::down-button, QDoubleSpinBox::down-button {
+    subcontrol-position: bottom right;
+    border-bottom-right-radius: 4px;
+}
+
+QTimeEdit::up-arrow, QDoubleSpinBox::up-arrow {
+    image: url(app/widgets/widget_icons/chevron-up.svg);
+    width: 10px; height: 10px;
+}
+
+QTimeEdit::down-arrow, QDoubleSpinBox::down-arrow {
+    image: url(app/widgets/widget_icons/chevron-down.svg);
+    width: 10px; height: 10px;
+}
+
+/* QDateEdit Calendar Dropdown */
+QDateEdit::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 25px;
+    border-left: 1px solid #ced4da;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+    background-color: #f8f9fa;
+}
+QDateEdit::drop-down:hover {
+    background-color: #e9ecef;
+}
+QDateEdit::down-arrow {
+    image: url(app/widgets/widget_icons/chevron-down.svg);
+    width: 12px;
+    height: 12px;
+}
+
+/* Modern Scrollbar */
+QTableWidget QScrollBar:vertical {
+    border: none;
+    background: #f1f3f5;
+    width: 8px;
+    margin: 0px 0px 0px 0px;
+}
+QTableWidget QScrollBar::handle:vertical {
+    background: #adb5bd;
+    min-height: 20px;
+    border-radius: 4px;
+}
+QTableWidget QScrollBar::handle:vertical:hover {
+    background: #868e96;
+}
+QTableWidget QScrollBar::add-line:vertical, QTableWidget QScrollBar::sub-line:vertical {
+    height: 0;
+    background: none;
+}
+
+
+QComboBox QAbstractItemView {
+    background-color: white;
+    color: black;
+    border-radius: 6px;                  /* Rounded corners for the dropdown itself */
+    font-size: 14px;
+    padding: 5px;
+    outline: 1px;
+    selection-background-color: #007bff;
+    selection-color: white;
+    border: 1px solid #ced4da;
+}

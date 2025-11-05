@@ -37,12 +37,13 @@ class ExtruderRecordViewDialog(QDialog):
 
         # 1. Create the Scroll Area that will contain all the group boxes.
         scroll_area = QScrollArea()
+        scroll_area.setObjectName("scroll_area")
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         # 2. Create a container widget that will hold the grid layout.
         scroll_content_widget = QWidget()
-
+        scroll_content_widget.setObjectName("scroll_content_widget")
         # 3. Create the grid layout and set it on the container widget.
         grid_layout = QGridLayout(scroll_content_widget)
 

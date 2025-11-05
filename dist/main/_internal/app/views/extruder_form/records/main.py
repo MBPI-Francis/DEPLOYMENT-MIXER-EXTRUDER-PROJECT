@@ -1,6 +1,7 @@
 # app/views/extruder_form/records/main.py
 
 import decimal
+import os
 from datetime import datetime, timedelta
 
 from PyQt6.QtWidgets import QWidget, QTableWidgetItem, QMessageBox, QApplication, QMenu, QDialog
@@ -52,6 +53,10 @@ class ExtruderRecordsView(QWidget):
 
         # --- FIX: Corrected the attribute name from DescendingSort to DescendingOrder ---
         self.ui.table_widget.sortByColumn(1, Qt.SortOrder.DescendingOrder)
+
+        css_path = os.path.join(os.path.dirname(__file__), "styles.css")
+        if os.path.exists(css_path):
+            with open(css_path, "r") as f: self.setStyleSheet(f.read())
 
     def _setup_connections(self):
         self.search_timer = QTimer(self)

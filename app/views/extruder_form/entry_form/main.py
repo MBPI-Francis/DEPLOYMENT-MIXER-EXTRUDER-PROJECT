@@ -264,7 +264,7 @@ class ExtruderEntryFormView(QWidget):
                 if reply == QMessageBox.StandardButton.Yes:
                     self._remove_personnel_row()
 
-                    
+
 
 
     def _on_product_code_search_requested(self, search_term: str):
