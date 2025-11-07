@@ -295,23 +295,59 @@ QDateEdit::down-arrow {
     height: 12px;
 }
 
-/* Modern Scrollbar */
+/* === MODERN SCROLLBAR (TABLE-SPECIFIC) === */
+
+/* --- Vertical Scrollbar (Your Existing Style) --- */
 QTableWidget QScrollBar:vertical {
     border: none;
-    background: #f1f3f5;
-    width: 8px;
+    background: #f1f3f5; /* Track color */
+    width: 8px;          /* Width of the vertical scrollbar */
     margin: 0px 0px 0px 0px;
 }
+
 QTableWidget QScrollBar::handle:vertical {
-    background: #adb5bd;
-    min-height: 20px;
+    background: #adb5bd; /* Handle color */
+    min-height: 20px;    /* Minimum handle height */
     border-radius: 4px;
 }
+
 QTableWidget QScrollBar::handle:vertical:hover {
-    background: #868e96;
+    background: #868e96; /* Handle color on hover */
 }
-QTableWidget QScrollBar::add-line:vertical, QTableWidget QScrollBar::sub-line:vertical {
-    height: 0;
+
+QTableWidget QScrollBar::add-line:vertical,
+QTableWidget QScrollBar::sub-line:vertical {
+    height: 0;           /* Hide the arrow buttons */
+    background: none;
+}
+
+
+/* --- Horizontal Scrollbar (New Matching Style) --- */
+QTableWidget QScrollBar:horizontal {
+    border: none;
+    background: #f1f3f5; /* Track color */
+    height: 8px;         /* Height of the horizontal scrollbar */
+    margin: 0px 0px 0px 0px;
+}
+
+QTableWidget QScrollBar::handle:horizontal {
+    background: #adb5bd; /* Handle color */
+    min-width: 20px;     /* Minimum handle width */
+    border-radius: 4px;
+}
+
+QTableWidget QScrollBar::handle:horizontal:hover {
+    background: #868e96; /* Handle color on hover */
+}
+
+QTableWidget QScrollBar::add-line:horizontal,
+QTableWidget QScrollBar::sub-line:horizontal {
+    width: 0;            /* Hide the arrow buttons */
+    background: none;
+}
+
+/* --- Common rules to make the track area behind the handle transparent --- */
+QTableWidget QScrollBar::add-page, QTableWidget QScrollBar::sub-page {
     background: none;
 }
 

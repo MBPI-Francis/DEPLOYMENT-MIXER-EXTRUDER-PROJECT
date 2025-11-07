@@ -828,6 +828,23 @@ class ExtruderEntryFormView(QWidget):
 
                     } for r in range(self.ui.purging_details_table.rowCount())
                 ]
+
+            else:
+                # If "No Purging" is CHECKED, create the dictionary but only
+                # populate the three required fields, leaving the others null.
+                data["purging_header"] = {
+                    "product_code_name": None,
+                    "start_time": None,
+                    "end_time": None,
+                    "resin_id": self.ui.purging_resin_combo.currentData(),
+                    "palletizer": self.ui.purging_palletizer_input.text(),
+                    "siever": self.ui.purging_siever_input.text(),
+                }
+                # And ensure the details list is empty.
+                data["purging_details"] = []
+            # --- END FIX ---
+
+
             return data
         except Exception:
             error_dialog = ErrorDialog("Error Reading Form Data", "Could not read values from the form.",
@@ -890,17 +907,26 @@ class ExtruderEntryFormView(QWidget):
                 missing_issues.append(
                     f"<b>{group_name}:</b><ul>{''.join(f'<li>{err}</li>' for err in group_errors)}</ul>")
 
-        # --- Check dynamic/custom rules ---
+        # --- THIS IS THE DEFINITIVE FIX ---
+        # A helper function to safely check if a zone value is zero.
+        def is_zone_zero(widget: QLineEdit) -> bool:
+            try:
+                # Use float() to correctly handle "150.5", "150.0", and "0" as numbers.
+                return float(widget.text() or 0.0) == 0.0
+            except (ValueError, TypeError):
+                # If text is not a valid number (e.g., "abc"), it's not zero, so validation passes this check.
+                return False
+
         custom_rules_errors = []
-        if self.ui.personnel_container_layout.count() == 0:
-            custom_rules_errors.append("At least one Personnel must be added.")
-        if self.ui.output_log_table.rowCount() == 0:
-            custom_rules_errors.append("At least one Extruder Output Log entry is required.")
+        if self.ui.personnel_container_layout.count() == 0: custom_rules_errors.append(
+            "At least one Personnel must be added.")
+        if self.ui.output_log_table.rowCount() == 0: custom_rules_errors.append(
+            "At least one Extruder Output Log entry is required.")
 
-
-        all_zones_zero = all(int(z.text() or 0) == 0 for z in self.ui.zone_inputs.values())
-        if all_zones_zero:
+        # Use the safe helper function in the all() check.
+        if all(is_zone_zero(z) for z in self.ui.zone_inputs.values()):
             custom_rules_errors.append("All Zone Temperatures cannot be zero.")
+        # --- END FIX ---
 
         if custom_rules_errors:
             missing_issues.append(
@@ -922,7 +948,6 @@ class ExtruderEntryFormView(QWidget):
 
         if not self._validate_required_fields():
             return
-
 
         form_data = self._gather_data_from_ui()
 
@@ -1059,28 +1084,73 @@ class ExtruderEntryFormView(QWidget):
             self._add_personnel_row()  # Add one blank row if none exist
         # --- END FIX ---
 
-        if not record.purging_headers:
+
+        # # --- THIS IS THE DEFINITIVE FIX ---
+        # # Check if the list of purging headers is empty
+        # if not record.purging_headers:
+        #     # If it's empty, check the "No Purging" box and ensure the UI is cleared/disabled.
+        #     self.ui.no_purging_checkbox.setChecked(True)
+        # else:
+        #     # If it's not empty, uncheck the box and populate the fields.
+        #     self.ui.no_purging_checkbox.setChecked(False)
+        #     header = record.purging_headers[0]  # Safely access the first header
+        #
+        #     # Now we can safely populate, because we know 'header' exists.
+        #     self.ui.purging_product_code_combo.setCurrentText(header.product_code)
+        #     self.ui.purging_start_time.setTime(header.time_start if header.time_start else QTime(0, 0))
+        #     self.ui.purging_end_time.setTime(header.time_end if header.time_end else QTime(0, 0))
+        #     self.ui.purging_resin_combo.setCurrentText(getattr(header.resin_used, 'abbreviation', ''))
+        #     self.ui.purging_palletizer_input.setText(str(header.palletizer_used or '0'))
+        #     self.ui.purging_siever_input.setText(str(header.siever_used or '0'))
+        #
+        #     self.ui.purging_details_table.setRowCount(0)
+        #     for detail in header.purging_details:
+        #         self._add_resin_row()
+        #         row = self.ui.purging_details_table.rowCount() - 1
+        #         self.ui.purging_details_table.cellWidget(row, 0).setCurrentText(
+        #             getattr(detail.resin, 'abbreviation', ''))
+        #         # Correctly populate columns based on your provided UI setup
+        #         self.ui.purging_details_table.item(row, 1).setText(detail.notes)
+        #         self.ui.purging_details_table.item(row, 2).setText(f"{detail.qty or '0.00'}")
+
+        # --- THIS IS THE DEFINITIVE FIX ---
+        # Determine if purging was actually performed
+        header = record.purging_headers[0] if record.purging_headers else None
+
+        # A record is considered to have "No Purging" if there is no header, OR
+        # if the core fields of the header are all null/empty.
+        is_no_purging = (
+                header is None or
+                (header.product_code is None and header.time_start is None and header.time_end is None)
+        )
+
+        if is_no_purging:
+            # If no purging was done, check the box. This will automatically disable/clear the UI.
             self.ui.no_purging_checkbox.setChecked(True)
-
-
-
+            # We still need to populate the fields that are always required
+            if header:  # Case where header exists but is empty
+                self.ui.purging_resin_combo.setCurrentText(getattr(header.resin_used, 'abbreviation', ''))
+                self.ui.purging_palletizer_input.setText(str(header.palletizer_used or '0'))
+                self.ui.purging_siever_input.setText(str(header.siever_used or '0'))
         else:
+            # If purging was done, uncheck the box and populate all fields.
             self.ui.no_purging_checkbox.setChecked(False)
-            header = record.purging_headers[0]
+
             self.ui.purging_product_code_combo.setCurrentText(header.product_code)
-            self.ui.purging_start_time.setTime(header.time_start)
-            self.ui.purging_end_time.setTime(header.time_end)
+            self.ui.purging_start_time.setTime(header.time_start if header.time_start else QTime(0, 0))
+            self.ui.purging_end_time.setTime(header.time_end if header.time_end else QTime(0, 0))
             self.ui.purging_resin_combo.setCurrentText(getattr(header.resin_used, 'abbreviation', ''))
-            self.ui.purging_palletizer_input.setText(str(header.palletizer_used))
-            self.ui.purging_siever_input.setText(str(header.siever_used))
+            self.ui.purging_palletizer_input.setText(str(header.palletizer_used or '0'))
+            self.ui.purging_siever_input.setText(str(header.siever_used or '0'))
+
             self.ui.purging_details_table.setRowCount(0)
             for detail in header.purging_details:
                 self._add_resin_row()
                 row = self.ui.purging_details_table.rowCount() - 1
                 self.ui.purging_details_table.cellWidget(row, 0).setCurrentText(
                     getattr(detail.resin, 'abbreviation', ''))
-                self.ui.purging_details_table.item(row, 1).setText(f"{detail.qty or '0.00'}")
-                self.ui.purging_details_table.item(row, 2).setText(detail.notes)
-
+                self.ui.purging_details_table.item(row, 1).setText(detail.notes)
+                self.ui.purging_details_table.item(row, 2).setText(f"{detail.qty or '0.00'}")
+        # --- END FIX ---
 
         self._update_production_summary()

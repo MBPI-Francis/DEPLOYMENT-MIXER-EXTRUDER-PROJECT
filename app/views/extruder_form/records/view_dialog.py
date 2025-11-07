@@ -168,10 +168,10 @@ class ExtruderRecordViewDialog(QDialog):
         return group
 
     def _create_remarks_personnel_group(self):
-        group = QGroupBox("Remarks & Personnel")
+        group = QGroupBox("Remarks and Personnel")
         layout = QVBoxLayout(group)
         layout.addWidget(QLabel("Remarks:"))
-        self.remarks_browser = QTextBrowser();
+        self.remarks_browser = QTextBrowser()
         self.remarks_browser.setFixedHeight(80)
         layout.addWidget(self.remarks_browser)
         personnel_layout = QFormLayout()

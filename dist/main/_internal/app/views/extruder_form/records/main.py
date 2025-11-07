@@ -154,50 +154,6 @@ class ExtruderRecordsView(QWidget):
             self.ui.table_widget.setSortingEnabled(True)
             QApplication.restoreOverrideCursor()
 
-    # def _add_record_to_table(self, record):
-    #     row_pos = self.ui.table_widget.rowCount()
-    #     self.ui.table_widget.insertRow(row_pos)
-    #
-    #     total_output = sum(out.qty_output for out in record.extruder_outputs if out.qty_output)
-    #     start_times = [out.datetime_start for out in record.extruder_outputs if out.datetime_start]
-    #     end_times = [out.datetime_end for out in record.extruder_outputs if out.datetime_end]
-    #     min_start_time = min(start_times) if start_times else None
-    #     max_end_time = max(end_times) if end_times else None
-    #
-    #     cell_data = {
-    #         0: (str(record.id), record.id),
-    #         1: (record.created_at.strftime("%Y-%m-%d %H:%M") if record.created_at else "N/A",
-    #             record.created_at.timestamp() if record.created_at else 0),
-    #         2: (getattr(record.machine, 'name', 'N/A'), None),
-    #         3: (record.product_code, None),
-    #         4: (record.lot_number, None),
-    #         5: (min_start_time.strftime("%Y-%m-%d %H:%M") if min_start_time else "N/A",
-    #             min_start_time.timestamp() if min_start_time else 0),
-    #         6: (max_end_time.strftime("%Y-%m-%d %H:%M") if max_end_time else "N/A",
-    #             max_end_time.timestamp() if max_end_time else 0),
-    #         7: ("0.00", 0.0),  # Output/hr needs more complex calculation
-    #         8: (f"{record.target_output_per_hour or 0:.2f}", float(record.target_output_per_hour or 0)),
-    #         9: (f"{total_output or 0:.2f}", float(total_output or 0)),
-    #         10: (", ".join([p.product_code for p in record.purging_headers if p.product_code]) or "N/A", None),
-    #         11: ("00:00", 0),  # Total purging time needs calculation
-    #         12: (", ".join([f"{p.employee.first_name} {p.employee.last_name}" for p in record.extruder_personnels if
-    #                         p.employee]) or "N/A", None),
-    #     }
-    #
-    #     for col, (text, numeric_val) in cell_data.items():
-    #         if numeric_val is not None:
-    #             item = NumericTableWidgetItem(text)
-    #             item.setData(Qt.ItemDataRole.UserRole, numeric_val)
-    #         else:
-    #             item = QTableWidgetItem(text)
-    #
-    #         if record.is_deleted:
-    #             item.setBackground(QBrush(QColor("#e0e0e0")))
-    #             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
-    #
-    #         self.ui.table_widget.setItem(row_pos, col, item)
-
-    # --- Other methods are unchanged ---
 
     def _add_record_to_table(self, record):
         row_pos = self.ui.table_widget.rowCount()
@@ -278,15 +234,6 @@ class ExtruderRecordsView(QWidget):
             self.ui.table_widget.setItem(row_pos, col, item)
 
 
-    # def _get_selected_record_info(self):
-    #     selected_rows = self.ui.table_widget.selectionModel().selectedRows()
-    #     if not selected_rows: return None, False
-    #     row = selected_rows[0].row()
-    #     record_id = int(self.ui.table_widget.item(row, 0).text())
-    #     is_deleted = self.ui.table_widget.item(row, 0).background().color() == self.is_deleted_color
-    #     return record_id, is_deleted
-
-
     def _get_selected_record_info(self):
         # --- MODIFIED: Simplified to rely on the checkbox state ---
         selected_rows = self.ui.table_widget.selectionModel().selectedRows()
@@ -296,29 +243,6 @@ class ExtruderRecordsView(QWidget):
         is_deleted = self.ui.show_only_deleted_checkbox.isChecked()
         return record_id, is_deleted
 
-    # def _show_context_menu(self, position: QPoint):
-    #     index = self.ui.table_widget.indexAt(position)
-    #     if not index.isValid(): return
-    #     self.ui.table_widget.selectRow(index.row())
-    #     record_id, is_deleted = self._get_selected_record_info()
-    #     if record_id is None: return
-    #     context_menu = QMenu(self)
-    #     view_action = QAction("View Record", self)
-    #     edit_action = QAction("Edit Record", self)
-    #     delete_action = QAction("Delete Record", self)
-    #     restore_action = QAction("Restore Record", self)
-    #     view_action.triggered.connect(self._view_record)
-    #     edit_action.triggered.connect(self._edit_record)
-    #     delete_action.triggered.connect(self._delete_record)
-    #     restore_action.triggered.connect(self._restore_record)
-    #     if not is_deleted:
-    #         context_menu.addAction(view_action)
-    #         context_menu.addAction(edit_action)
-    #         context_menu.addSeparator()
-    #         context_menu.addAction(delete_action)
-    #     else:
-    #         context_menu.addAction(restore_action)
-    #     context_menu.exec(self.ui.table_widget.mapToGlobal(position))
 
     def _show_context_menu(self, position: QPoint):
         # --- MODIFIED: Dynamically build the context menu ---

@@ -67,23 +67,7 @@ class ExtruderOpsController:
 
         # --- NEW METHOD ---
 
-    # # --- NEW PAGINATED METHOD for the lazy loading combo box ---
-    # def get_distinct_product_codes_paginated(self, page: int, page_size: int, search_term: str = None) -> List[str]:
-    #     """
-    #     Fetches a unique, paginated, and searchable list of T_PRODCODE values.
-    #     """
-    #     with self.Session() as session:
-    #         query = session.query(distinct(TblProd01.T_PRODCODE)).filter(
-    #             TblProd01.T_PRODCODE.isnot(None),
-    #             TblProd01.T_PRODCODE != ''
-    #         )
-    #
-    #         if search_term:
-    #             query = query.filter(TblProd01.T_PRODCODE.ilike(f"%{search_term}%"))
-    #
-    #         results = query.order_by(TblProd01.T_PRODCODE).offset((page - 1) * page_size).limit(page_size).all()
-    #
-    #         return [code for (code,) in results]
+
 
     def get_distinct_product_codes_paginated(self, page: int = 1, page_size: int = 50, search_term: str = None,
                                              limit: int = None) -> List[str]:

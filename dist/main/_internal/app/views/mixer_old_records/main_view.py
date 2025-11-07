@@ -70,15 +70,10 @@ class MixerOldRecordsView(QWidget):
 
 
 
-
-
         # --- Add Widgets as Tabs ---
 
         # As requested, you can easily comment out this line to hide the records tab
         self.tab_widget.addTab(self.records_tab, "Records")
-
-
-
 
         # Load the local stylesheet if it exists
         load_stylesheet(self)

@@ -331,7 +331,7 @@ class Ui_ExtruderEntryForm:
             "Date", "Time Start", "Time End", "Duration", "Output (kg)"
         ])
 
-        self.output_log_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.output_log_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.output_log_table.horizontalHeader().setSectionResizeMode(0,
                                                                       QHeaderView.ResizeMode.ResizeToContents)  # Date
         self.output_log_table.horizontalHeader().setSectionResizeMode(3,

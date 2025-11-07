@@ -119,10 +119,11 @@ class MixerRecordsView(QWidget):
         self.current_filters = {}
         self.editor_initial_data = {}
         self.live_search_worker = None
-        self.export_worker = None # Worker for exporting
-        # ... (rest of __init__ is correct, no changes needed) ...
+        self.export_worker = None
+
         main_layout = QVBoxLayout(self)
         top_bar_layout = QHBoxLayout()
+
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search all columns...")
         self.search_input.setClearButtonEnabled(True)
@@ -139,6 +140,7 @@ class MixerRecordsView(QWidget):
         self.restore_button.setObjectName("ActionButton")
         self.export_button = QPushButton("Export...")
         self.export_button.setObjectName("ActionButton")
+
         top_bar_layout.addWidget(self.search_input)
         top_bar_layout.addStretch()
         top_bar_layout.addWidget(self.refresh_button)
@@ -146,16 +148,21 @@ class MixerRecordsView(QWidget):
         top_bar_layout.addWidget(self.clear_filters_button)
         top_bar_layout.addWidget(self.restore_button)
         top_bar_layout.addWidget(self.export_button)
+
         self.notification_label = QLabel(self)
         self.notification_label.setObjectName("NotificationLabel")
         self.notification_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.notification_label.setFixedHeight(0)
         self.notification_label.setStyleSheet("QLabel#NotificationLabel { background-color: #28a745; color: white; font-weight: bold; font-size: 10pt; padding: 8px; }")
+
         self.table = QTableWidget()
         self.setup_table()
+
         main_layout.addLayout(top_bar_layout)
         main_layout.addWidget(self.table)
         main_layout.addWidget(self.notification_label)
+
+
         self.search_input.textChanged.connect(self.filter_table_by_search)
         self.refresh_button.clicked.connect(self.refresh_data)
         self.filter_button.clicked.connect(self.open_filter_dialog)
@@ -163,6 +170,8 @@ class MixerRecordsView(QWidget):
         self.restore_button.clicked.connect(self.open_restore_dialog)
         self.export_button.clicked.connect(self.export_to_excel)
         self.refresh_button.clicked.connect(lambda: self.refresh_data(is_manual_refresh=True))
+
+
         css_path = os.path.join(os.path.dirname(__file__), "styles.css")
         if os.path.exists(css_path):
             with open(css_path, "r") as f:
@@ -171,7 +180,7 @@ class MixerRecordsView(QWidget):
         self._setup_shortcuts()
         self._start_database_monitor()
 
-    # --- MODIFIED: The _handle_export_to_excel method now uses the worker ---
+
     def _handle_export_to_excel(self):
         """
         Orchestrates the process of exporting data to an Excel file in the background.
@@ -219,8 +228,7 @@ class MixerRecordsView(QWidget):
         """Shows an error message if the export fails."""
         QMessageBox.critical(self, "Export Error", error_message)
 
-    # --- All other methods remain the same as your stable version ---
-    # ... (refresh_data, show_notification, setup_table, etc.) ...
+
     @pyqtSlot()
     def refresh_data(self, is_manual_refresh: bool = True):
         print("Refreshing data...")
@@ -235,6 +243,8 @@ class MixerRecordsView(QWidget):
             QMessageBox.critical(self, "Refresh Error", f"Could not refresh report data:\n{e}")
         finally:
             session.close()
+
+
     def show_notification(self, message: str, duration_ms: int = 2000):
         self.notification_label.setText(message)
         self.anim_in = QPropertyAnimation(self.notification_label, b"maximumHeight")
@@ -244,6 +254,8 @@ class MixerRecordsView(QWidget):
         self.anim_in.setEasingCurve(QEasingCurve.Type.InOutQuad)
         self.anim_in.start()
         QTimer.singleShot(duration_ms, self.hide_notification)
+
+
     def hide_notification(self):
         self.anim_out = QPropertyAnimation(self.notification_label, b"maximumHeight")
         self.anim_out.setDuration(200)
@@ -251,22 +263,32 @@ class MixerRecordsView(QWidget):
         self.anim_out.setEndValue(0)
         self.anim_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
         self.anim_out.start()
+
+
     def _start_database_monitor(self):
         self.db_monitor_thread = DatabaseMonitorThread(self.Session, self)
         self.db_monitor_thread.database_changed.connect(self.on_database_changed)
         self.db_monitor_thread.start()
+
+
     def on_database_changed(self):
         print("Database change detected. Auto-refreshing table...")
         self.refresh_data(is_manual_refresh=False)
+
+
     def closeEvent(self, event):
         self.db_monitor_thread.stop()
         self.db_monitor_thread.wait()
         super().closeEvent(event)
+
+
     def _setup_shortcuts(self):
         refresh_action = QAction("Refresh Data", self)
         refresh_action.setShortcut(QKeySequence("Ctrl+R"))
         refresh_action.triggered.connect(lambda: self.refresh_data(is_manual_refresh=True))
         self.addAction(refresh_action)
+
+
     def _load_prerequisites_and_data(self):
         session = self.Session()
         try:
@@ -281,8 +303,12 @@ class MixerRecordsView(QWidget):
             QMessageBox.critical(self, "Load Error", f"Could not load initial data:\n\n{e}\n\n{error_details}")
         finally:
             session.close()
+
+
     def load_data(self):
         self.refresh_data()
+
+
     def edit_selected_record(self):
         detail_id = self.get_id_from_selected_row()
         if not detail_id: return
@@ -307,6 +333,8 @@ class MixerRecordsView(QWidget):
         finally:
             session.close()
             self.load_data()
+
+
     @pyqtSlot(object, object, str)
     def on_dialog_search_requested(self, combo_box: SmartComboBox, search_function: Callable, search_term: str):
         if self.live_search_worker and self.live_search_worker.isRunning(): return
@@ -314,11 +342,15 @@ class MixerRecordsView(QWidget):
         self.live_search_worker.results_ready.connect(combo_box.update_with_search_results)
         self.live_search_worker.finished.connect(self._on_search_finished)
         self.live_search_worker.start()
+
+
     @pyqtSlot()
     def _on_search_finished(self):
         if self.live_search_worker:
             self.live_search_worker.deleteLater()
             self.live_search_worker = None
+
+
     def filter_table_by_search(self, search_text: str):
         search_text = search_text.lower()
         for row_index in range(self.table.rowCount()):
@@ -336,6 +368,8 @@ class MixerRecordsView(QWidget):
                         match_found = True
                         break
             self.table.setRowHidden(row_index, not match_found)
+
+
     def setup_table(self):
         self.table.setColumnCount(17)
         headers_list = ["Date", "Ref No", "MC #", "Product Code", "Lot Number", "Formula No", "Processing Start", "Processing End", "Processing Duration", "Processed By", "Output QTY", "Cleaning Start", "Cleaning End", "Cleaning Duration", "Cleaning RM", "Cleaning QTY", "Remarks"]
@@ -354,11 +388,15 @@ class MixerRecordsView(QWidget):
                 header.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.show_context_menu)
+
+
     def clear_filters(self):
         self.current_filters = {}
         self.search_input.clear()
         self.load_data()
         QMessageBox.information(self, "Filters Cleared", "All filters have been removed.")
+
+
     def _create_table_item(self, value):
         item = QTableWidgetItem()
         try:
@@ -368,6 +406,8 @@ class MixerRecordsView(QWidget):
         except (ValueError, TypeError):
             item.setData(Qt.ItemDataRole.DisplayRole, str(value))
         return item
+
+
     def populate_table(self, data: pd.DataFrame):
         self.table.setSortingEnabled(False)
         self.table.setRowCount(0)
@@ -399,15 +439,19 @@ class MixerRecordsView(QWidget):
                 first_item.setData(Qt.ItemDataRole.UserRole, row["detail_id"])
         self.table.resizeColumnsToContents()
         self.table.setSortingEnabled(True)
+
+
     def show_remarks(self, remarks_text: str):
         dialog = RemarksViewerDialog(remarks_text, self)
         dialog.exec()
+
     def open_filter_dialog(self):
         dialog = FilterDialog(self.machine_list, self.editor_initial_data, self.current_filters, self)
         dialog.perform_search_requested.connect(self.on_dialog_search_requested)
         if dialog.exec():
             self.current_filters = dialog.get_filters()
             self.load_data()
+
     def _get_visible_data_as_dataframe(self) -> pd.DataFrame:
         visible_data = []
         headers = [self.table.horizontalHeaderItem(i).text() for i in range(self.table.columnCount())]
@@ -428,6 +472,8 @@ class MixerRecordsView(QWidget):
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(col_type)
         return df
+
+
     def export_to_excel(self):
         export_menu = QMenu(self)
         excel_action = QAction("Export to Excel...", self)
@@ -452,8 +498,10 @@ class MixerRecordsView(QWidget):
             QMessageBox.information(self, "Export Successful", f"Report successfully saved to:\n{file_path}")
         except Exception as e:
             QMessageBox.critical(self, "Export Error", f"An error occurred during export:\n{e}")
+
     def _handle_export_to_pdf(self):
         QMessageBox.information(self, "Coming Soon", "PDF export functionality will be added in a future update.")
+
     def show_context_menu(self, pos):
         item = self.table.itemAt(pos)
         if not item: return
@@ -463,12 +511,16 @@ class MixerRecordsView(QWidget):
         action = menu.exec(self.table.mapToGlobal(pos))
         if action == edit_action: self.edit_selected_record()
         elif action == delete_action: self.delete_selected_record()
+
+
     def get_id_from_selected_row(self) -> int | None:
         selected_rows = self.table.selectionModel().selectedRows()
         if not selected_rows:
             QMessageBox.warning(self, "No Selection", "Please select a row to perform this action.")
             return None
         return self.table.item(selected_rows[0].row(), 0).data(Qt.ItemDataRole.UserRole)
+
+
     def delete_selected_record(self):
         detail_id = self.get_id_from_selected_row()
         if not detail_id: return
@@ -486,6 +538,7 @@ class MixerRecordsView(QWidget):
         finally:
             session.close()
             self.load_data()
+
     def open_restore_dialog(self):
         session = self.Session()
         try:
