@@ -12,6 +12,17 @@ class Ui_ExtruderRecordsList(object):
 
 
     def __init__(self):
+        self.clear_filters_button = None
+        self.advanced_filter_button = None
+        self.restore_selected_button = None
+        self.show_only_deleted_checkbox = None
+        self.date_to_input = None
+        self.date_to_label = None
+        self.date_from_input = None
+        self.date_from_label = None
+        self.search_input = None
+        self.filter_layout = None
+        self.main_layout = None
         self.table_widget = None
 
     def setupUi(self, Form: QWidget):
@@ -49,13 +60,6 @@ class Ui_ExtruderRecordsList(object):
         self.show_only_deleted_checkbox = QCheckBox("Show Only Deleted Records")
         self.filter_layout.addWidget(self.show_only_deleted_checkbox)
 
-        # # --- THIS IS THE NEW FEATURE ---
-        # # 1. Create the Refresh Button
-        # self.refresh_button = QPushButton("Refresh")
-        # self.refresh_button.setObjectName("ActionButton")
-        # self.filter_layout.addWidget(self.refresh_button)  # Add it to the layout
-        # # --- END NEW FEATURE ---
-
         self.restore_selected_button = QPushButton("Restore Selected")
         self.restore_selected_button.setObjectName("ActionButton")
         self.filter_layout.addWidget(self.restore_selected_button)
@@ -89,9 +93,9 @@ class Ui_ExtruderRecordsList(object):
     def _setup_table_columns(self):
         self.table_widget.setColumnCount(13)
         self.table_widget.setHorizontalHeaderLabels([
-            "ID", "Date Encoded", "Machine No.", "Product Code", "Lot Number",
+            "ID", "Date Encoded", "MC No.", "Product Code", "Lot Number",
             "Time Start", "Time End", "Output/hr (kg)", "Target Output/hr",
-            "Total Output (kg)", "Purging to Code", "Total Purging Time", "Operator(s)"
+            "Total Output (kg)", "Purging to Code", "Purging Duration", "Operator(s)"
         ])
         self.table_widget.setColumnHidden(0, True)
         header = self.table_widget.horizontalHeader()

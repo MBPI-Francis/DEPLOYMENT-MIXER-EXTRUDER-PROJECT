@@ -223,9 +223,7 @@ class ExtruderRecordsView(QWidget):
             else:
                 item = QTableWidgetItem(text)
 
-            # if record.is_deleted:
-            #     item.setBackground(QBrush(QColor("#e0e0e0")))
-            #     item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+
 
             if is_deleted_view:
                 item.setBackground(QBrush(self.is_deleted_color))
@@ -291,14 +289,6 @@ class ExtruderRecordsView(QWidget):
             else:
                 QMessageBox.critical(self, "Error", "Failed to delete the record.")
 
-    # def _restore_record(self):
-    #     record_id, is_deleted = self._get_selected_record_info()
-    #     if record_id is None or not is_deleted: return
-    #     if self.ops.restore_record(record_id):
-    #         self.refresh_data();
-    #         self.data_changed.emit()
-    #     else:
-    #         QMessageBox.critical(self, "Error", "Failed to restore the record.")
 
     def _restore_record(self):
         record_id, is_deleted = self._get_selected_record_info()

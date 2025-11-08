@@ -159,58 +159,6 @@ class ExtruderEntryFormView(QWidget):
                                        parent=self)
             error_dialog.exec()
 
-    # def _on_add_row_shortcut(self):
-    #     """Handler for the Shift+Enter shortcut to add a new row."""
-    #     # Check if the focus is in the output log's group box
-    #     if self.ui.output_log_table.hasFocus() or \
-    #             (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget())):
-    #         self._add_output_log_row()
-    #
-    #     # Check if focus is in the resin consumption group box
-    #     elif self.ui.resin_group.hasFocus() or \
-    #             (self.focusWidget() and self.ui.resin_group.isAncestorOf(self.focusWidget())):
-    #         self._add_resin_row()
-    #
-    #
-    #     elif self.ui.remarks_personnel_group.hasFocus() or \
-    #          (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
-    #         self._add_personnel_row()
-    #
-    # def _on_delete_shortcut(self):
-    #     """Handler for the Ctrl+D shortcut to delete a row."""
-    #     # Check output log
-    #     if self.ui.output_log_table.hasFocus() or \
-    #             (self.focusWidget() and self.ui.output_log_table.isAncestorOf(self.focusWidget())):
-    #         if self.ui.output_log_table.rowCount() > 0 and self.ui.output_log_table.currentRow() >= 0:
-    #             reply = QMessageBox.question(self, "Confirm Delete",
-    #                                          "Are you sure you want to remove the selected log entry?",
-    #                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-    #                                          QMessageBox.StandardButton.No)
-    #             if reply == QMessageBox.StandardButton.Yes:
-    #                 self._remove_selected_output_log()
-    #
-    #     # Check resin consumption
-    #     elif self.ui.resin_group.hasFocus() or \
-    #             (self.focusWidget() and self.ui.resin_group.isAncestorOf(self.focusWidget())):
-    #         if self.ui.purging_details_table.rowCount() > 0 and self.ui.purging_details_table.currentRow() >= 0:
-    #             reply = QMessageBox.question(self, "Confirm Delete",
-    #                                          "Are you sure you want to remove the selected resin entry?",
-    #                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-    #                                          QMessageBox.StandardButton.No)
-    #             if reply == QMessageBox.StandardButton.Yes:
-    #                 self._remove_selected_resin()
-    #
-    #     # --- NEW: Check personnel ---
-    #     elif self.ui.remarks_personnel_group.hasFocus() or \
-    #             (self.focusWidget() and self.ui.remarks_personnel_group.isAncestorOf(self.focusWidget())):
-    #         # Since the dynamic rows aren't selectable, we can just remove the last one.
-    #         if self.ui.personnel_container_layout.count() > 0:
-    #             reply = QMessageBox.question(self, "Confirm Delete",
-    #                                          "Are you sure you want to remove the last personnel entry?",
-    #                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-    #                                          QMessageBox.StandardButton.No)
-    #             if reply == QMessageBox.StandardButton.Yes:
-    #                 self._remove_personnel_row()
 
     def _on_add_row_shortcut(self):
         """Handler for the Shift+Enter shortcut to add a new row."""
@@ -829,6 +777,7 @@ class ExtruderEntryFormView(QWidget):
                     } for r in range(self.ui.purging_details_table.rowCount())
                 ]
 
+
             else:
                 # If "No Purging" is CHECKED, create the dictionary but only
                 # populate the three required fields, leaving the others null.
@@ -853,90 +802,600 @@ class ExtruderEntryFormView(QWidget):
             return None
 
 
+
+    # def _validate_required_fields(self) -> bool:
+    #     """
+    #     Checks all required fields, with conditional validation for the
+    #     purging and resin sections based on the 'No Purging' checkbox.
+    #     """
+    #     validation_map = {
+    #         "Order Information": [
+    #             (self.ui.lot_number_input, "Lot Number"),
+    #         ],
+    #         "Machine & Configuration": [
+    #             (self.ui.mc_no_combo, "MC No."),
+    #             (self.ui.shift_combo, "Shift"),
+    #             (self.ui.screen_size_combo, "Screen Size"),
+    #             (self.ui.screw_config_combo, "Screw Config."),
+    #         ],
+    #         "Personnel": [
+    #             (self.ui.prepared_by_combo, "Prepared By"),
+    #         ],
+    #         # --- FIX: Purging Details now has its core fields always required ---
+    #         "Purging Details": [
+    #             (self.ui.purging_resin_combo, "Resin used (carrier)"),
+    #             (self.ui.purging_palletizer_input, "Pelletizer used"),
+    #             (self.ui.purging_siever_input, "Siever used"),
+    #         ]
+    #     }
+    #
+    #     missing_issues = []
+    #
+    #     # --- Check standard fields from the map (excluding purging for now) ---
+    #     for group_name, fields in validation_map.items():
+    #         group_errors = []
+    #         for widget, field_name in fields:
+    #             is_missing = False
+    #             if isinstance(widget, QLineEdit):
+    #                 if (widget.text().strip() in ('', '0', '0.00')):
+    #                     is_missing = True
+    #             elif isinstance(widget, QComboBox):
+    #                 if widget.isEditable():
+    #                     if not widget.currentText().strip():
+    #                         is_missing = True
+    #                 elif widget.currentIndex() <= 0:
+    #                     is_missing = True
+    #             if is_missing:
+    #                 group_errors.append(field_name)
+    #         if group_errors:
+    #             missing_issues.append(
+    #                 f"<b>{group_name}:</b><ul>{''.join(f'<li>{err}</li>' for err in group_errors)}</ul>")
+    #
+    #     # --- THIS IS THE FIX: Conditional validation for ALL purging-related items ---
+    #     if not self.ui.no_purging_checkbox.isChecked():
+    #         purging_errors = []
+    #         purging_fields_to_check = [
+    #             (self.ui.purging_product_code_combo, "Product Code"),
+    #             (self.ui.purging_start_time, "Start Time"),
+    #             (self.ui.purging_end_time, "End Time"),
+    #
+    #         ]
+    #         for widget, field_name in purging_fields_to_check:
+    #             is_missing = False
+    #             if isinstance(widget, QLineEdit):
+    #                 if (widget.text().strip() in ('', '0', '0.00')):
+    #                     is_missing = True
+    #             elif isinstance(widget, QComboBox):
+    #                 if widget.isEditable():
+    #                     if not widget.currentText().strip():
+    #                         is_missing = True
+    #                 elif widget.currentIndex() <= 0:
+    #                     is_missing = True
+    #             if is_missing:
+    #                 purging_errors.append(field_name)
+    #
+    #         # Also check if the resin consumption table is empty
+    #         if self.ui.purging_details_table.rowCount() == 0:
+    #             purging_errors.append("At least one Resin Consumption entry is required.")
+    #
+    #         if purging_errors:
+    #             missing_issues.append(
+    #                 f"<b>Purging & Resin:</b><ul>{''.join(f'<li>{err}</li>' for err in purging_errors)}</ul>")
+    #     # --- END FIX ---
+    #
+    #     # --- Check other dynamic/custom rules ---
+    #     custom_rules_errors = []
+    #     if self.ui.personnel_container_layout.count() == 0:
+    #         custom_rules_errors.append("At least one Personnel must be added.")
+    #     if self.ui.output_log_table.rowCount() == 0:
+    #         custom_rules_errors.append("At least one Extruder Output Log entry is required.")
+    #
+    #     def is_zone_zero(widget: QLineEdit) -> bool:
+    #         try:
+    #             return float(widget.text() or 0.0) == 0.0
+    #         except (ValueError, TypeError):
+    #             return False
+    #
+    #     if all(is_zone_zero(z) for z in self.ui.zone_inputs.values()):
+    #         custom_rules_errors.append("All Zone Temperatures cannot be zero.")
+    #
+    #     if custom_rules_errors:
+    #         missing_issues.append(
+    #             f"<b>Other Issues:</b><ul>{''.join(f'<li>{err}</li>' for err in custom_rules_errors)}</ul>")
+    #
+    #     # Final Check
+    #     if missing_issues:
+    #         final_issue_list_html = "<br>".join(missing_issues)
+    #         error_dialog = ErrorDialog("Validation Error",
+    #                                    f"Please correct the following issues before saving:<br>{final_issue_list_html}",
+    #                                    parent=self)
+    #         error_dialog.exec()
+    #         return False
+    #
+    #     return True
+
+    # def _validate_required_fields(self) -> bool:
+    #     """
+    #     Checks all required fields and business rules, including detailed validation
+    #     for purging and resin consumption rows.
+    #     """
+    #     validation_map = {
+    #         "Order Information": [
+    #             (self.ui.lot_number_input, "Lot Number"),
+    #         ],
+    #         "Machine & Configuration": [
+    #             (self.ui.mc_no_combo, "MC No."),
+    #             (self.ui.shift_combo, "Shift"),
+    #             (self.ui.screen_size_combo, "Screen Size"),
+    #             (self.ui.screw_config_combo, "Screw Config."),
+    #         ],
+    #         "Personnel": [
+    #             (self.ui.prepared_by_combo, "Prepared By"),
+    #         ],
+    #         # --- FIX: Purging Details now has its core fields always required ---
+    #         "Purging Details": [
+    #             (self.ui.purging_resin_combo, "Resin used (carrier)"),
+    #             (self.ui.purging_palletizer_input, "Pelletizer used"),
+    #             (self.ui.purging_siever_input, "Siever used"),
+    #         ]
+    #     }
+    #
+    #     missing_issues = []
+    #
+    #     # --- Check standard fields from the map (excluding purging for now) ---
+    #     for group_name, fields in validation_map.items():
+    #         group_errors = []
+    #         for widget, field_name in fields:
+    #             is_missing = False
+    #             if isinstance(widget, QLineEdit):
+    #                 if (widget.text().strip() in ('', '0', '0.00')):
+    #                     is_missing = True
+    #             elif isinstance(widget, QComboBox):
+    #                 if widget.isEditable():
+    #                     if not widget.currentText().strip():
+    #                         is_missing = True
+    #                 elif widget.currentIndex() <= 0:
+    #                     is_missing = True
+    #             if is_missing:
+    #                 group_errors.append(field_name)
+    #         if group_errors:
+    #             missing_issues.append(
+    #                 f"<b>{group_name}:</b><ul>{''.join(f'<li>{err}</li>' for err in group_errors)}</ul>")
+    #
+    #     # --- Conditional validation for ALL purging-related items ---
+    #     if not self.ui.no_purging_checkbox.isChecked():
+    #         purging_errors = []
+    #
+    #         # 1. Check the main purging fields
+    #         purging_fields_to_check = [
+    #             (self.ui.purging_product_code_combo, "Product Code"),
+    #
+    #         ]
+    #         for widget, field_name in purging_fields_to_check:
+    #             if (isinstance(widget, QLineEdit) and widget.text().strip() in ('', '0')) or \
+    #                     (isinstance(widget, QComboBox) and widget.currentIndex() <= 0):
+    #                 purging_errors.append(field_name)
+    #
+    #         # 2. NEW: Specifically check if times are not default "00:00"
+    #         if self.ui.purging_start_time.time() == QTime(0, 0):
+    #             purging_errors.append("Purging Start Time must be set.")
+    #         if self.ui.purging_end_time.time() == QTime(0, 0):
+    #             purging_errors.append("Purging End Time must be set.")
+    #
+    #         if purging_errors:
+    #             missing_issues.append(
+    #                 f"<b>Purging Details:</b><ul>{''.join(f'<li>{err}</li>' for err in purging_errors)}</ul>")
+    #
+    #         # 3. NEW: Validate each row in the Resin Consumption table
+    #         resin_table_errors = []
+    #         if self.ui.purging_details_table.rowCount() == 0:
+    #             resin_table_errors.append("At least one Resin Consumption entry is required.")
+    #         else:
+    #             for row in range(self.ui.purging_details_table.rowCount()):
+    #                 resin_combo = self.ui.purging_details_table.cellWidget(row, 0)
+    #                 qty_item = self.ui.purging_details_table.item(row, 2)
+    #
+    #                 if resin_combo and resin_combo.currentIndex() <= 0:
+    #                     resin_table_errors.append(f"Row {row + 1}: A Resin must be selected.")
+    #
+    #                 if qty_item and (qty_item.text().strip() in ('', '0', '0.00')):
+    #                     resin_table_errors.append(f"Row {row + 1}: Qty (Kg.) must be greater than zero.")
+    #
+    #         if resin_table_errors:
+    #             missing_issues.append(
+    #                 f"<b>Resin Consumption:</b><ul>{''.join(f'<li>{err}</li>' for err in resin_table_errors)}</ul>")
+    #
+    #     # --- Check other dynamic/custom rules ---
+    #     custom_rules_errors = []
+    #     if self.ui.personnel_container_layout.count() == 0:
+    #         custom_rules_errors.append("At least one Personnel must be added.")
+    #     if self.ui.output_log_table.rowCount() == 0:
+    #         custom_rules_errors.append("At least one Extruder Output Log entry is required.")
+    #
+    #     def is_zone_zero(widget: QLineEdit) -> bool:
+    #         try:
+    #             return float(widget.text() or 0.0) == 0.0
+    #         except (ValueError, TypeError):
+    #             return False
+    #
+    #     if all(is_zone_zero(z) for z in self.ui.zone_inputs.values()):
+    #         custom_rules_errors.append("All Zone Temperatures cannot be zero.")
+    #
+    #     if custom_rules_errors:
+    #         missing_issues.append(
+    #             f"<b>Other Issues:</b><ul>{''.join(f'<li>{err}</li>' for err in custom_rules_errors)}</ul>")
+    #
+    #     # Final Check
+    #     if missing_issues:
+    #         final_issue_list_html = "<br>".join(missing_issues)
+    #         error_dialog = ErrorDialog("Validation Error",
+    #                                    f"Please correct the following issues before saving:<br>{final_issue_list_html}",
+    #                                    parent=self)
+    #         error_dialog.exec()
+    #         return False
+    #
+    #     return True
+
+
+    # v2
+    # def _validate_required_fields(self) -> bool:
+    #     """
+    #     Final, correct validation.
+    #     - Core Purging fields (Resin, Pelletizer, Siever) are ALWAYS required.
+    #     - Process-specific fields and the Resin Consumption table are conditionally required.
+    #     """
+    #     validation_map = {
+    #         "Order Information": [
+    #             (self.ui.lot_number_input, "Lot Number"),
+    #         ],
+    #         "Machine & Configuration": [
+    #             (self.ui.mc_no_combo, "MC No."),
+    #             (self.ui.shift_combo, "Shift"),
+    #             (self.ui.screen_size_combo, "Screen Size"),
+    #             (self.ui.screw_config_combo, "Screw Config."),
+    #         ],
+    #         "Personnel": [
+    #             (self.ui.prepared_by_combo, "Prepared By"),
+    #         ],
+    #         # --- THIS IS THE FIX: These 3 fields are now ALWAYS required ---
+    #         "Purging Details 1": [
+    #             (self.ui.purging_resin_combo, "Resin used (carrier)"),
+    #             (self.ui.purging_palletizer_input, "Pelletizer used"),
+    #             (self.ui.purging_siever_input, "Siever used"),
+    #         ]
+    #     }
+    #
+    #     missing_issues = []
+    #
+    #     # --- 1. Check all unconditionally required fields ---
+    #     for group_name, fields in validation_map.items():
+    #         group_errors = []
+    #         for widget, field_name in fields:
+    #             is_missing = False
+    #             if isinstance(widget, QLineEdit):
+    #                 if (widget.text().strip() in ('', '0', '0.00')): is_missing = True
+    #             elif isinstance(widget, QComboBox):
+    #                 if widget.isEditable():
+    #                     if not widget.currentText().strip(): is_missing = True
+    #                 elif widget.currentIndex() <= 0:
+    #                     is_missing = True
+    #             if is_missing:
+    #                 group_errors.append(field_name)
+    #         if group_errors:
+    #             missing_issues.append(
+    #                 f"<b>{group_name}:</b><ul>{''.join(f'<li>{err}</li>' for err in group_errors)}</ul>")
+    #
+    #     # --- 2. Conditionally check purging process fields and resin table ---
+    #     if not self.ui.no_purging_checkbox.isChecked():
+    #         purging_process_errors = []
+    #         resin_table_errors = []
+    #
+    #         # Check Product Code
+    #         if not self.ui.purging_product_code_combo.currentText().strip():
+    #             purging_process_errors.append("Product Code")
+    #         # Check Times
+    #         if self.ui.purging_start_time.time() == QTime(0, 0):
+    #             purging_process_errors.append("Purging Start Time must be set.")
+    #         if self.ui.purging_end_time.time() == QTime(0, 0):
+    #             purging_process_errors.append("Purging End Time must be set.")
+    #
+    #         if purging_process_errors:
+    #             missing_issues.append(
+    #                 f"<b>Purging Details 2:</b><ul>{''.join(f'<li>{err}</li>' for err in purging_process_errors)}</ul>")
+    #
+    #         # Check Resin Consumption table
+    #         if self.ui.purging_details_table.rowCount() == 0:
+    #             resin_table_errors.append("At least one Resin Consumption entry is required.")
+    #         else:
+    #             for row in range(self.ui.purging_details_table.rowCount()):
+    #                 resin_combo = self.ui.purging_details_table.cellWidget(row, 0)
+    #                 qty_item = self.ui.purging_details_table.item(row, 1)
+    #                 if resin_combo and resin_combo.currentIndex() <= 0:
+    #                     resin_table_errors.append(f"Row {row + 1}: A Resin must be selected.")
+    #
+    #                 if qty_item and (qty_item.text().strip() in ('', '0', '0.00')):
+    #                     print(type(qty_item.text().strip()))
+    #                     print(qty_item.text().strip())
+    #                     resin_table_errors.append(f"Row {row + 1}: Qty (Kg.) must be greater than zero.")
+    #
+    #         if resin_table_errors:
+    #             missing_issues.append(
+    #                 f"<b>Resin Consumption:</b><ul>{''.join(f'<li>{err}</li>' for err in resin_table_errors)}</ul>")
+    #
+    #     # --- 3. Check other custom rules ---
+    #     custom_rules_errors = []
+    #     if self.ui.personnel_container_layout.count() == 0:
+    #         custom_rules_errors.append("At least one Personnel must be added.")
+    #     if self.ui.output_log_table.rowCount() == 0:
+    #         custom_rules_errors.append("At least one Extruder Output Log entry is required.")
+    #
+    #     def is_zone_zero(widget: QLineEdit) -> bool:
+    #         try:
+    #             return float(widget.text() or 0.0) == 0.0
+    #         except (ValueError, TypeError):
+    #             return False
+    #
+    #     if all(is_zone_zero(z) for z in self.ui.zone_inputs.values()):
+    #         custom_rules_errors.append("All Zone Temperatures cannot be zero.")
+    #
+    #     if custom_rules_errors:
+    #         missing_issues.append(
+    #             f"<b>Other Issues:</b><ul>{''.join(f'<li>{err}</li>' for err in custom_rules_errors)}</ul>")
+    #
+    #     # Final Check
+    #     if missing_issues:
+    #         final_issue_list_html = "<br>".join(missing_issues)
+    #         error_dialog = ErrorDialog("Validation Error",
+    #                                    f"Please correct the following issues before saving:<br>{final_issue_list_html}",
+    #                                    parent=self)
+    #         error_dialog.exec()
+    #         return False
+    #
+    #     return True
+
+    #v3
+    # def _validate_required_fields(self) -> bool:
+    #     """
+    #     Final, comprehensive validation method that checks all required fields,
+    #     including detailed row-by-row validation for dynamic sections.
+    #     """
+    #     validation_map = {
+    #         "Order Information": [
+    #             (self.ui.lot_number_input, "Lot Number"),
+    #         ],
+    #         "Machine & Configuration": [
+    #             (self.ui.mc_no_combo, "MC No."),
+    #             (self.ui.shift_combo, "Shift"),
+    #             (self.ui.screen_size_combo, "Screen Size"),
+    #             (self.ui.screw_config_combo, "Screw Config."),
+    #         ],
+    #         "Personnel": [
+    #             (self.ui.prepared_by_combo, "Prepared By"),
+    #         ],
+    #         "Purging Details": [
+    #             (self.ui.purging_resin_combo, "Resin used (carrier)"),
+    #             (self.ui.purging_palletizer_input, "Pelletizer used"),
+    #             (self.ui.purging_siever_input, "Siever used"),
+    #         ]
+    #     }
+    #
+    #     missing_issues = []
+    #
+    #     # --- 1. Check standard fields from the map ---
+    #     for group_name, fields in validation_map.items():
+    #         group_errors = []
+    #         for widget, field_name in fields:
+    #             is_missing = False
+    #             if isinstance(widget, QLineEdit):
+    #                 if (widget.text().strip() in ('', '0', '0.00')): is_missing = True
+    #             elif isinstance(widget, QComboBox):
+    #                 if widget.isEditable():
+    #                     if not widget.currentText().strip(): is_missing = True
+    #                 elif widget.currentIndex() <= 0:
+    #                     is_missing = True
+    #             if is_missing:
+    #                 group_errors.append(field_name)
+    #         if group_errors:
+    #             missing_issues.append(
+    #                 f"<b>{group_name}:</b><ul>{''.join(f'<li>{err}</li>' for err in group_errors)}</ul>")
+    #
+    #     # --- 2. Conditionally check purging process fields and resin table ---
+    #     if not self.ui.no_purging_checkbox.isChecked():
+    #         # ... (This logic is correct from the previous step)
+    #         pass  # No changes needed here
+    #
+    #     # --- 3. Check dynamic/custom rules with DETAILED row-by-row validation ---
+    #
+    #     # --- Personnel Validation ---
+    #     personnel_errors = []
+    #     if self.ui.personnel_container_layout.count() == 0:
+    #         personnel_errors.append("At least one Personnel must be added.")
+    #     else:
+    #         for i in range(self.ui.personnel_container_layout.count()):
+    #             row_widget = self.ui.personnel_container_layout.itemAt(i).widget()
+    #             if row_widget:
+    #                 name_combo = row_widget.findChildren(QComboBox)[0]
+    #                 pos_combo = row_widget.findChildren(QComboBox)[1]
+    #                 if name_combo.currentIndex() <= 0:
+    #                     personnel_errors.append(f"Row {i + 1}: A Name must be selected.")
+    #                 if pos_combo.currentIndex() <= 0:
+    #                     personnel_errors.append(f"Row {i + 1}: A Position must be selected.")
+    #     if personnel_errors:
+    #         missing_issues.append(f"<b>Personnel:</b><ul>{''.join(f'<li>{err}</li>' for err in personnel_errors)}</ul>")
+    #
+    #     # --- Extruder Output Log Validation ---
+    #     output_log_errors = []
+    #     if self.ui.output_log_table.rowCount() == 0:
+    #         output_log_errors.append("At least one Extruder Output Log entry is required.")
+    #     else:
+    #         for row in range(self.ui.output_log_table.rowCount()):
+    #             date_widget = self.ui.output_log_table.cellWidget(row, 0)
+    #             end_time_widget = self.ui.output_log_table.cellWidget(row, 2)
+    #             qty_item = self.ui.output_log_table.item(row, 4)
+    #
+    #             if date_widget and date_widget.date().isNull():
+    #                 output_log_errors.append(f"Row {row + 1}: A Date must be entered.")
+    #             # We check End Time because a non-zero Start Time is the default
+    #             # if end_time_widget and end_time_widget.time() == QTime(0, 0):
+    #             #     output_log_errors.append(f"Row {row + 1}: Time End must be set.")
+    #             if qty_item and (qty_item.text().strip() in ('', '0', '0.00')):
+    #                 output_log_errors.append(f"Row {row + 1}: Output (kg) must be greater than zero.")
+    #     if output_log_errors:
+    #         missing_issues.append(
+    #             f"<b>Extruder Output Log:</b><ul>{''.join(f'<li>{err}</li>' for err in output_log_errors)}</ul>")
+    #
+    #     # --- Other Custom Rules ---
+    #     custom_rules_errors = []
+    #
+    #     def is_zone_zero(widget: QLineEdit) -> bool:
+    #         try:
+    #             return float(widget.text() or 0.0) == 0.0
+    #         except (ValueError, TypeError):
+    #             return False
+    #
+    #     if all(is_zone_zero(z) for z in self.ui.zone_inputs.values()):
+    #         custom_rules_errors.append("All Zone Temperatures cannot be zero.")
+    #
+    #     if custom_rules_errors:
+    #         missing_issues.append(
+    #             f"<b>Other Issues:</b><ul>{''.join(f'<li>{err}</li>' for err in custom_rules_errors)}</ul>")
+    #
+    #     # --- Final Check ---
+    #     if missing_issues:
+    #         final_issue_list_html = "<br>".join(missing_issues)
+    #         error_dialog = ErrorDialog("Validation Error",
+    #                                    f"Please correct the following issues before saving:<br>{final_issue_list_html}",
+    #                                    parent=self)
+    #         error_dialog.exec()
+    #         return False
+    #
+    #     return True
+
+
+
     def _validate_required_fields(self) -> bool:
         """
-        Checks all required fields. Resin, Pelletizer, Siever, and the Resin
-        Consumption table are now always validated.
+        Final, unified validation method that checks all required fields
+        and groups errors into clean, distinct categories.
         """
-        validation_map = {
-            "Order Information": [
-                (self.ui.lot_number_input, "Lot Number"),
-            ],
-            "Machine & Configuration": [
-                (self.ui.mc_no_combo, "MC No."),
-                (self.ui.shift_combo, "Shift"),
-                (self.ui.screen_size_combo, "Screen Size"),
-                (self.ui.screw_config_combo, "Screw Config."),
-            ],
-            "Personnel": [
-                (self.ui.prepared_by_combo, "Prepared By"),
-            ],
-            # --- FIX: Purging Details now has its core fields always required ---
-            "Purging Details": [
-                (self.ui.purging_resin_combo, "Resin used (carrier)"),
-                (self.ui.purging_palletizer_input, "Pelletizer used"),
-                (self.ui.purging_siever_input, "Siever used"),
-            ]
+        # --- 1. Initialize lists for each error category ---
+        error_groups = {
+            "Order Information": [],
+            "Machine & Configuration": [],
+            "Personnel": [],
+            "Purging & Resin": [],
+            "Extruder Output Log": [],
+            "Other Issues": []
         }
 
-        # Conditionally add the purging process fields to the validation map
-        if not self.ui.no_purging_checkbox.isChecked():
-            validation_map["Purging Details"].append(
-                (self.ui.purging_product_code_combo, "Product Code")
-            )
+        # --- 2. Perform all validation checks and append errors to the lists ---
 
-        missing_issues = []
-        for group_name, fields in validation_map.items():
-            group_errors = []
-            for widget, field_name in fields:
-                is_missing = False
-                if isinstance(widget, QLineEdit):
-                    if (widget.text().strip() in ('', '0', '0.00')):
-                        is_missing = True
-                elif isinstance(widget, QComboBox):
-                    if widget.isEditable():
-                        if not widget.currentText().strip():
-                            is_missing = True
-                    elif widget.currentIndex() <= 0:
-                        is_missing = True
+        # Order Information
+        if not self.ui.lot_number_input.text().strip():
+            error_groups["Order Information"].append("Lot Number is required.")
 
-                if is_missing:
-                    group_errors.append(field_name)
+        # Machine & Configuration
+        machine_fields = [
+            (self.ui.mc_no_combo, "MC No."),
+            (self.ui.shift_combo, "Shift"),
+            (self.ui.screen_size_combo, "Screen Size"),
+            (self.ui.screw_config_combo, "Screw Config."),
+        ]
+        for widget, name in machine_fields:
+            if widget.currentIndex() <= 0:
+                error_groups["Machine & Configuration"].append(f"{name} is required.")
 
-            if group_errors:
-                missing_issues.append(
-                    f"<b>{group_name}:</b><ul>{''.join(f'<li>{err}</li>' for err in group_errors)}</ul>")
 
-        # --- THIS IS THE DEFINITIVE FIX ---
-        # A helper function to safely check if a zone value is zero.
-        def is_zone_zero(widget: QLineEdit) -> bool:
-            try:
-                # Use float() to correctly handle "150.5", "150.0", and "0" as numbers.
-                return float(widget.text() or 0.0) == 0.0
-            except (ValueError, TypeError):
-                # If text is not a valid number (e.g., "abc"), it's not zero, so validation passes this check.
-                return False
-
-        custom_rules_errors = []
-        if self.ui.personnel_container_layout.count() == 0: custom_rules_errors.append(
-            "At least one Personnel must be added.")
-        if self.ui.output_log_table.rowCount() == 0: custom_rules_errors.append(
-            "At least one Extruder Output Log entry is required.")
-
-        # Use the safe helper function in the all() check.
-        if all(is_zone_zero(z) for z in self.ui.zone_inputs.values()):
-            custom_rules_errors.append("All Zone Temperatures cannot be zero.")
+        # --- THIS IS THE FIX: Add RPM and Feed Rate to the validation ---
+        machine_lineedit_fields = [
+            (self.ui.feed_rate_input, "Feed Rate"),
+            (self.ui.rpm_input, "RPM"),
+        ]
+        for widget, name in machine_lineedit_fields:
+            if widget.text().strip() in ('', '0', '0.00'):
+                error_groups["Machine & Configuration"].append(f"{name} must be greater than zero.")
         # --- END FIX ---
 
-        if custom_rules_errors:
-            missing_issues.append(
-                f"<b>Other Issues:</b><ul>{''.join(f'<li>{err}</li>' for err in custom_rules_errors)}</ul>")
+        # Personnel (Unified)
+        if not self.ui.prepared_by_combo.currentText().strip():
+            error_groups["Personnel"].append("'Prepared By' is required.")
+        if self.ui.personnel_container_layout.count() == 0:
+            error_groups["Personnel"].append("At least one Personnel must be added.")
+        else:
+            for i in range(self.ui.personnel_container_layout.count()):
+                row_widget = self.ui.personnel_container_layout.itemAt(i).widget()
+                if row_widget:
+                    name_combo, pos_combo = row_widget.findChildren(QComboBox)
+                    if name_combo.currentIndex() <= 0:
+                        error_groups["Personnel"].append(f"Row {i + 1}: Personnel Name must be selected.")
+                    if pos_combo.currentIndex() <= 0:
+                        error_groups["Personnel"].append(f"Row {i + 1}: Personnel Position must be selected.")
 
-        # Final Check
-        if missing_issues:
-            final_issue_list_html = "<br>".join(missing_issues)
+
+        # --- THIS IS THE FIX: Always validate these 3 purging fields ---
+        if self.ui.purging_resin_combo.currentIndex() <= 0:
+            error_groups["Purging & Resin"].append("Resin used (carrier) is required.")
+        if self.ui.purging_palletizer_input.text().strip() in ('', '0'):
+            error_groups["Purging & Resin"].append("Pelletizer used must be greater than zero.")
+        if self.ui.purging_siever_input.text().strip() in ('', '0'):
+            error_groups["Purging & Resin"].append("Siever used must be greater than zero.")
+
+
+        # Purging & Resin (Unified and Conditional)
+        if not self.ui.no_purging_checkbox.isChecked():
+            if not self.ui.purging_product_code_combo.currentText().strip():
+                error_groups["Purging & Resin"].append("Product Code is required.")
+
+            if self.ui.purging_start_time.time() == QTime(0, 0) and self.ui.purging_end_time.time() == QTime(0, 0):
+                error_groups["Purging & Resin"].append("Purging Start and End Times cannot both be 00:00.")
+
+            if self.ui.purging_details_table.rowCount() == 0:
+                error_groups["Purging & Resin"].append("At least one Resin Consumption entry is required.")
+            else:
+                for row in range(self.ui.purging_details_table.rowCount()):
+                    resin_combo = self.ui.purging_details_table.cellWidget(row, 0)
+                    qty_item = self.ui.purging_details_table.item(row, 1)
+                    if resin_combo and resin_combo.currentIndex() <= 0:
+                        error_groups["Purging & Resin"].append(
+                            f"Resin Consumption Row {row + 1}: A Resin must be selected.")
+                    if qty_item and (qty_item.text().strip() in ('', '0', '0.00')):
+                        error_groups["Purging & Resin"].append(
+                            f"Resin Consumption Row {row + 1}: Qty (Kg.) must be greater than zero.")
+
+        # Extruder Output Log
+        if self.ui.output_log_table.rowCount() == 0:
+            error_groups["Extruder Output Log"].append("At least one entry is required.")
+        else:
+            for row in range(self.ui.output_log_table.rowCount()):
+                date_widget = self.ui.output_log_table.cellWidget(row, 0)
+                qty_item = self.ui.output_log_table.item(row, 4)
+                if date_widget and date_widget.date().isNull():
+                    error_groups["Extruder Output Log"].append(f"Row {row + 1}: A Date must be entered.")
+                if qty_item and (qty_item.text().strip() in ('', '0', '0.00')):
+                    error_groups["Extruder Output Log"].append(
+                        f"Row {row + 1}: Output (kg) must be greater than zero.")
+
+        # Other Issues
+        def is_zone_zero(widget: QLineEdit) -> bool:
+            try:
+                return float(widget.text() or 0.0) == 0.0
+            except (ValueError, TypeError):
+                return False
+
+        if all(is_zone_zero(z) for z in self.ui.zone_inputs.values()):
+            error_groups["Other Issues"].append("All Zone Temperatures cannot be zero.")
+
+        # --- 3. Build the final error message from the groups that have errors ---
+        final_issue_list = []
+        for group_name, errors in error_groups.items():
+            if errors:
+                final_issue_list.append(
+                    f"<b>{group_name}:</b><ul>{''.join(f'<li>{err}</li>' for err in errors)}</ul>")
+
+        if final_issue_list:
+            final_html = "<br>".join(final_issue_list)
             error_dialog = ErrorDialog("Validation Error",
-                                       f"Please correct the following issues before saving:<br>{final_issue_list_html}",
+                                       f"Please correct the following issues before saving:<br>{final_html}",
                                        parent=self)
             error_dialog.exec()
             return False
@@ -1085,34 +1544,6 @@ class ExtruderEntryFormView(QWidget):
         # --- END FIX ---
 
 
-        # # --- THIS IS THE DEFINITIVE FIX ---
-        # # Check if the list of purging headers is empty
-        # if not record.purging_headers:
-        #     # If it's empty, check the "No Purging" box and ensure the UI is cleared/disabled.
-        #     self.ui.no_purging_checkbox.setChecked(True)
-        # else:
-        #     # If it's not empty, uncheck the box and populate the fields.
-        #     self.ui.no_purging_checkbox.setChecked(False)
-        #     header = record.purging_headers[0]  # Safely access the first header
-        #
-        #     # Now we can safely populate, because we know 'header' exists.
-        #     self.ui.purging_product_code_combo.setCurrentText(header.product_code)
-        #     self.ui.purging_start_time.setTime(header.time_start if header.time_start else QTime(0, 0))
-        #     self.ui.purging_end_time.setTime(header.time_end if header.time_end else QTime(0, 0))
-        #     self.ui.purging_resin_combo.setCurrentText(getattr(header.resin_used, 'abbreviation', ''))
-        #     self.ui.purging_palletizer_input.setText(str(header.palletizer_used or '0'))
-        #     self.ui.purging_siever_input.setText(str(header.siever_used or '0'))
-        #
-        #     self.ui.purging_details_table.setRowCount(0)
-        #     for detail in header.purging_details:
-        #         self._add_resin_row()
-        #         row = self.ui.purging_details_table.rowCount() - 1
-        #         self.ui.purging_details_table.cellWidget(row, 0).setCurrentText(
-        #             getattr(detail.resin, 'abbreviation', ''))
-        #         # Correctly populate columns based on your provided UI setup
-        #         self.ui.purging_details_table.item(row, 1).setText(detail.notes)
-        #         self.ui.purging_details_table.item(row, 2).setText(f"{detail.qty or '0.00'}")
-
         # --- THIS IS THE DEFINITIVE FIX ---
         # Determine if purging was actually performed
         header = record.purging_headers[0] if record.purging_headers else None
@@ -1149,8 +1580,9 @@ class ExtruderEntryFormView(QWidget):
                 row = self.ui.purging_details_table.rowCount() - 1
                 self.ui.purging_details_table.cellWidget(row, 0).setCurrentText(
                     getattr(detail.resin, 'abbreviation', ''))
-                self.ui.purging_details_table.item(row, 1).setText(detail.notes)
-                self.ui.purging_details_table.item(row, 2).setText(f"{detail.qty or '0.00'}")
+                self.ui.purging_details_table.item(row, 1).setText(f"{detail.qty or '0.00'}")
+                self.ui.purging_details_table.item(row, 2).setText(detail.notes)
+
         # --- END FIX ---
 
         self._update_production_summary()

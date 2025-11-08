@@ -806,18 +806,6 @@ class ExtruderEntryFormView(QWidget):
                 missing_issues.append(
                     f"<b>{group_name}:</b><ul>{''.join(f'<li>{err}</li>' for err in group_errors)}</ul>")
 
-        # # --- Check dynamic/custom rules ---
-        # custom_rules_errors = []
-        # if self.ui.personnel_container_layout.count() == 0:
-        #     custom_rules_errors.append("At least one Personnel must be added.")
-        # if self.ui.output_log_table.rowCount() == 0:
-        #     custom_rules_errors.append("At least one Extruder Output Log entry is required.")
-        #
-        #
-        # all_zones_zero = all(int(z.text() or 0) == 0 for z in self.ui.zone_inputs.values())
-
-        # if all_zones_zero:
-        #     custom_rules_errors.append("All Zone Temperatures cannot be zero.")
 
         # --- THIS IS THE DEFINITIVE FIX ---
         # A helper function to safely check if a zone value is zero.
@@ -832,6 +820,7 @@ class ExtruderEntryFormView(QWidget):
         custom_rules_errors = []
         if self.ui.personnel_container_layout.count() == 0: custom_rules_errors.append(
             "At least one Personnel must be added.")
+
         if self.ui.output_log_table.rowCount() == 0: custom_rules_errors.append(
             "At least one Extruder Output Log entry is required.")
 
