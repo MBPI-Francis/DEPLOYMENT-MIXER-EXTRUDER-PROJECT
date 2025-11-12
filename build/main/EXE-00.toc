@@ -79,7 +79,7 @@
  [],
  False,
  False,
- 1762583690,
+ 1762916327,
  [('runw.exe',
    'C:\\Users\\Administrator\\venv\\ExtruderMixerProgram\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\runw.exe',
    'EXECUTABLE')],

@@ -174,16 +174,18 @@ class LotNumberDialog(QDialog):
             if prod_cut_value <= 0:
                 QMessageBox.warning(self, "Validation Error", "Production Cut requires a quantity greater than zero.")
                 return
-            try:
-                total_material_qty = float(self.total_material_qty_label.text().replace(" kg", ""))
-                if prod_cut_value > total_material_qty:
-                    QMessageBox.warning(self, "Validation Error",
-                                        f"Production Cut Qty ({prod_cut_value:.2f} kg) cannot exceed the "
-                                        f"Total Material Qty ({total_material_qty:.2f} kg).")
-                    return
-            except (ValueError, TypeError):
-                QMessageBox.critical(self, "Error", "Could not verify total material quantity.")
-                return
+
+            # Removed this 11/12/2025. Due to Production staff can't enter a production cut
+            # try:
+            #     total_material_qty = float(self.total_material_qty_label.text().replace(" kg", ""))
+            #     if prod_cut_value > total_material_qty:
+            #         QMessageBox.warning(self, "Validation Error",
+            #                             f"Production Cut Qty ({prod_cut_value:.2f} kg) cannot exceed the "
+            #                             f"Total Material Qty ({total_material_qty:.2f} kg).")
+            #         return
+            # except (ValueError, TypeError):
+            #     QMessageBox.critical(self, "Error", "Could not verify total material quantity.")
+            #     return
 
         current_lot_data = selected_items[0].data(Qt.ItemDataRole.UserRole)
         prod_cut_qty = self.prod_cut_qty_input.get_value() if self.prod_cut_checkbox.isChecked() else None

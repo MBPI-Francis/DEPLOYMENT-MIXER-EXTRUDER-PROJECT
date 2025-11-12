@@ -69,11 +69,42 @@ class ExtruderOpsController:
 
 
 
+    # def get_distinct_product_codes_paginated(self, page: int = 1, page_size: int = 50, search_term: str = None,
+    #                                          limit: int = None) -> List[str]:
+    #     """
+    #     Fetches a unique, paginated, and searchable list of T_PRODCODE values.
+    #     Can be limited for an initial fast load.
+    #     """
+    #     with self.Session() as session:
+    #         query = session.query(distinct(TblProd01.T_PRODCODE)).filter(
+    #             TblProd01.T_PRODCODE.isnot(None),
+    #             TblProd01.T_PRODCODE != ''
+    #         )
+    #
+    #         if search_term:
+    #             query = query.filter(TblProd01.T_PRODCODE.ilike(f"%{search_term}%"))
+    #
+    #         # --- THIS IS THE FIX ---
+    #         # 1. Apply the ORDER BY clause first. This is always needed.
+    #         query = query.order_by(TblProd01.T_PRODCODE)
+    #
+    #         # 2. Now, conditionally apply either the limit or the pagination.
+    #         if limit:
+    #             query = query.limit(limit)
+    #         else:
+    #             query = query.offset((page - 1) * page_size).limit(page_size)
+    #
+    #         # 3. Execute the fully constructed query.
+    #         results = query.all()
+    #         # --- END FIX ---
+    #
+    #         return [code for (code,) in results]
+
     def get_distinct_product_codes_paginated(self, page: int = 1, page_size: int = 50, search_term: str = None,
                                              limit: int = None) -> List[str]:
         """
         Fetches a unique, paginated, and searchable list of T_PRODCODE values.
-        Can be limited for an initial fast load.
+        It now ensures that "CMA" is always included in the results.
         """
         with self.Session() as session:
             query = session.query(distinct(TblProd01.T_PRODCODE)).filter(
@@ -84,21 +115,30 @@ class ExtruderOpsController:
             if search_term:
                 query = query.filter(TblProd01.T_PRODCODE.ilike(f"%{search_term}%"))
 
-            # --- THIS IS THE FIX ---
-            # 1. Apply the ORDER BY clause first. This is always needed.
             query = query.order_by(TblProd01.T_PRODCODE)
 
-            # 2. Now, conditionally apply either the limit or the pagination.
             if limit:
                 query = query.limit(limit)
             else:
                 query = query.offset((page - 1) * page_size).limit(page_size)
 
-            # 3. Execute the fully constructed query.
             results = query.all()
-            # --- END FIX ---
 
-            return [code for (code,) in results]
+            # Get the codes from the database
+            db_codes = [code for (code,) in results]
+
+            # --- THIS IS THE FIX ---
+            # 1. Create a set for efficient uniqueness checks.
+            final_codes_set = set(db_codes)
+
+            # 2. Add "CMA". The set automatically handles duplicates if "CMA" was already in the list.
+            final_codes_set.add("CMA")
+
+            # 3. Convert back to a sorted list for consistent ordering in the UI.
+            final_list = sorted(list(final_codes_set))
+
+            return final_list
+            # --- END FIX ---
 
 
     def get_all_machines(self) -> List[ExtruderMachine]:
