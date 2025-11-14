@@ -4,20 +4,17 @@ import decimal
 import os
 from datetime import datetime, timedelta
 
-from PyQt6.QtWidgets import QWidget, QTableWidgetItem, QMessageBox, QApplication, QMenu, QDialog, QProgressDialog, \
-    QFileDialog
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QDate, QPoint, QThread
+from PyQt6.QtWidgets import QWidget, QTableWidgetItem, QMessageBox, QApplication, QMenu, QDialog
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QDate, QPoint
 from PyQt6.QtGui import QColor, QBrush, QAction
 from sqlalchemy.orm import Session
 from typing import Type
 
 from .edit_dialog import ExtruderEditDialog
-from .exporter import ExcelReportExporter
 from .ui_setup import Ui_ExtruderRecordsList
 from .ops import ExtruderRecordsOperations
 from .view_dialog import ExtruderRecordViewDialog
 from .filter_dialog import FilterDialog
-from ..entry_form.widgets.error_dialog import ErrorDialog
 
 
 class NumericTableWidgetItem(QTableWidgetItem):
@@ -34,25 +31,6 @@ class NumericTableWidgetItem(QTableWidgetItem):
 
         return self_data < other_data
 
-# --- NEW WORKER THREAD FOR EXPORTING ---
-class ExportWorker(QThread):
-    """ Runs the slow Excel export process in a background thread. """
-    success = pyqtSignal(str)
-    error = pyqtSignal(str)
-
-    def __init__(self, record_object, output_path, parent=None):
-        super().__init__(parent)
-        self.record = record_object
-        self.output_path = output_path
-
-    def run(self):
-        try:
-            exporter = ExcelReportExporter(self.record)
-            exporter.generate_report(self.output_path)
-            self.success.emit(self.output_path)
-        except Exception as e:
-            import traceback
-            self.error.emit(f"An error occurred during export:\n\n{traceback.format_exc()}")
 
 class ExtruderRecordsView(QWidget):
     data_changed = pyqtSignal()
@@ -62,7 +40,7 @@ class ExtruderRecordsView(QWidget):
         self.ui = Ui_ExtruderRecordsList()
         self.ui.setupUi(self)
         self.ops = ExtruderRecordsOperations(session_factory)
-        self.export_worker = None
+
         self.filter_dialog = FilterDialog(session_factory, self)
         self.advanced_filters = {}
 
@@ -79,64 +57,6 @@ class ExtruderRecordsView(QWidget):
         css_path = os.path.join(os.path.dirname(__file__), "styles.css")
         if os.path.exists(css_path):
             with open(css_path, "r") as f: self.setStyleSheet(f.read())
-
-    def _export_record_to_excel(self):
-        if self.export_worker and self.export_worker.isRunning():
-            QMessageBox.warning(self, "Export in Progress", "An export is already running. Please wait.")
-            return
-
-        record_id, _ = self._get_selected_record_info()
-        if record_id is None: return
-
-        full_data = self.ops.get_full_record_by_id(record_id)
-        if not full_data:
-            QMessageBox.warning(self, "Not Found", "Could not retrieve the full record details for export.")
-            return
-
-        default_filename = f"Extruder_Report_{full_data.lot_number}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Excel Report", default_filename, "Excel Files (*.xlsx)"
-        )
-        if not file_path:
-            return
-
-        progress = QProgressDialog("Exporting report...", "Cancel", 0, 0, self)
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setWindowTitle("Processing")
-        progress.show()
-
-        self.export_worker = ExportWorker(full_data, file_path)
-        self.export_worker.success.connect(self._on_export_success)
-        self.export_worker.error.connect(self._on_export_error)
-
-        # --- THIS IS THE DEFINITIVE FIX for RuntimeError ---
-        # Connect the finished signal to a new handler that will clean up the worker.
-        self.export_worker.finished.connect(progress.close)
-        self.export_worker.finished.connect(self._on_export_finished)
-        # --- END FIX ---
-
-        progress.canceled.connect(self.export_worker.terminate)
-
-        self.export_worker.start()
-
-    # --- NEW HANDLER METHOD ---
-    def _on_export_finished(self):
-        """
-        Cleans up the worker after it has finished running.
-        This prevents the RuntimeError on subsequent clicks.
-        """
-        if self.export_worker:
-            self.export_worker.deleteLater()
-            self.export_worker = None  # Reset the attribute to None
-
-    # --- END NEW METHOD ---
-
-    def _on_export_success(self, filepath: str):
-        QMessageBox.information(self, "Export Successful", f"Report successfully saved to:\n{filepath}")
-
-    def _on_export_error(self, error_message: str):
-        error_dialog = ErrorDialog("Export Error", "An unexpected error occurred during the export process.",
-                                   details=error_message, parent=self)
 
     def _setup_connections(self):
         self.search_timer = QTimer(self)
@@ -344,70 +264,17 @@ class ExtruderRecordsView(QWidget):
             view_action = QAction("View Record", self)
             edit_action = QAction("Edit Record", self)
             delete_action = QAction("Delete Record", self)
-            export_action = QAction("Export to Excel", self)  # <-- NEW ACTION
 
             view_action.triggered.connect(self._view_record)
             edit_action.triggered.connect(self._edit_record)
             delete_action.triggered.connect(self._delete_record)
 
-            export_action.triggered.connect(self._export_record_to_excel)  # <-- CONNECT
-
             context_menu.addAction(view_action)
             context_menu.addAction(edit_action)
             context_menu.addSeparator()
-            context_menu.addAction(export_action) # <-- ADD TO MENU
-            context_menu.addSeparator()
             context_menu.addAction(delete_action)
 
-
         context_menu.exec(self.ui.table_widget.mapToGlobal(position))
-
-    # --- NEW METHOD TO HANDLE THE EXPORT PROCESS ---
-    def _export_record_to_excel(self):
-        if self.export_worker and self.export_worker.isRunning():
-            QMessageBox.warning(self, "Export in Progress", "An export is already running. Please wait.")
-            return
-
-        record_id, _ = self._get_selected_record_info()
-        if record_id is None: return
-
-        # Fetch the full data object needed for the report
-        full_data = self.ops.get_full_record_by_id(record_id)
-        if not full_data:
-            QMessageBox.warning(self, "Not Found", "Could not retrieve the full record details for export.")
-            return
-
-        # Ask user for save location
-        default_filename = f"Extruder_Report_{full_data.lot_number}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Excel Report", default_filename, "Excel Files (*.xlsx)"
-        )
-        if not file_path:
-            return
-
-        # Setup and show a progress dialog
-        progress = QProgressDialog("Exporting report...", "Cancel", 0, 0, self)
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setWindowTitle("Processing")
-        progress.show()
-
-        # Run the export in a background thread
-        self.export_worker = ExportWorker(full_data, file_path)
-        self.export_worker.success.connect(self._on_export_success)
-        self.export_worker.error.connect(self._on_export_error)
-        self.export_worker.finished.connect(progress.close)
-        self.export_worker.finished.connect(self.export_worker.deleteLater)
-        progress.canceled.connect(self.export_worker.terminate)
-
-        self.export_worker.start()
-
-    def _on_export_success(self, filepath: str):
-        QMessageBox.information(self, "Export Successful", f"Report successfully saved to:\n{filepath}")
-
-    def _on_export_error(self, error_message: str):
-        error_dialog = ErrorDialog("Export Error", "An unexpected error occurred during the export process.",
-                                   details=error_message, parent=self)
-        error_dialog.exec()
 
     def _delete_record(self):
         record_id, is_deleted = self._get_selected_record_info()
