@@ -5,6 +5,7 @@ from sqlalchemy import func, text
 from typing import Type, List, Tuple
 import decimal
 
+from models import TblProd02
 # Import all necessary models
 from models.ExtruderCore import (
     ExtruderFormData, ExtruderOutput, PurgingHeader, ExtruderPersonnel, MachineDetail, MachineTemp, PurgingDetail,
@@ -25,6 +26,50 @@ from app.database.legacy_ops import (
 class ExtruderRecordsOperations:
     def __init__(self, session_factory: Type[Session]):
         self.Session = session_factory
+
+    # --- NEW METHOD TO AGGREGATE MATERIALS ---
+    def get_aggregated_materials_for_production_ids(self, prod_ids: List[str]) -> List[Tuple[str, decimal.Decimal]]:
+        """
+        Fetches materials for a given list of production IDs, sums the weights
+        of identical materials, and returns the aggregated list.
+
+        Args:
+            prod_ids: A list of production ID strings to look up.
+
+        Returns:
+            A list of tuples, where each tuple contains the material code (str)
+            and the total summed weight (Decimal).
+        """
+        if not prod_ids:
+            return []
+
+        # Convert string IDs to numeric type if necessary for the query.
+        # Assuming T_PRODID is a numeric type in the database.
+        numeric_prod_ids = []
+        for pid in prod_ids:
+            try:
+                numeric_prod_ids.append(decimal.Decimal(pid))
+            except (decimal.InvalidOperation, ValueError):
+                # Skip any IDs that are not valid numbers
+                continue
+
+        if not numeric_prod_ids:
+            return []
+
+        with self.Session() as session:
+            # Query TblProd02, group by material code, and sum the weights
+            results = session.query(
+                TblProd02.T_MATCODE,
+                func.sum(TblProd02.T_WT).label("total_weight")
+            ).filter(
+                TblProd02.T_PRODID.in_(numeric_prod_ids)
+            ).group_by(
+                TblProd02.T_MATCODE
+            ).order_by(
+                TblProd02.T_MATCODE
+            ).all()
+
+            return results
 
 
     def get_initial_product_codes(self, limit: int = 100) -> List[str]:

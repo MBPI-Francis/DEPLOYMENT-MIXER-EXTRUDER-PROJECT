@@ -47,7 +47,8 @@ class ExportWorker(QThread):
 
     def run(self):
         try:
-            exporter = ExcelReportExporter(self.record)
+            # exporter = ExcelReportExporter(self.record)
+            exporter = ExcelReportExporter(self.record, self.controller)
             exporter.generate_report(self.output_path)
             self.success.emit(self.output_path)
         except Exception as e:
