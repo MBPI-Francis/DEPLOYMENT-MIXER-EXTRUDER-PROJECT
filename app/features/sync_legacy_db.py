@@ -307,7 +307,7 @@ class SyncWorker(QObject):
             t_seq = safe_int(record.get('T_SEQ'))
 
             # Skip if the composite key is invalid or already exists
-            if not t_prodid or not t_seq or (t_prodid, t_seq) in existing_keys:
+            if not t_prodid or (t_prodid, t_seq) in existing_keys:
                 continue
 
             try:
