@@ -526,8 +526,6 @@ class ExportWorker(QThread):
         except Exception as e:
             # Send the full traceback for detailed error reporting
             self.error.emit(f"An error occurred during export:\n\n{traceback.format_exc()}")
-
-
 class ExtruderRecordsView(QWidget):
     data_changed = pyqtSignal()
 
@@ -571,6 +569,7 @@ class ExtruderRecordsView(QWidget):
         self.ui.table_widget.doubleClicked.connect(self._view_record)
         self.ui.table_widget.customContextMenuRequested.connect(self._show_context_menu)
 
+
     def _export_record_to_excel(self):
         # --- FIX 3: This check is now robust because _on_export_finished cleans up ---
         if self.export_worker:
@@ -578,10 +577,7 @@ class ExtruderRecordsView(QWidget):
             return
 
         record_id, _ = self._get_selected_record_info()
-        if record_id is None:
-            # The context menu shouldn't show if nothing is selected, but this is a safeguard.
-            QMessageBox.information(self, "No Selection", "Please select a record to export.")
-            return
+        if record_id is None: return
 
         full_data = self.ops.get_full_record_by_id(record_id)
         if not full_data:
@@ -599,7 +595,7 @@ class ExtruderRecordsView(QWidget):
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setWindowTitle("Processing")
 
-        # --- FIX 4: Pass the ops controller to the worker's constructor ---
+        # --- FIX 4: Pass the ops controller (`self.ops`) to the worker's constructor ---
         self.export_worker = ExportWorker(full_data, self.ops, file_path)
 
         self.export_worker.success.connect(self._on_export_success)
@@ -614,8 +610,8 @@ class ExtruderRecordsView(QWidget):
 
     def _on_export_success(self, filepath: str):
         reply = QMessageBox.information(self, "Export Successful",
-                                        f"Report successfully saved.\n\nDo you want to open the file?",
-                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                      f"Report successfully saved.\n\nDo you want to open the file?",
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             os.startfile(filepath)
 
@@ -631,9 +627,11 @@ class ExtruderRecordsView(QWidget):
         This prevents the RuntimeError on subsequent clicks.
         """
         if self.export_worker:
-            # We no longer need the worker object, so we can let Python's garbage collector handle it.
+            self.export_worker.deleteLater()
             # Setting the reference to None is the most important step.
             self.export_worker = None
+
+
 
     # (The rest of your file remains unchanged)
     def _open_filter_dialog(self):
