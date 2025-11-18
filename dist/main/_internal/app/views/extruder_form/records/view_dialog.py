@@ -311,14 +311,14 @@ class ExtruderRecordViewDialog(QDialog):
                 minutes, _ = divmod(remainder, 60)
                 purging_time_used_str = f"{hours:02}:{minutes:02}"
             self.purging_time_used_label.setText(purging_time_used_str)
-            self.purging_resin_label.setText(to_str(getattr(purging.resin_used, 'name', None)))
+            self.purging_resin_label.setText(to_str(getattr(purging.resin_used, 'abbreviation', None)))
             self.purging_palletizer_label.setText(to_str(purging.palletizer_used))
             self.purging_siever_label.setText(to_str(purging.siever_used))
             self.resin_table.setRowCount(0)
             for detail in purging.purging_details:
                 row = self.resin_table.rowCount();
                 self.resin_table.insertRow(row)
-                self.resin_table.setItem(row, 0, QTableWidgetItem(to_str(getattr(detail.resin, 'name', None))))
+                self.resin_table.setItem(row, 0, QTableWidgetItem(to_str(getattr(detail.resin, 'abbreviation', None))))
                 self.resin_table.setItem(row, 1, QTableWidgetItem(to_dec(detail.qty)))
                 self.resin_table.setItem(row, 2, QTableWidgetItem(to_str(detail.notes)))
 
