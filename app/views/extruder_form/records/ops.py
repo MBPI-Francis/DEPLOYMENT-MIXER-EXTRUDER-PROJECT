@@ -2,10 +2,10 @@
 
 from sqlalchemy.orm import sessionmaker, Session, joinedload, selectinload
 from sqlalchemy import func, text
-from typing import Type, List, Tuple
+from typing import Type, List, Tuple, Dict
 import decimal
 
-from models import TblProd02
+from models import TblProd02, TblProd01
 # Import all necessary models
 from models.ExtruderCore import (
     ExtruderFormData, ExtruderOutput, PurgingHeader, ExtruderPersonnel, MachineDetail, MachineTemp, PurgingDetail,
@@ -26,6 +26,34 @@ from app.database.legacy_ops import (
 class ExtruderRecordsOperations:
     def __init__(self, session_factory: Type[Session]):
         self.Session = session_factory
+
+    # --- NEW METHOD TO GET LOT NUMBER QUANTITIES ---
+    def get_produced_quantities_for_lots(self, lot_numbers: List[str]) -> Dict[str, decimal.Decimal]:
+        """
+        Fetches the produced quantity (T_QTYPROD) for a list of lot numbers.
+
+        Args:
+            lot_numbers: A list of lot number strings.
+
+        Returns:
+            A dictionary mapping each lot number to its T_QTYPROD value.
+        """
+        if not lot_numbers:
+            return {}
+
+        with self.Session() as session:
+            # Query TblProd01 for the lot number and its produced quantity
+            results = session.query(
+                TblProd01.T_LOTNUM,
+                TblProd01.T_QTYPROD
+            ).filter(
+                TblProd01.T_LOTNUM.in_(lot_numbers)
+            ).all()
+
+            # Create a dictionary for easy lookup: {lot_num: qty_prod}
+            return {lot_num: qty_prod for lot_num, qty_prod in results}
+
+
 
     # --- NEW METHOD TO AGGREGATE MATERIALS ---
     def get_aggregated_materials_for_production_ids(self, prod_ids: List[str]) -> List[Tuple[str, decimal.Decimal]]:
@@ -62,7 +90,8 @@ class ExtruderRecordsOperations:
                 TblProd02.T_MATCODE,
                 func.sum(TblProd02.T_WT).label("total_weight")
             ).filter(
-                TblProd02.T_PRODID.in_(numeric_prod_ids)
+                TblProd02.T_PRODID.in_(numeric_prod_ids),
+                TblProd02.T_DELETED.is_not(True) #Only gets materials that is not soft deleted
             ).group_by(
                 TblProd02.T_MATCODE
             ).order_by(
