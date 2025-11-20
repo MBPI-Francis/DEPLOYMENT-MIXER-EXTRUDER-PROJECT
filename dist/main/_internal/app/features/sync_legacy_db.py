@@ -306,9 +306,9 @@ class SyncWorker(QObject):
             t_prodid = safe_decimal(record.get('T_PRODID'))
             t_seq = safe_int(record.get('T_SEQ'))
 
-            # Skip if the composite key is invalid or already exists
-            if not t_prodid or (t_prodid, t_seq) in existing_keys:
-                continue
+            # # Skip if the composite key is invalid or already exists
+            # if not t_prodid or (t_prodid, t_seq) in existing_keys:
+            #     continue
 
             try:
                 new_prod_detail = TblProd02(

@@ -121,6 +121,24 @@ class Ui_ExtruderEntryForm:
     def _create_order_info_group(self):
         group = QGroupBox("Production Details")
         form_layout = QFormLayout(group)
+
+        # --- THIS IS THE FIX ---
+        # 1. Create a horizontal layout for the ref_no field and its checkbox
+        ref_no_layout = QHBoxLayout()
+        self.ref_no_input = QLineEdit()
+        self.ref_no_input.setValidator(QIntValidator())
+        self.ref_no_input.setReadOnly(True)  # Start as not editable
+
+        self.edit_ref_no_checkbox = QCheckBox("Edit")  # The new checkbox
+
+        ref_no_layout.addWidget(self.ref_no_input)
+        ref_no_layout.addWidget(self.edit_ref_no_checkbox)
+
+        # 2. Add the new layout to the form
+        form_layout.addRow("Reference No.:", ref_no_layout)
+        # --- END FIX ---
+
+
         lot_layout = QHBoxLayout()
         self.lot_number_input = QLineEdit()
         self.lot_number_input.setReadOnly(True)
@@ -132,9 +150,9 @@ class Ui_ExtruderEntryForm:
         self.product_code_input.setReadOnly(True)
         self.customer_input = QLineEdit()
         self.customer_input.setReadOnly(True)
-        self.qty_order_input = QLineEdit("0.00")
-        self.qty_produced_input = QLineEdit("0.00")
-        self.target_output_hr_input = QLineEdit("0.00")
+        self.qty_order_input = QLineEdit()
+        self.qty_produced_input = QLineEdit()
+        self.target_output_hr_input = QLineEdit()
         form_layout.addRow("Production Code:", self.product_code_input)
         form_layout.addRow("Customer:", self.customer_input)
         form_layout.addRow("QTY. Order (kg):", self.qty_order_input)
@@ -153,8 +171,8 @@ class Ui_ExtruderEntryForm:
         self.shift_combo.setObjectName("ComboBox")
         self.mc_no_combo = QComboBox()
         self.mc_no_combo.setObjectName("ComboBox")
-        self.feed_rate_input = QLineEdit("0")
-        self.rpm_input = QLineEdit("0")
+        self.feed_rate_input = QLineEdit("")
+        self.rpm_input = QLineEdit("")
         self.screen_size_combo = QComboBox()
         self.screen_size_combo.setObjectName("ComboBox")
         self.screw_config_combo = QComboBox()
@@ -199,7 +217,7 @@ class Ui_ExtruderEntryForm:
 
         for label, row, col in zones:
             zone_key = label.split(' ')[0]
-            self.zone_inputs[zone_key] = QLineEdit("0")
+            self.zone_inputs[zone_key] = QLineEdit()
 
             # --- THIS IS THE FIX ---
             # Apply the validator to the QLineEdit
@@ -234,8 +252,8 @@ class Ui_ExtruderEntryForm:
 
         self.purging_resin_combo = QComboBox()
         self.purging_resin_combo.setObjectName("ComboBox")
-        self.purging_palletizer_input = QLineEdit("0")
-        self.purging_siever_input = QLineEdit("0")
+        self.purging_palletizer_input = QLineEdit("")
+        self.purging_siever_input = QLineEdit("")
 
         # --- THIS IS THE FIX ---
         # 1. Create a validator with the 'group' (a QGroupBox) as its proper Qt parent.

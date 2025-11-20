@@ -91,9 +91,9 @@ class Ui_ExtruderRecordsList(object):
         self.main_layout.addWidget(self.table_widget, 1)
 
     def _setup_table_columns(self):
-        self.table_widget.setColumnCount(13)
+        self.table_widget.setColumnCount(14)
         self.table_widget.setHorizontalHeaderLabels([
-            "ID", "Date Encoded", "MC No.", "Product Code", "Lot Number",
+            "ID", "Date Encoded", "Ref No","MC No.", "Product Code", "Lot Number",
             "Time Start", "Time End", "Output/hr (kg)", "Target Output/hr",
             "Total Output (kg)", "Purging to Code", "Purging Duration", "Operator(s)"
         ])

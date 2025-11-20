@@ -1,8 +1,8 @@
 # app/views/extruder_form/records/ops.py
 
 from sqlalchemy.orm import sessionmaker, Session, joinedload, selectinload
-from sqlalchemy import func, text
-from typing import Type, List, Tuple, Dict
+from sqlalchemy import func, text, String, or_
+from typing import Type, List, Tuple, Dict, cast
 import decimal
 
 from models import TblProd02, TblProd01
@@ -171,14 +171,37 @@ class ExtruderRecordsOperations:
             else:
                 query = query.filter(ExtruderFormData.is_deleted == False)
 
-            # Global Search Term (unchanged)
+            # # Global Search Term (unchanged)
+            # if search_term := filters.get('search_term'):
+            #     search_ilike = f"%{search_term}%"
+            #     query = query.filter(
+            #         (ExtruderFormData.lot_number.ilike(search_ilike)) |
+            #         (ExtruderFormData.product_code.ilike(search_ilike)) |
+            #         (ExtruderFormData.customer.ilike(search_ilike))
+            #     )
+
+
+            # --- THIS IS THE FIX ---
+            # Modified the global search to include the `ref_no`
             if search_term := filters.get('search_term'):
                 search_ilike = f"%{search_term}%"
-                query = query.filter(
-                    (ExtruderFormData.lot_number.ilike(search_ilike)) |
-                    (ExtruderFormData.product_code.ilike(search_ilike)) |
-                    (ExtruderFormData.customer.ilike(search_ilike))
-                )
+
+
+                # Build a list of search conditions
+                search_conditions = [
+                    ExtruderFormData.lot_number.ilike(search_ilike),
+                    ExtruderFormData.product_code.ilike(search_ilike),
+                    ExtruderFormData.customer.ilike(search_ilike)
+                ]
+
+                # If the search term consists only of digits, add the ref_no condition.
+                if search_term.isdigit():
+                    # This correctly casts the integer column to a string type for the LIKE comparison.
+                    ref_no_condition = ExtruderFormData.ref_no.cast(String).like(search_ilike)
+                    search_conditions.append(ref_no_condition)
+
+                query = query.filter(or_(*search_conditions))
+            # --- END FIX ---
 
             # Date Range (unchanged)
             if date_from := filters.get('date_from'):

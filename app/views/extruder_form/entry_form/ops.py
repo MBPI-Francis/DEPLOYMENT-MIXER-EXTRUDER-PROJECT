@@ -292,6 +292,7 @@ class ExtruderOpsController:
                     production_id=main_info.get('production_id'),
                     formula_no=main_info.get('formula_no'),
                     order_no=main_info.get('order_no'),
+                    ref_no=main_info.get('ref_no'),
                     product_code=main_info.get('product_code'),
                     customer=main_info.get('customer'),
                     qty_order=Decimal(main_info.get('qty_order', '0')),
@@ -383,23 +384,24 @@ class ExtruderOpsController:
             with session.begin():
                 record_to_update = session.query(ExtruderFormData).filter_by(id=record_id).with_for_update().one()
                 main_info = form_data.get("main", {})
-                record_to_update.lot_number = main_info.get('lot_number');
+                record_to_update.lot_number = main_info.get('lot_number')
                 record_to_update.production_id = main_info.get('production_id')
-                record_to_update.formula_no = main_info.get('formula_no');
+                record_to_update.formula_no = main_info.get('formula_no')
                 record_to_update.order_no = main_info.get('order_no')
-                record_to_update.product_code = main_info.get('product_code');
+                record_to_update.product_code = main_info.get('product_code')
                 record_to_update.customer = main_info.get('customer')
                 record_to_update.qty_order = Decimal(main_info.get('qty_order', '0'))
                 record_to_update.qty_produced = Decimal(main_info.get('qty_produced', '0'))
                 record_to_update.target_output_per_hour = Decimal(main_info.get('target_output_per_hour', '0'))
                 record_to_update.prepared_by = main_info.get('prepared_by_name')
-                record_to_update.machine_id = main_info.get('machine_id');
+                record_to_update.machine_id = main_info.get('machine_id')
                 record_to_update.shift_id = main_info.get('shift_id')
                 record_to_update.remarks = form_data.get('remarks')
+                record_to_update.ref_no = main_info.get('ref_no')
 
                 mc_info = form_data.get("machine_details", {})
                 if record_to_update.machine_details:
-                    record_to_update.machine_details.feed_rate = mc_info.get('feed_rate');
+                    record_to_update.machine_details.feed_rate = mc_info.get('feed_rate')
                     record_to_update.machine_details.rpm = mc_info.get('rpm')
                     record_to_update.machine_details.screen_size_id = mc_info.get('screen_size_id')
                     record_to_update.machine_details.screw_config_id = mc_info.get('screw_config_id')
@@ -479,3 +481,45 @@ class ExtruderOpsController:
                                 qty=Decimal(detail_data.get('qty', '0'))
                             ))
                     record_to_update.purging_headers.append(new_header)
+
+
+
+
+    # --- NEW METHODS FOR REFERENCE NUMBER ---
+    def get_latest_reference_number(self) -> int:
+        """Finds the highest existing ref_no in the database."""
+        with self.Session() as session:
+            # func.max() efficiently finds the maximum value in a column
+            max_ref = session.query(func.max(ExtruderFormData.ref_no)).scalar()
+            return max_ref or 0 # Return 0 if the table is empty
+
+    # def check_if_ref_no_exists(self, ref_no: int) -> bool:
+    #     """Checks if a given ref_no already exists in the database."""
+    #     with self.Session() as session:
+    #         # session.get() is the fastest way to look up by primary key,
+    #         # but since ref_no is not the PK, we use a simple query.
+    #         exists = session.query(ExtruderFormData.id).filter(ExtruderFormData.ref_no == ref_no).first()
+    #         return exists is not None
+
+    def check_if_ref_no_exists(self, ref_no: int, exclude_id: int = None) -> bool:
+        """
+        Checks if a reference number already exists in the database.
+
+        Args:
+            ref_no: The reference number to check for.
+            exclude_id: An optional record ID to exclude from the search. This is
+                        used during an update to prevent a record from finding itself.
+        Returns:
+            True if the ref_no exists on another record, False otherwise.
+        """
+        with self.Session() as session:
+            query = session.query(ExtruderFormData).filter(ExtruderFormData.ref_no == ref_no)
+
+            # --- THIS IS THE FIX ---
+            # If an ID to exclude is provided, add another filter condition.
+            if exclude_id is not None:
+                query = query.filter(ExtruderFormData.id != exclude_id)
+            # --- END FIX ---
+
+            # Use exists() for an efficient check without retrieving the full object
+            return session.query(query.exists()).scalar()

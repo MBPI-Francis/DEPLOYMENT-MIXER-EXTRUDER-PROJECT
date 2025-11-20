@@ -691,6 +691,10 @@ class ExtruderRecordsView(QWidget):
             all_filters['date_from'] = self.ui.date_from_input.date().toPyDate()
             all_filters['date_to'] = self.ui.date_to_input.date().toPyDate()
             all_filters['show_only_deleted'] = self.ui.show_only_deleted_checkbox.isChecked()
+
+            if search_term := self.ui.search_input.text():
+                 all_filters['ref_no_search'] = search_term
+
             records = self.ops.get_records_with_details(filters=all_filters)
             for record_object in records:
                 self._add_record_to_table(record_object)
@@ -728,25 +732,45 @@ class ExtruderRecordsView(QWidget):
         end_times = [out.datetime_end for out in record.extruder_outputs if out.datetime_end]
         min_start_time = min(start_times) if start_times else None
         max_end_time = max(end_times) if end_times else None
+        # cell_data = {
+        #     0: (str(record.id), record.id),
+        #     1: (record.created_at.strftime("%Y-%m-%d %H:%M") if record.created_at else "N/A",
+        #         record.created_at.timestamp() if record.created_at else 0),
+        #     2: (getattr(record.machine, 'name', 'N/A'), None),
+        #     3: (record.product_code, None),
+        #     4: (record.lot_number, None),
+        #     5: (min_start_time.strftime("%Y-%m-%d %H:%M") if min_start_time else "N/A",
+        #         min_start_time.timestamp() if min_start_time else 0),
+        #     6: (max_end_time.strftime("%Y-%m-%d %H:%M") if max_end_time else "N/A",
+        #         max_end_time.timestamp() if max_end_time else 0),
+        #     7: (f"{output_per_hour:.2f}", float(output_per_hour)),
+        #     8: (f"{record.target_output_per_hour or 0:.2f}", float(record.target_output_per_hour or 0)),
+        #     9: (f"{total_output or 0:.2f}", float(total_output or 0)),
+        #     10: (", ".join([p.product_code for p in record.purging_headers if p.product_code]) or "N/A", None),
+        #     11: (purging_time_str, total_purging_seconds),
+        #     12: (", ".join([f"{p.employee.first_name} {p.employee.last_name}" for p in record.extruder_personnels if
+        #                     p.employee]) or "N/A", None),
+        # }
+
         cell_data = {
             0: (str(record.id), record.id),
-            1: (record.created_at.strftime("%Y-%m-%d %H:%M") if record.created_at else "N/A",
-                record.created_at.timestamp() if record.created_at else 0),
-            2: (getattr(record.machine, 'name', 'N/A'), None),
-            3: (record.product_code, None),
-            4: (record.lot_number, None),
-            5: (min_start_time.strftime("%Y-%m-%d %H:%M") if min_start_time else "N/A",
-                min_start_time.timestamp() if min_start_time else 0),
-            6: (max_end_time.strftime("%Y-%m-%d %H:%M") if max_end_time else "N/A",
-                max_end_time.timestamp() if max_end_time else 0),
-            7: (f"{output_per_hour:.2f}", float(output_per_hour)),
-            8: (f"{record.target_output_per_hour or 0:.2f}", float(record.target_output_per_hour or 0)),
-            9: (f"{total_output or 0:.2f}", float(total_output or 0)),
-            10: (", ".join([p.product_code for p in record.purging_headers if p.product_code]) or "N/A", None),
-            11: (purging_time_str, total_purging_seconds),
-            12: (", ".join([f"{p.employee.first_name} {p.employee.last_name}" for p in record.extruder_personnels if
-                            p.employee]) or "N/A", None),
+            1: (record.created_at.strftime("%Y-%m-%d %H:%M") if record.created_at else "N/A", record.created_at.timestamp() if record.created_at else 0),
+            2: (str(record.ref_no or ''), record.ref_no), # New Ref No column
+            3: (getattr(record.machine, 'name', 'N/A'), None),
+            4: (record.product_code, None),
+            5: (record.lot_number, None),
+            6: (min_start_time.strftime("%Y-%m-%d %H:%M") if min_start_time else "N/A", min_start_time.timestamp() if min_start_time else 0),
+            7: (max_end_time.strftime("%Y-%m-%d %H:%M") if max_end_time else "N/A", max_end_time.timestamp() if max_end_time else 0),
+            8: (f"{output_per_hour:.2f}", float(output_per_hour)),
+            9: (f"{record.target_output_per_hour or 0:.2f}", float(record.target_output_per_hour or 0)),
+            10: (f"{total_output or 0:.2f}", float(total_output or 0)),
+            11: (", ".join([p.product_code for p in record.purging_headers if p.product_code]) or "N/A", None),
+            12: (purging_time_str, total_purging_seconds),
+            13: (", ".join([f"{p.employee.first_name} {p.employee.last_name}" for p in record.extruder_personnels if p.employee]) or "N/A", None),
         }
+        # --- END FIX ---
+
+
         is_deleted_view = self.ui.show_only_deleted_checkbox.isChecked()
         for col, (text, numeric_val) in cell_data.items():
             if numeric_val is not None:
