@@ -24,40 +24,41 @@ from .Mixins import AuditMixin
 
 
 
-class ExtruderOldExcelData(Base, AuditMixin):
+class ExtruderOldExcelData(Base):
     __tablename__ = "tbl_extruder_old_excel_data"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    date = Column(Date(), nullable=True)
+    code = Column(String(50), index=True, nullable=True)
+    date = Column(String(50), nullable=True)
     customer = Column(String(500), nullable=True)
-    qty_input = Column(Numeric(10, 2), nullable=True)
-    qty_output = Column(Numeric(10, 2), nullable=True)
-    output_per_hour = Column(Numeric(10, 2), nullable=True)
+    qty_input = Column(String(15), nullable=True)
+    qty_output = Column(String(15), nullable=True)
+    output_per_hour = Column(String(15), nullable=True)
     lot_number = Column(String(500), index=True, nullable=True)
     screw_config = Column(String(12), index=True, nullable=True)
     machine_no = Column(Integer, nullable= True, index=True)
-    feed_rate = Column(Numeric(10, 2), nullable=True)
-    rpm = Column(Numeric(10, 2), nullable=True)
+    feed_rate = Column(String(40), nullable=True)
+    rpm = Column(String(10), index=True, nullable=True)
     screen = Column(String(10), index=True, nullable=True)
-    z1 = Column(Integer, nullable=True)
-    z2 = Column(Integer, nullable=True)
-    z3 = Column(Integer, nullable=True)
-    z4 = Column(Integer, nullable=True)
-    z5 = Column(Integer, nullable=True)
-    z6 = Column(Integer, nullable=True)
-    z7 = Column(Integer, nullable=True)
-    z8 = Column(Integer, nullable=True)
-    z9 = Column(Integer, nullable=True)
-    z10 = Column(Integer, nullable=True)
-    z11 = Column(Integer, nullable=True)
-    z12 = Column(Integer, nullable=True)
-    z13 = Column(Integer, nullable=True)
+    z1 = Column(String(15), nullable=True)
+    z2 = Column(String(15), nullable=True)
+    z3 = Column(String(15), nullable=True)
+    z4 = Column(String(15), nullable=True)
+    z5 = Column(String(15), nullable=True)
+    z6 = Column(String(15), nullable=True)
+    z7 = Column(String(15), nullable=True)
+    z8 = Column(String(15), nullable=True)
+    z9 = Column(String(15), nullable=True)
+    z10 = Column(String(15), nullable=True)
+    z11 = Column(String(15), nullable=True)
+    z12 = Column(String(15), nullable=True)
+    z13 = Column(String(15), nullable=True)
     resin_used = Column(String(100), index=True, nullable=True)
     remarks = Column(String(500), index=True, nullable=True)
 
 
 
 
-class TblExtruderOldAmielData(Base, AuditMixin):
+class ExtruderOldAmielData(Base):
     """
     SQLAlchemy model for the 'tbl_extruder_old_amiel_data' table.
     """
@@ -67,7 +68,7 @@ class TblExtruderOldAmielData(Base, AuditMixin):
     process_id_seq = Sequence('extruder_process_id_seq')
 
     # Column definitions based on the provided SQL schema
-    process_id = Column(Integer, process_id_seq, primary_key=True, server_default=process_id_seq.next_value())
+    process_id = Column(Integer, primary_key=True)
     machine = Column(String)
     qty_order = Column(Numeric) # Using Numeric for double precision
     total_output = Column(Numeric(10, 4))
@@ -98,12 +99,9 @@ class TblExtruderOldAmielData(Base, AuditMixin):
     production_id = Column(Integer)
     total_input = Column(Numeric)
     lot_number = Column(ARRAY(String))
+    createdBy = Column("createdBy", String)
+    updatedBy = Column("updatedBy", String)
     resin_quantity = Column(Numeric)
     encoded_on = Column(Date)
     machine_start = Column(DateTime)
     machine_off = Column(DateTime)
-
-    # Assuming 'createdBy' and 'updatedBy' are handled by the AuditMixin
-    # If not, they can be defined as follows:
-    # createdBy = Column("createdBy", String)
-    # updatedBy = Column("updatedBy", String)
