@@ -767,15 +767,15 @@ class ExtruderEntryFormView(QWidget):
         self.ui.lot_number_input.clear()
         self.ui.product_code_input.clear()
         self.ui.customer_input.clear()
-        self.ui.qty_order_input.setText("0.00")
-        self.ui.qty_produced_input.setText("0.00")
-        self.ui.target_output_hr_input.setText("0.00")
+        self.ui.qty_order_input.setText("")
+        self.ui.qty_produced_input.setText("")
+        self.ui.target_output_hr_input.setText("")
 
         # Clear machine config fields
         self.ui.shift_combo.setCurrentIndex(0)
         self.ui.mc_no_combo.setCurrentIndex(0)
-        self.ui.feed_rate_input.setText("0")
-        self.ui.rpm_input.setText("0")
+        self.ui.feed_rate_input.setText("")
+        self.ui.rpm_input.setText("")
         self.ui.screen_size_combo.setCurrentIndex(0)
         self.ui.screw_config_combo.setCurrentIndex(0)
         self.ui.is_vacuum_on_checkbox.setChecked(False)
@@ -789,8 +789,8 @@ class ExtruderEntryFormView(QWidget):
 
         # 3. Clear the other purging fields.
         self.ui.purging_resin_combo.setCurrentIndex(0)
-        self.ui.purging_palletizer_input.setText("0")
-        self.ui.purging_siever_input.setText("0")
+        self.ui.purging_palletizer_input.setText("")
+        self.ui.purging_siever_input.setText("")
         self.ui.purging_start_time.setTime(QTime(0, 0))
         self.ui.purging_end_time.setTime(QTime(0, 0))
         # --- END FIX ---
@@ -799,7 +799,7 @@ class ExtruderEntryFormView(QWidget):
         self.ui.purging_details_table.setRowCount(0)
         self.ui.output_log_table.setRowCount(0)
         for widget in self.ui.zone_inputs.values():
-            widget.setText("0")
+            widget.setText("")
         self.ui.remarks_input.clear()
 
         while self.ui.personnel_container_layout.count() > 0:

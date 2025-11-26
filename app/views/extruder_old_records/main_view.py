@@ -1,4 +1,4 @@
-# app/views/mixer_form/main_view.py
+# app/views/extruder_old_records/main_view.py
 
 import os
 
@@ -28,60 +28,13 @@ class ExtruderOldRecordsView(QWidget):
     The main container widget for the Mixer section. It uses a QTabWidget
     to manage the Entry Form and the Records view.
     """
-    STYLESHEET = """
-        QTabWidget::pane {
-            background: white;
-            border-radius: 8px;
-        }
-        QTabBar::tab {
-            background: transparent;
-            min-width: 120px;
-            padding: 8px;
-            font-weight: bold;
-            color: #555;
-            font-size: 16px;
-        }
-        QTabBar::tab:selected {
-            color: #2c3e50;
-            border-bottom: 2px solid #2c3e50; 
-        }
-        QTabBar::tab:!selected:hover {
-            color: #2c3e50;
-            border-bottom: 2px solid #2c3e50; 
-        }
-        
-        /* Add this to your style.css file */
-
-        QScrollArea#scroll_area {
-            border: none;
-            background-color: transparent;
-        }
-        
-        QWidget#scroll_content_widget {
-            background-color: #ffffff;
-        }
-        
-        /* === SCROLLBARS & MENUS (Unchanged) === */
-        QScrollBar:vertical {
-            border: none; background: #f1f3f5; width: 8px; margin: 0px;
-        }
-        QScrollBar::handle:vertical {
-            background: #adb5bd; min-height: 20px; border-radius: 4px;
-        }
-        QScrollBar::handle:vertical:hover { background: #868e96; }
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-            height: 0; background: none;
-        }
-
-    """
-
-
 
     def __init__(self, session_factory: Type[sessionmaker], parent=None):
         super().__init__(parent)
         self.Session = session_factory
-
-        self.setStyleSheet(self.STYLESHEET)
+        css_path = os.path.join(os.path.dirname(__file__), "styles.css")
+        if os.path.exists(css_path):
+            with open(css_path, "r") as f: self.setStyleSheet(f.read())
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -124,3 +77,4 @@ class ExtruderOldRecordsView(QWidget):
         #    - The scroll area (containing the entry form) is added for the second tab.
         self.tab_widget.addTab(old_program_scroll_area, "Extruder Old Program Records")
         self.tab_widget.addTab(excel_record_scroll_area, "Extruder Old Excel Records")
+

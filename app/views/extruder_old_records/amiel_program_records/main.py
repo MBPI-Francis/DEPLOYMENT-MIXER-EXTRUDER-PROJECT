@@ -1,3 +1,5 @@
+# app/views/extruder_old_records/amiel_program_records/main.py
+
 from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMessageBox
 from typing import Type
 from sqlalchemy.orm import Session

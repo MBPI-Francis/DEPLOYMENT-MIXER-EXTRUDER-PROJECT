@@ -52,32 +52,16 @@ class ExtruderExcelRecords(QWidget):
         # 4. Initial Load
         QTimer.singleShot(100, self.reload_initial_data)
 
-    # def reload_initial_data(self):
-    #     """Resets everything (clears filters/search) and loads default."""
-    #     self.current_offset = 0
-    #     self.has_more_data = True
-    #     self.current_search_term = ""
-    #     self.active_filters = {}  # Reset advanced filters on full refresh
-    #     self.ui.search_input.clear()
-    #
-    #     # Update UI feedback
-    #     self.ui.filter_btn.setText("Advanced Filter")
-    #     self.ui.filter_btn.setStyleSheet("")
-    #
-    #     self.ui.data_table.setRowCount(0)
-    #     self.fetch_and_display()
-
     def reload_initial_data(self):
         """Resets everything (clears filters/search) and loads default."""
         self.current_offset = 0
         self.has_more_data = True
         self.current_search_term = ""
-        self.active_filters = {}
+        self.active_filters = {}  # Reset advanced filters on full refresh
         self.ui.search_input.clear()
 
-        # --- RESET BUTTON STYLE ---
-        self.ui.filter_btn.setText("Filter Options")
-        # Revert to the default ID styling defined in style.css or ui_setup
+        # Update UI feedback
+        self.ui.filter_btn.setText("Advanced Filter")
         self.ui.filter_btn.setStyleSheet("")
 
         self.ui.data_table.setRowCount(0)
@@ -91,23 +75,19 @@ class ExtruderExcelRecords(QWidget):
         """Executes the quick text search."""
         self.current_offset = 0
         self.has_more_data = True
-        self.active_filters = {}
+        self.active_filters = {}  # Quick search overrides advanced filters
         self.current_search_term = self.ui.search_input.text().strip()
 
-        # Reset filter button if user types in quick search
-        self.ui.filter_btn.setText("Filter Options")
-        self.ui.filter_btn.setStyleSheet("")
+        # Reset visual cue for advanced filter
+        self.ui.filter_btn.setText("Advanced Filter")
 
         self.ui.data_table.setRowCount(0)
         self.fetch_and_display()
 
     def open_filter_dialog(self):
         """Opens the advanced filter popup."""
+        # UPDATE: We now pass self.Session to the dialog
         dialog = FilterDialog(self.Session, self)
-
-        # NEW: Restore previous state if it exists
-        if self.active_filters:
-            dialog.set_current_filters(self.active_filters)
 
         if dialog.exec() == QDialog.DialogCode.Accepted:
             filters = dialog.get_filters()
@@ -116,45 +96,16 @@ class ExtruderExcelRecords(QWidget):
             else:
                 self.reload_initial_data()
 
-    # def apply_advanced_filter(self, filters):
-    #     """Applies specific column filters."""
-    #     self.current_offset = 0
-    #     self.has_more_data = True
-    #     self.current_search_term = ""  # Advanced filter overrides quick search
-    #     self.ui.search_input.clear()
-    #     self.active_filters = filters
-    #
-    #     # Visual cue that filters are active
-    #     self.ui.filter_btn.setText("Filter Active (X)")
-    #
-    #     self.ui.data_table.setRowCount(0)
-    #     self.fetch_and_display()
-
     def apply_advanced_filter(self, filters):
         """Applies specific column filters."""
         self.current_offset = 0
         self.has_more_data = True
-        self.current_search_term = ""
+        self.current_search_term = ""  # Advanced filter overrides quick search
         self.ui.search_input.clear()
         self.active_filters = filters
 
-        # --- UPDATE BUTTON STYLE (UX Improvement) ---
-        count = len(filters)
-        self.ui.filter_btn.setText(f"Filters Active ({count})")
-
-        # Apply an 'Active' style (Blue background, White text)
-        # This overrides the default #ActionButton style for this specific state
-        self.ui.filter_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0d6efd; 
-                color: white; 
-                border: 1px solid #0d6efd;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0b5ed7;
-            }
-        """)
+        # Visual cue that filters are active
+        self.ui.filter_btn.setText("Filter Active (X)")
 
         self.ui.data_table.setRowCount(0)
         self.fetch_and_display()
