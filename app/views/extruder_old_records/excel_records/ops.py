@@ -6,9 +6,6 @@ import logging
 
 
 class ExtruderExcelRecordsOps:
-
-    # ... (Keep fetch_records and search_records as they are) ...
-
     @staticmethod
     def fetch_records(session: Session, limit=100, offset=0):
         """Fetches a batch of records."""
