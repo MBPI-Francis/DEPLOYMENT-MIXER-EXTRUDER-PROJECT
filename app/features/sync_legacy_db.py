@@ -285,31 +285,41 @@ class SyncWorker(QObject):
             if self.engine_rm:
                 self.engine_rm.dispose()
 
-    # --- NEW METHOD: Logic for syncing TblProd02 ---
     def _sync_prod02(self, session) -> int:
         """
-        Syncs tbl_prod02.dbf to the TblProd02 table.
-        Prevents duplicates based on a composite key of (T_PRODID, T_SEQ).
+        Syncs all records from tbl_prod02.dbf to the TblProd02 table,
+        but intelligently skips any records that already exist in the database
+        to prevent duplicates.
         """
-        # A composite key (prodid, seq) is a reliable way to identify unique records.
+        print("Smart Syncing TblProd02: Fetching existing keys from PostgreSQL...")
+        # Step 1: Fetch all existing unique keys from your PostgreSQL table.
+        # Storing them in a 'set' makes checking for existence extremely fast.
         existing_keys: Set[Tuple[Decimal, int]] = {
             (row.T_PRODID, row.T_SEQ) for row in session.query(TblProd02.T_PRODID, TblProd02.T_SEQ).all()
         }
         records_to_add = []
+        print(f"Found {len(existing_keys)} existing records in tbl_prod02.")
 
         try:
-            dbf_records = dbfread.DBF(PRODUCTION02_DBF_PATH, encoding='latin1')._iter_records()
+            # Use the SafeFieldParser to handle bad dates in the DBF
+            dbf_records = dbfread.DBF(PRODUCTION02_DBF_PATH, encoding='latin1',
+                                      parserclass=SafeFieldParser)._iter_records()
         except dbfread.exceptions.DBFNotFound:
             raise FileNotFoundError(f"File not found: {PRODUCTION02_DBF_PATH}")
 
+        # Step 2: Loop through every record in the DBF file.
         for record in dbf_records:
             t_prodid = safe_decimal(record.get('T_PRODID'))
             t_seq = safe_int(record.get('T_SEQ'))
 
-            # # Skip if the composite key is invalid or already exists
-            # if not t_prodid or (t_prodid, t_seq) in existing_keys:
-            #     continue
+            # --- THIS IS THE CRITICAL LOGIC ---
+            # Step 3: Check if the record should be skipped.
+            # It will be skipped if its key is invalid OR if the key already exists in our set.
+            if not t_prodid or t_seq is None or (t_prodid, t_seq) in existing_keys:
+                continue  # Skip this record and move to the next one.
+            # --- END OF CRITICAL LOGIC ---
 
+            # Step 4: If the code reaches here, the record is NEW. Process it.
             try:
                 new_prod_detail = TblProd02(
                     T_PRODID=t_prodid,
@@ -328,13 +338,19 @@ class SyncWorker(QObject):
                     T_DELETED=safe_bool(record.get('T_DELETED')),
                 )
                 records_to_add.append(new_prod_detail)
+                # Optimization: Add the new key to our set so we don't add it again
+                # if it's duplicated within the same DBF file.
+                existing_keys.add((t_prodid, t_seq))
+
             except Exception as e:
                 print(f"Skipping corrupt record in tbl_prod02 for T_PRODID={t_prodid}, T_SEQ={t_seq}. Error: {e}")
                 continue
 
+        # Step 5: Add all the *new* records to the session in one bulk operation.
         if records_to_add:
             session.add_all(records_to_add)
 
+        print(f"Adding {len(records_to_add)} new records to tbl_prod02.")
         return len(records_to_add)
 
 

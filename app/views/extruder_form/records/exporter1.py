@@ -23,22 +23,16 @@ class ExcelReportExporter:
         self.controller = ops_controller
 
     def generate_single_report(self, record_object, output_path: str):
-        """Creates and saves a report for a single record to a new file."""
         workbook = openpyxl.load_workbook(self.TEMPLATE_PATH)
         sheet = workbook.active
-        # For single reports, we never overwrite the formulas.
-        self.populate_sheet(sheet, record_object, overwrite_formulas=False)
+        self.populate_sheet(sheet, record_object)
         workbook.save(output_path)
 
-    def populate_sheet(self, sheet: Worksheet, record_object, row_offset: int = 0, overwrite_formulas: bool = False):
-        """
-        Fills a given worksheet with data, optionally overwriting formula cells
-        with static values for bulk reports.
-        """
+    def populate_sheet(self, sheet: Worksheet, record_object, row_offset: int = 0):
         self._fill_header_info(sheet, record_object, row_offset)
         self._fill_summary_and_calculations(sheet, record_object, row_offset)
-        self._fill_output_log(sheet, record_object, row_offset, overwrite_formulas)
-        self._fill_materials_and_lots(sheet, record_object, row_offset, overwrite_formulas)
+        self._fill_output_log(sheet, record_object, row_offset)
+        self._fill_materials_and_lots(sheet, record_object, row_offset)
         self._fill_purging_info(sheet, record_object, row_offset)
         self._fill_footer_info(sheet, record_object, row_offset)
 
@@ -77,7 +71,7 @@ class ExcelReportExporter:
         sheet[f'M{9 + row_offset}'].value = loss
         sheet[f'N{9 + row_offset}'].value = f"{loss_percentage:.2f}%"
 
-    def _fill_output_log(self, sheet, record, row_offset, overwrite_formulas):
+    def _fill_output_log(self, sheet, record, row_offset):
         sorted_outputs = sorted(record.extruder_outputs, key=lambda x: (x.datetime_start is None, x.datetime_start))
         total_duration = timedelta()
         for i, output in enumerate(sorted_outputs[:13]):
@@ -99,23 +93,14 @@ class ExcelReportExporter:
             output_cell.value = float(output.qty_output or 0)
             output_cell.number_format = '0.00'
 
-        # --- THIS IS THE FIX (Part 1) ---
-        # Only overwrite the total if the flag is True
-        if overwrite_formulas:
-            total_output = sum(float(o.qty_output or 0) for o in record.extruder_outputs)
-            total_output_cell = sheet[f'G{25 + row_offset}']
-            total_output_cell.value = total_output
-            total_output_cell.number_format = '0.00'
-        # --- END FIX ---
-
         total_seconds = int(total_duration.total_seconds())
         hours, rem = divmod(total_seconds, 3600)
         minutes, seconds = divmod(rem, 60)
         sheet[f'F{25 + row_offset}'].value = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-    def _fill_materials_and_lots(self, sheet, record, row_offset, overwrite_formulas):
+    def _fill_materials_and_lots(self, sheet, record, row_offset):
         start_row = 12 + row_offset
-        valid_materials = []
+        end_row = 24 + row_offset
 
         if record.production_id:
             prod_ids = [pid.strip() for pid in record.production_id.split(';') if pid.strip()]
@@ -136,15 +121,6 @@ class ExcelReportExporter:
                     qty_cell.value = float(total_qty)
                     qty_cell.alignment = Alignment(horizontal='right', vertical='center')
                     qty_cell.number_format = '0.00'
-
-        # --- THIS IS THE FIX (Part 2) ---
-        # Only overwrite the total if the flag is True
-        if overwrite_formulas:
-            total_input_qty = sum(float(total_qty) for _, total_qty in valid_materials)
-            total_input_cell = sheet[f'K{25 + row_offset}']
-            total_input_cell.value = total_input_qty
-            total_input_cell.number_format = '0.00'
-        # --- END FIX ---
 
         if record.lot_number:
             lot_numbers = [lot.strip() for lot in record.lot_number.split(';')]
@@ -186,16 +162,30 @@ class ExcelReportExporter:
         sheet[f'B{29 + row_offset}'].value = header.siever_used
         sheet[f'B{30 + row_offset}'].value = header.palletizer_used
 
+    # --- THIS IS THE CORRECTED METHOD ---
     def _fill_footer_info(self, sheet, record, row_offset):
+        """
+        Populates the footer, combining vacuum status and remarks into the
+        single correct cell (G26) to avoid the MergedCell error.
+        """
+        # 1. Start with the base remarks, ensuring it's a string.
         remarks_text = record.remarks or ""
+
+        # 2. Check for vacuum status and prepend the text if it was on.
         if record.machine_details and record.machine_details.is_vacuum_on:
+            # Use a clear separator like a newline if remarks exist, otherwise just the status.
             if remarks_text:
                 remarks_text = f"VACUUM ON\n{remarks_text}"
             else:
                 remarks_text = "VACUUM ON"
-        sheet[f'G{26 + row_offset}'].value = remarks_text
 
-        operators, supervisors = [], []
+        # 3. Write the final, combined string ONLY to the top-left cell of the merged region.
+        sheet[f'G{26 + row_offset}'].value = remarks_text
+        # Make sure "Wrap Text" is enabled on cell G26 in your template for this to look good.
+
+        # Personnel logic remains unchanged
+        operators = []
+        supervisors = []
         for p in record.extruder_personnels:
             if not p.employee or not p.position: continue
             full_name = f"{p.employee.first_name} {p.employee.last_name}"

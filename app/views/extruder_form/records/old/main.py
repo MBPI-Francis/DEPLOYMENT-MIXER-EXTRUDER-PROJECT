@@ -3,17 +3,13 @@ import os
 import traceback
 from datetime import datetime, timedelta
 
-import openpyxl
 from PyQt6.QtWidgets import QWidget, QTableWidgetItem, QMessageBox, QApplication, QMenu, QDialog, QProgressDialog, \
     QFileDialog
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QDate, QPoint, QThread
 from PyQt6.QtGui import QColor, QBrush, QAction
-from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.copier import WorksheetCopy
 from sqlalchemy.orm import Session
-from typing import Type, List
+from typing import Type
 
-from .bulk_export_dialog import BulkExportDialog
 from .edit_dialog import ExtruderEditDialog
 from .exporter import ExcelReportExporter
 from .ui_setup import Ui_ExtruderRecordsList
@@ -36,145 +32,6 @@ class NumericTableWidgetItem(QTableWidgetItem):
             other_data = 0.0
 
         return self_data < other_data
-
-
-class BulkExportWorker(QThread):
-    progress = pyqtSignal(int, str)
-    finished = pyqtSignal(str)
-    error = pyqtSignal(str)
-
-    def __init__(self, record_ids: List[int], option: int, output_path: str, ops: ExtruderRecordsOperations,
-                 parent=None):
-        super().__init__(parent)
-        self.record_ids = record_ids
-        self.option = option
-        self.output_path = output_path
-        self.ops = ops
-        self._is_running = True
-
-    def stop(self):
-        self._is_running = False
-
-    def run(self):
-        try:
-            exporter = ExcelReportExporter(self.ops)
-            total_records = len(self.record_ids)
-
-            if self.option == BulkExportDialog.SEPARATE_FILES:
-                self._export_to_separate_files(exporter, total_records)
-            elif self.option == BulkExportDialog.SEPARATE_SHEETS:
-                self._export_to_separate_sheets(exporter, total_records)
-            elif self.option == BulkExportDialog.SINGLE_SHEET:
-                self._export_to_single_sheet(exporter, total_records)
-
-            if self._is_running:
-                self.finished.emit("Bulk export completed successfully!")
-        except Exception:
-            self.error.emit(f"An unexpected error occurred during bulk export:\n\n{traceback.format_exc()}")
-
-    def _export_to_separate_files(self, exporter, total):
-        os.makedirs(self.output_path, exist_ok=True)
-        for i, record_id in enumerate(self.record_ids):
-            if not self._is_running: return
-            record = self.ops.get_full_record_by_id(record_id)
-            if not record: continue
-
-            self.progress.emit(int((i / total) * 100), f"Exporting {record.ref_no} ({i + 1}/{total})...")
-            filename = f"Report_{record.ref_no}_{record.lot_number}.xlsx".replace('/', '_')  # Sanitize filename
-            file_path = os.path.join(self.output_path, filename)
-            exporter.generate_single_report(record, file_path)
-        self.progress.emit(100, "Finalizing...")
-
-    # --- THIS IS THE CORRECTED METHOD ---
-    def _export_to_separate_sheets(self, exporter, total):
-        # 1. Load the template workbook. This will become our output file.
-        output_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
-
-        # 2. Get the first sheet, which is our template.
-        template_sheet = output_wb.active
-
-        is_first_record = True
-        for i, record_id in enumerate(self.record_ids):
-            if not self._is_running: return
-            record = self.ops.get_full_record_by_id(record_id)
-            if not record: continue
-
-            self.progress.emit(int((i / total) * 100), f"Processing {record.ref_no} ({i + 1}/{total})...")
-
-            current_sheet = None
-            if is_first_record:
-                # For the first record, use the sheet that's already in the workbook.
-                current_sheet = template_sheet
-                is_first_record = False
-            else:
-                # For all other records, create a copy of the original template sheet.
-                current_sheet = output_wb.copy_worksheet(template_sheet)
-
-            # Set the title for the current sheet
-            sheet_title = f"Ref {record.ref_no}".replace('/', '_').replace('\\', '_')[:31]
-            current_sheet.title = sheet_title
-
-            # Populate the data onto this sheet
-
-            exporter.populate_sheet(current_sheet, record, overwrite_formulas=False)
-
-        self.progress.emit(100, "Saving file...")
-        output_wb.save(self.output_path)
-
-    # --- END CORRECTION ---
-
-    def _export_to_single_sheet(self, exporter, total):
-        output_wb = openpyxl.Workbook()
-        output_sheet = output_wb.active
-        output_sheet.title = "Bulk Report"
-
-        template_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
-        template_sheet = template_wb.active
-        for col_letter in [get_column_letter(i) for i in range(1, template_sheet.max_column + 1)]:
-            output_sheet.column_dimensions[col_letter].width = template_sheet.column_dimensions[col_letter].width
-
-        template_row_heights = {i: dim.height for i, dim in template_sheet.row_dimensions.items()}
-        default_row_height = template_sheet.sheet_format.defaultRowHeight
-
-        for i, record_id in enumerate(self.record_ids):
-            if not self._is_running: return
-            record = self.ops.get_full_record_by_id(record_id)
-            if not record: continue
-
-            self.progress.emit(int((i / total) * 100), f"Processing {record.ref_no} ({i + 1}/{total})...")
-
-            temp_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
-            temp_sheet = temp_wb.active
-
-            # --- THIS IS THE FIX ---
-            # For this option, we MUST overwrite formulas with static values.
-            exporter.populate_sheet(temp_sheet, record, row_offset=0, overwrite_formulas=True)
-            # --- END FIX ---
-
-            row_offset = i * ExcelReportExporter.REPORT_TOTAL_ROWS
-            for row_idx in range(1, ExcelReportExporter.REPORT_TOTAL_ROWS + 2):
-                height = template_row_heights.get(row_idx, default_row_height)
-                if height is not None:
-                    output_sheet.row_dimensions[row_idx + row_offset].height = height
-
-            for row in temp_sheet.iter_rows():
-                for cell in row:
-                    new_cell = output_sheet.cell(row=cell.row + row_offset, column=cell.column)
-                    new_cell.value = cell.value
-                    if cell.has_style:
-                        new_cell.font = cell.font.copy()
-                        new_cell.border = cell.border.copy()
-                        new_cell.fill = cell.fill.copy()
-                        new_cell.number_format = cell.number_format
-                        new_cell.protection = cell.protection.copy()
-                        new_cell.alignment = cell.alignment.copy()
-
-            for mc_range in temp_sheet.merged_cells.ranges:
-                output_sheet.merge_cells(start_row=mc_range.min_row + row_offset, start_column=mc_range.min_col,
-                                         end_row=mc_range.max_row + row_offset, end_column=mc_range.max_col)
-
-        self.progress.emit(100, "Saving file...")
-        output_wb.save(self.output_path)
 
 
 # --- CORRECTED WORKER THREAD FOR EXPORTING ---
@@ -210,13 +67,11 @@ class ExtruderRecordsView(QWidget):
 
         # --- This will hold a reference to the worker to prevent it from being deleted ---
         self.export_worker = None
-        self.bulk_export_worker = None
 
         self.filter_dialog = FilterDialog(session_factory, self)
         self.advanced_filters = {}
         self.is_loading = False
         self.is_deleted_color = QColor("#e0e0e0")
-
 
         self._setup_connections()
         self.load_initial_data()
@@ -244,50 +99,44 @@ class ExtruderRecordsView(QWidget):
         self.ui.table_widget.doubleClicked.connect(self._view_record)
         self.ui.table_widget.customContextMenuRequested.connect(self._show_context_menu)
 
-    # --- THIS IS THE CORRECTED SINGLE-EXPORT METHOD ---
+
     def _export_record_to_excel(self):
-        # Check if the bulk export worker is running
-        if self.bulk_export_worker:
-            QMessageBox.warning(self, "Export in Progress", "A bulk export is already running. Please wait.")
+        # --- FIX 3: This check is now robust because _on_export_finished cleans up ---
+        if self.export_worker:
+            QMessageBox.warning(self, "Export in Progress", "An export is already running. Please wait.")
             return
 
         record_id, _ = self._get_selected_record_info()
         if record_id is None: return
 
-        try:
-            record = self.ops.get_full_record_by_id(record_id)
-            if not record:
-                QMessageBox.warning(self, "Not Found", "Could not retrieve the full record details for export.")
-                return
-        except Exception:
-            ErrorDialog("Database Error", "Failed to fetch record data.", details=traceback.format_exc(),
-                        parent=self).exec()
+        full_data = self.ops.get_full_record_by_id(record_id)
+        if not full_data:
+            QMessageBox.warning(self, "Not Found", "Could not retrieve the full record details for export.")
             return
 
-        default_filename = f"Extruder_Report_{record.ref_no}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save Excel Report", default_filename, "Excel Files (*.xlsx)")
-
+        default_filename = f"Extruder_Report_{full_data.lot_number}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Excel Report", default_filename, "Excel Files (*.xlsx)"
+        )
         if not file_path:
             return
 
-        # Use a wait cursor for this fast, single-file operation
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            # Instantiate the refactored exporter
-            exporter = ExcelReportExporter(self.ops)
-            # Call the specific method for creating a single file
-            exporter.generate_single_report(record, file_path)
+        progress = QProgressDialog("Exporting report...", "Cancel", 0, 0, self)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setWindowTitle("Processing")
 
-            reply = QMessageBox.information(self, "Export Successful",
-                                            f"Report successfully saved.\n\nDo you want to open the file?",
-                                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            if reply == QMessageBox.StandardButton.Yes:
-                os.startfile(file_path)
-        except Exception:
-            ErrorDialog("Export Error", "Failed to save the Excel file.", details=traceback.format_exc(),
-                        parent=self).exec()
-        finally:
-            QApplication.restoreOverrideCursor()  # Always restore the cursor
+        # --- FIX 4: Pass the ops controller (`self.ops`) to the worker's constructor ---
+        self.export_worker = ExportWorker(full_data, self.ops, file_path)
+
+        self.export_worker.success.connect(self._on_export_success)
+        self.export_worker.error.connect(self._on_export_error)
+        self.export_worker.finished.connect(progress.close)
+        self.export_worker.finished.connect(self._on_export_finished)
+
+        progress.canceled.connect(self.export_worker.requestInterruption)
+        progress.show()
+
+        self.export_worker.start()
 
     def _on_export_success(self, filepath: str):
         reply = QMessageBox.information(self, "Export Successful",
@@ -474,10 +323,8 @@ class ExtruderRecordsView(QWidget):
     def _show_context_menu(self, position: QPoint):
         record_id, is_deleted = self._get_selected_record_info()
         if record_id is None: return
-
         context_menu = QMenu(self)
         if is_deleted:
-            # Menu for deleted records
             view_action = QAction("View Record", self)
             restore_action = QAction("Restore Record", self)
             view_action.triggered.connect(self._view_record)
@@ -485,88 +332,21 @@ class ExtruderRecordsView(QWidget):
             context_menu.addAction(view_action)
             context_menu.addAction(restore_action)
         else:
-            # Menu for active records
             view_action = QAction("View Record", self)
             edit_action = QAction("Edit Record", self)
             delete_action = QAction("Delete Record", self)
             export_action = QAction("Export to Excel", self)
-
             view_action.triggered.connect(self._view_record)
             edit_action.triggered.connect(self._edit_record)
             delete_action.triggered.connect(self._delete_record)
             export_action.triggered.connect(self._export_record_to_excel)
-
             context_menu.addAction(view_action)
             context_menu.addAction(edit_action)
             context_menu.addSeparator()
             context_menu.addAction(export_action)
-
-            # --- NEW: Add Bulk Export option ---
-            record_count = self.ui.table_widget.rowCount()
-            if record_count > 1:
-                bulk_export_action = QAction(f"Bulk Export ({record_count} Records)...", self)
-                bulk_export_action.triggered.connect(self._start_bulk_export)
-                context_menu.addAction(bulk_export_action)
-
             context_menu.addSeparator()
             context_menu.addAction(delete_action)
-
         context_menu.exec(self.ui.table_widget.mapToGlobal(position))
-
-    def _start_bulk_export(self):
-        if self.bulk_export_worker:
-            QMessageBox.warning(self, "Export in Progress", "A bulk export is already running.")
-            return
-
-        record_count = self.ui.table_widget.rowCount()
-        dialog = BulkExportDialog(record_count, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            option = dialog.get_selected_option()
-
-            # Get list of all record IDs currently displayed in the table
-            record_ids = [int(self.ui.table_widget.item(row, 0).text()) for row in range(record_count)]
-
-            output_path = ""
-            if option == BulkExportDialog.SEPARATE_FILES:
-                output_path = QFileDialog.getExistingDirectory(self, "Select Folder to Save Reports")
-            else:
-                default_filename = f"Bulk_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                output_path, _ = QFileDialog.getSaveFileName(self, "Save Bulk Report", default_filename,
-                                                             "Excel Files (*.xlsx)")
-
-            if not output_path:
-                return
-
-            self.progress = QProgressDialog("Starting bulk export...", "Cancel", 0, 100, self)
-            self.progress.setWindowTitle("Bulk Exporting")
-            self.progress.setWindowModality(Qt.WindowModality.WindowModal)
-
-            self.bulk_export_worker = BulkExportWorker(record_ids, option, output_path, self.ops)
-            self.bulk_export_worker.progress.connect(self._update_bulk_progress)
-            self.bulk_export_worker.finished.connect(self._on_bulk_export_finished)
-            self.bulk_export_worker.error.connect(self._on_bulk_export_error)
-
-            self.progress.canceled.connect(self.bulk_export_worker.stop)
-            self.progress.show()
-
-            self.bulk_export_worker.start()
-
-    def _update_bulk_progress(self, value, text):
-        self.progress.setValue(value)
-        self.progress.setLabelText(text)
-
-    def _on_bulk_export_finished(self, message):
-        self.progress.setValue(100)
-        QMessageBox.information(self, "Success", message)
-        self.bulk_export_worker = None
-
-    def _on_bulk_export_error(self, error_message):
-        self.progress.close()
-        ErrorDialog("Bulk Export Error", "An error occurred during the bulk export.", details=error_message,
-                    parent=self).exec()
-        self.bulk_export_worker = None
-
-
 
     def _delete_record(self):
         record_id, is_deleted = self._get_selected_record_info()
