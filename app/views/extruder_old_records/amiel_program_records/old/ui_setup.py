@@ -6,24 +6,9 @@ from PyQt6.QtWidgets import (
 )
 
 
-class ExtruderExcelRecordsUI:
-    # --- ADDED: Style for the View Remarks button ---
-    LINK_BUTTON_STYLE = """
-        QPushButton {
-            background-color: transparent;
-            border: none;
-            color: #0d6efd;
-            text-align: left;
-            font-size: 13px;
-            padding: 0px;
-        }
-        QPushButton:hover {
-            text-decoration: underline;
-            color: #0a58ca;
-        }
-        QPushButton:pressed {
-            color: #0a58ca;
-        }
+class ExtruderOldProgramRecordsUI:
+    """
+    UI Definition for Old Program Records (Amiel Data).
     """
 
     def setup_ui(self, main_widget):
@@ -35,21 +20,28 @@ class ExtruderExcelRecordsUI:
         # 2. Toolbar / Filter Layout
         self.filter_layout = QHBoxLayout()
 
-        # --- LEFT SIDE CONTENT ---
+        # --- LEFT: Search ---
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Quick Search (Code, Customer, Lot)...")
+        self.search_input.setPlaceholderText("Search Code, Customer, Remarks...")
         self.search_input.setFixedWidth(300)
         self.filter_layout.addWidget(self.search_input)
 
-        # --- PUSH CONTENT TO THE RIGHT ---
+        # --- CENTER: Spring ---
         self.filter_layout.addStretch()
 
-        # --- RIGHT SIDE BUTTONS ---
+        # --- RIGHT: Buttons ---
+
+        # Placeholder for future Filter button (kept simple for now as requested)
         self.filter_btn = QPushButton("Filter Options")
         self.filter_btn.setObjectName("ActionButton")
         self.filter_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.filter_btn.setMinimumWidth(120)
         self.filter_layout.addWidget(self.filter_btn)
+
+        # Spacer
+        self.filter_layout.addSpacerItem(
+            QSpacerItem(10, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+        )
 
         self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.setObjectName("ActionButton")
@@ -67,24 +59,34 @@ class ExtruderExcelRecordsUI:
         self.data_table.verticalHeader().setVisible(False)
         self.data_table.setShowGrid(True)
 
+        # Key Columns for ExtruderOldAmielData
         columns = [
             "ID", "Date", "Code", "Customer", "Machine",
-            "Lot No.", "Total Input", "Total Output", "Output/Hr",
-            "Screw Config", "RPM", "Resin used", "Remarks"
+            "Lot Number", "Qty Order", "Total Output", "Efficiency %", "Remarks"
         ]
         self.data_table.setColumnCount(len(columns))
         self.data_table.setHorizontalHeaderLabels(columns)
 
         header = self.data_table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        header.setStretchLastSection(True)
+        # header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        # header.setStretchLastSection(True)
+        #
+        # # Default Widths
+        # self.data_table.setColumnWidth(0, 60)  # Process ID
+        # self.data_table.setColumnWidth(1, 100)  # Encoded On
+        # self.data_table.setColumnWidth(2, 120)  # Product Code
+        # self.data_table.setColumnWidth(3, 180)  # Customer
+        # self.data_table.setColumnWidth(4, 100)  # Machine
+        # self.data_table.setColumnWidth(5, 120)  # Lot Number
 
-        # Default Column Widths
-        self.data_table.setColumnWidth(0, 60)
-        self.data_table.setColumnWidth(1, 100)
-        self.data_table.setColumnWidth(2, 120)
-        self.data_table.setColumnWidth(3, 180)
-        self.data_table.setColumnWidth(4, 80)
-        self.data_table.setColumnWidth(5, 120)
+        # This sets ALL columns to automatically resize to fit their content
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(9, QHeaderView.ResizeMode.Stretch)
+
+        # Optional: Set a minimum width for the stretch columns so they don't get too small
+        header.setMinimumSectionSize(100)
+
 
         self.layout.addWidget(self.data_table)

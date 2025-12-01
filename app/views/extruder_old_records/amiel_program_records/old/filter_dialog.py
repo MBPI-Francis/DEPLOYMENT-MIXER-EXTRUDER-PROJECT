@@ -106,6 +106,9 @@ class FilterDialog(QDialog):
         layout.setContentsMargins(25, 25, 25, 25)
         layout.setSpacing(20)
 
+        title = QLabel("Filter Program Records")
+        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #212529; margin-bottom: 10px;")
+        layout.addWidget(title)
 
         self.form_layout = QFormLayout()
         self.form_layout.setSpacing(15)

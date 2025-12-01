@@ -1,68 +1,100 @@
-from PyQt6.QtWidgets import QWidget, QTableWidgetItem, QMessageBox, QDialog, QPushButton, QHBoxLayout
+# app/views/extruder_old_records/excel_records/main.py
+from PyQt6.QtWidgets import QWidget, QTableWidgetItem, QMessageBox, QDialog
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QColor
 from typing import Type
 from sqlalchemy.orm import Session, sessionmaker
 
 from .ui_setup import ExtruderExcelRecordsUI
 from .ops import ExtruderExcelRecordsOps
 from .filter_dialog import FilterDialog
-from .remarks_dialog import RemarksDialog  # New Import
 
 
 class ExtruderExcelRecords(QWidget):
     """
     Main View/Controller for Extruder Old Excel Records.
+    Features: Lazy Loading, Quick Search, Advanced Filter.
     """
 
     def __init__(self, session_factory: Type[sessionmaker], parent=None):
         super().__init__(parent)
         self.Session = session_factory
 
+        # --- State ---
         self.BATCH_SIZE = 100
         self.current_offset = 0
         self.is_loading = False
         self.has_more_data = True
-        self.current_search_term = ""
-        self.active_filters = {}
 
+        # State variables for data modes
+        self.current_search_term = ""
+        self.active_filters = {}  # Stores dictionary from FilterDialog
+
+        # 1. Setup UI
         self.ui = ExtruderExcelRecordsUI()
         self.ui.setup_ui(self)
+
+        # 2. Setup Ops
         self.ops = ExtruderExcelRecordsOps()
 
+        # 3. Connect Signals
         self.ui.refresh_btn.clicked.connect(self.reload_initial_data)
         self.ui.filter_btn.clicked.connect(self.open_filter_dialog)
         self.ui.search_input.textChanged.connect(self.handle_search_input)
-        self.ui.data_table.verticalScrollBar().valueChanged.connect(self.on_scroll)
 
+        # Search debounce
         self.search_timer = QTimer()
         self.search_timer.setSingleShot(True)
         self.search_timer.timeout.connect(self.execute_quick_search)
 
+        # Scroll listener
+        self.ui.data_table.verticalScrollBar().valueChanged.connect(self.on_scroll)
+
+        # 4. Initial Load
         QTimer.singleShot(100, self.reload_initial_data)
 
+    # def reload_initial_data(self):
+    #     """Resets everything (clears filters/search) and loads default."""
+    #     self.current_offset = 0
+    #     self.has_more_data = True
+    #     self.current_search_term = ""
+    #     self.active_filters = {}  # Reset advanced filters on full refresh
+    #     self.ui.search_input.clear()
+    #
+    #     # Update UI feedback
+    #     self.ui.filter_btn.setText("Advanced Filter")
+    #     self.ui.filter_btn.setStyleSheet("")
+    #
+    #     self.ui.data_table.setRowCount(0)
+    #     self.fetch_and_display()
+
     def reload_initial_data(self):
+        """Resets everything (clears filters/search) and loads default."""
         self.current_offset = 0
         self.has_more_data = True
         self.current_search_term = ""
         self.active_filters = {}
         self.ui.search_input.clear()
 
+        # --- RESET BUTTON STYLE ---
         self.ui.filter_btn.setText("Filter Options")
+        # Revert to the default ID styling defined in style.css or ui_setup
         self.ui.filter_btn.setStyleSheet("")
 
         self.ui.data_table.setRowCount(0)
         self.fetch_and_display()
 
     def handle_search_input(self):
+        """Called when typing in quick search box."""
         self.search_timer.start(300)
 
     def execute_quick_search(self):
+        """Executes the quick text search."""
         self.current_offset = 0
         self.has_more_data = True
         self.active_filters = {}
         self.current_search_term = self.ui.search_input.text().strip()
 
+        # Reset filter button if user types in quick search
         self.ui.filter_btn.setText("Filter Options")
         self.ui.filter_btn.setStyleSheet("")
 
@@ -70,7 +102,10 @@ class ExtruderExcelRecords(QWidget):
         self.fetch_and_display()
 
     def open_filter_dialog(self):
+        """Opens the advanced filter popup."""
         dialog = FilterDialog(self.Session, self)
+
+        # NEW: Restore previous state if it exists
         if self.active_filters:
             dialog.set_current_filters(self.active_filters)
 
@@ -81,15 +116,34 @@ class ExtruderExcelRecords(QWidget):
             else:
                 self.reload_initial_data()
 
+    # def apply_advanced_filter(self, filters):
+    #     """Applies specific column filters."""
+    #     self.current_offset = 0
+    #     self.has_more_data = True
+    #     self.current_search_term = ""  # Advanced filter overrides quick search
+    #     self.ui.search_input.clear()
+    #     self.active_filters = filters
+    #
+    #     # Visual cue that filters are active
+    #     self.ui.filter_btn.setText("Filter Active (X)")
+    #
+    #     self.ui.data_table.setRowCount(0)
+    #     self.fetch_and_display()
+
     def apply_advanced_filter(self, filters):
+        """Applies specific column filters."""
         self.current_offset = 0
         self.has_more_data = True
         self.current_search_term = ""
         self.ui.search_input.clear()
         self.active_filters = filters
 
+        # --- UPDATE BUTTON STYLE (UX Improvement) ---
         count = len(filters)
         self.ui.filter_btn.setText(f"Filters Active ({count})")
+
+        # Apply an 'Active' style (Blue background, White text)
+        # This overrides the default #ActionButton style for this specific state
         self.ui.filter_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0d6efd; 
@@ -106,6 +160,7 @@ class ExtruderExcelRecords(QWidget):
         self.fetch_and_display()
 
     def on_scroll(self, value):
+        """Lazy loading trigger."""
         if self.is_loading or not self.has_more_data:
             return
         if value == self.ui.data_table.verticalScrollBar().maximum():
@@ -116,23 +171,30 @@ class ExtruderExcelRecords(QWidget):
         self.fetch_and_display()
 
     def fetch_and_display(self):
+        """
+        Master data fetcher. Decides which Ops method to use based on state.
+        """
         self.is_loading = True
 
         with self.Session() as session:
             try:
+                # 1. Advanced Filters
                 if self.active_filters:
                     records = self.ops.fetch_filtered_records(
                         session, self.active_filters, self.BATCH_SIZE, self.current_offset
                     )
+                # 2. Quick Search
                 elif self.current_search_term:
                     records = self.ops.search_records(
                         session, self.current_search_term, self.BATCH_SIZE, self.current_offset
                     )
+                # 3. Default View
                 else:
                     records = self.ops.fetch_records(
                         session, self.BATCH_SIZE, self.current_offset
                     )
 
+                # Check pagination status
                 if len(records) < self.BATCH_SIZE:
                     self.has_more_data = False
 
@@ -173,39 +235,8 @@ class ExtruderExcelRecords(QWidget):
             self.ui.data_table.setItem(row, 10, item(rec.rpm))
             self.ui.data_table.setItem(row, 11, item(rec.resin_used))
 
-            # --- REMARKS LOGIC (Column 12) ---
-            remarks_content = rec.remarks
-            if remarks_content and str(remarks_content).strip():
-                # Case A: Has Content -> "View remarks" Button
-                container = QWidget()
-                layout = QHBoxLayout(container)
-                layout.setContentsMargins(5, 0, 5, 0)
-                layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-
-                # Static Text as requested
-                view_btn = QPushButton("View remarks")
-                view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                view_btn.setStyleSheet(ExtruderExcelRecordsUI.LINK_BUTTON_STYLE)
-
-                # Connect click to open dialog with full text
-                view_btn.clicked.connect(lambda checked, r=str(remarks_content): self.open_remarks_dialog(r))
-
-                layout.addWidget(view_btn)
-                self.ui.data_table.setCellWidget(row, 12, container)
-
-            else:
-                # Case B: Empty -> Italic "No Remarks"
-                no_rem_item = QTableWidgetItem("No Remarks")
-                font = QFont()
-                font.setItalic(True)
-                no_rem_item.setFont(font)
-                no_rem_item.setForeground(QColor("#adb5bd"))
-                no_rem_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-                self.ui.data_table.setItem(row, 12, no_rem_item)
+            remark_item = item(rec.remarks)
+            remark_item.setToolTip(str(rec.remarks) if rec.remarks else "")
+            self.ui.data_table.setItem(row, 12, remark_item)
 
         self.ui.data_table.setSortingEnabled(True)
-
-    def open_remarks_dialog(self, text):
-        """Slot to open the dialog."""
-        dialog = RemarksDialog(text, self)
-        dialog.exec()

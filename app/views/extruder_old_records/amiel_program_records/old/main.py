@@ -1,20 +1,16 @@
+from PyQt6.QtGui import QFont, QColor
 from PyQt6.QtWidgets import QWidget, QTableWidgetItem, QMessageBox, QDialog, QPushButton, QHBoxLayout
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QColor
 from typing import Type
 from sqlalchemy.orm import Session, sessionmaker
 
-from .ui_setup import ExtruderExcelRecordsUI
-from .ops import ExtruderExcelRecordsOps
+from .remarks_dialog import RemarksDialog
+from .ui_setup import ExtruderOldProgramRecordsUI
+from .ops import ExtruderOldProgramRecordsOps
 from .filter_dialog import FilterDialog
-from .remarks_dialog import RemarksDialog  # New Import
 
 
-class ExtruderExcelRecords(QWidget):
-    """
-    Main View/Controller for Extruder Old Excel Records.
-    """
-
+class ExtruderOldProgramRecords(QWidget):
     def __init__(self, session_factory: Type[sessionmaker], parent=None):
         super().__init__(parent)
         self.Session = session_factory
@@ -23,15 +19,16 @@ class ExtruderExcelRecords(QWidget):
         self.current_offset = 0
         self.is_loading = False
         self.has_more_data = True
+
         self.current_search_term = ""
         self.active_filters = {}
 
-        self.ui = ExtruderExcelRecordsUI()
+        self.ui = ExtruderOldProgramRecordsUI()
         self.ui.setup_ui(self)
-        self.ops = ExtruderExcelRecordsOps()
+        self.ops = ExtruderOldProgramRecordsOps()
 
         self.ui.refresh_btn.clicked.connect(self.reload_initial_data)
-        self.ui.filter_btn.clicked.connect(self.open_filter_dialog)
+        self.ui.filter_btn.clicked.connect(self.open_filter_dialog)  # Connected!
         self.ui.search_input.textChanged.connect(self.handle_search_input)
         self.ui.data_table.verticalScrollBar().valueChanged.connect(self.on_scroll)
 
@@ -42,12 +39,19 @@ class ExtruderExcelRecords(QWidget):
         QTimer.singleShot(100, self.reload_initial_data)
 
     def reload_initial_data(self):
+        """
+        Total Reset (Refresh Button).
+        Clears BOTH filters and search.
+        """
         self.current_offset = 0
         self.has_more_data = True
+
+        # Clear Both States
         self.current_search_term = ""
         self.active_filters = {}
-        self.ui.search_input.clear()
 
+        # Clear UI Elements
+        self.ui.search_input.clear()
         self.ui.filter_btn.setText("Filter Options")
         self.ui.filter_btn.setStyleSheet("")
 
@@ -58,14 +62,19 @@ class ExtruderExcelRecords(QWidget):
         self.search_timer.start(300)
 
     def execute_quick_search(self):
+        """
+        Called when typing in search bar.
+        Update: Does NOT clear active_filters.
+        """
         self.current_offset = 0
         self.has_more_data = True
-        self.active_filters = {}
+
+        # Capture the text
         self.current_search_term = self.ui.search_input.text().strip()
 
-        self.ui.filter_btn.setText("Filter Options")
-        self.ui.filter_btn.setStyleSheet("")
+        # Note: We do NOT clear self.active_filters here anymore.
 
+        # Reset Table
         self.ui.data_table.setRowCount(0)
         self.fetch_and_display()
 
@@ -82,32 +91,31 @@ class ExtruderExcelRecords(QWidget):
                 self.reload_initial_data()
 
     def apply_advanced_filter(self, filters):
+        """
+        Called when applying from Dialog.
+        Update: Does NOT clear current_search_term.
+        """
         self.current_offset = 0
         self.has_more_data = True
-        self.current_search_term = ""
-        self.ui.search_input.clear()
+
+        # Capture the filters
         self.active_filters = filters
 
+        # Note: We do NOT clear self.current_search_term or self.ui.search_input here.
+
+        # Update Button Style
         count = len(filters)
         self.ui.filter_btn.setText(f"Filters Active ({count})")
         self.ui.filter_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0d6efd; 
-                color: white; 
-                border: 1px solid #0d6efd;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0b5ed7;
-            }
+            QPushButton { background-color: #0d6efd; color: white; border: 1px solid #0d6efd; font-weight: bold; }
+            QPushButton:hover { background-color: #0b5ed7; }
         """)
 
         self.ui.data_table.setRowCount(0)
         self.fetch_and_display()
 
     def on_scroll(self, value):
-        if self.is_loading or not self.has_more_data:
-            return
+        if self.is_loading or not self.has_more_data: return
         if value == self.ui.data_table.verticalScrollBar().maximum():
             self.load_next_batch()
 
@@ -116,21 +124,28 @@ class ExtruderExcelRecords(QWidget):
         self.fetch_and_display()
 
     def fetch_and_display(self):
+        """
+        Single source of truth for fetching data.
+        Combines active_filters and current_search_term.
+        """
         self.is_loading = True
 
         with self.Session() as session:
             try:
-                if self.active_filters:
-                    records = self.ops.fetch_filtered_records(
-                        session, self.active_filters, self.BATCH_SIZE, self.current_offset
-                    )
-                elif self.current_search_term:
-                    records = self.ops.search_records(
-                        session, self.current_search_term, self.BATCH_SIZE, self.current_offset
-                    )
+                # We always use fetch_filtered_records now, passing both states.
+                # If both are empty/None, the Ops logic handles it gracefully (or you can check here).
+
+                if not self.active_filters and not self.current_search_term:
+                    # Pure default load
+                    records = self.ops.fetch_records(session, self.BATCH_SIZE, self.current_offset)
                 else:
-                    records = self.ops.fetch_records(
-                        session, self.BATCH_SIZE, self.current_offset
+                    # Combined load
+                    records = self.ops.fetch_filtered_records(
+                        session,
+                        self.active_filters,
+                        self.current_search_term,
+                        self.BATCH_SIZE,
+                        self.current_offset
                     )
 
                 if len(records) < self.BATCH_SIZE:
@@ -154,44 +169,52 @@ class ExtruderExcelRecords(QWidget):
         for i, rec in enumerate(records):
             row = start_row + i
 
+            # Helper for standard text items
             def item(val):
                 txt = str(val) if val is not None else ""
                 it = QTableWidgetItem(txt)
                 it.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
                 return it
 
-            self.ui.data_table.setItem(row, 0, item(rec.id))
-            self.ui.data_table.setItem(row, 1, item(rec.date))
-            self.ui.data_table.setItem(row, 2, item(rec.code))
+            # 1. Standard Columns
+            self.ui.data_table.setItem(row, 0, item(rec.process_id))
+            self.ui.data_table.setItem(row, 1, item(rec.encoded_on))
+            self.ui.data_table.setItem(row, 2, item(rec.product_code))
             self.ui.data_table.setItem(row, 3, item(rec.customer))
-            self.ui.data_table.setItem(row, 4, item(rec.machine_no))
-            self.ui.data_table.setItem(row, 5, item(rec.lot_number))
-            self.ui.data_table.setItem(row, 6, item(rec.qty_input))
-            self.ui.data_table.setItem(row, 7, item(rec.qty_output))
-            self.ui.data_table.setItem(row, 8, item(rec.output_per_hour))
-            self.ui.data_table.setItem(row, 9, item(rec.screw_config))
-            self.ui.data_table.setItem(row, 10, item(rec.rpm))
-            self.ui.data_table.setItem(row, 11, item(rec.resin_used))
+            self.ui.data_table.setItem(row, 4, item(rec.machine))
 
-            # --- REMARKS LOGIC (Column 12) ---
+            # Lot Number Handling
+            lot_val = ""
+            if rec.lot_number and isinstance(rec.lot_number, list):
+                lot_val = ", ".join([str(l) for l in rec.lot_number if l])
+            self.ui.data_table.setItem(row, 5, item(lot_val))
+
+            self.ui.data_table.setItem(row, 6, item(rec.qty_order))
+            self.ui.data_table.setItem(row, 7, item(rec.total_output))
+            self.ui.data_table.setItem(row, 8, item(rec.output_percent))
+
+            # 2. REMARKS COLUMN LOGIC (Column 9)
             remarks_content = rec.remarks
+
             if remarks_content and str(remarks_content).strip():
-                # Case A: Has Content -> "View remarks" Button
+                # Case A: Has Remarks -> Link Button
+
+                # Container widget to center/align the button if needed (optional, button direct is fine too)
                 container = QWidget()
                 layout = QHBoxLayout(container)
                 layout.setContentsMargins(5, 0, 5, 0)
                 layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-                # Static Text as requested
                 view_btn = QPushButton("View remarks")
+                view_btn.setObjectName("RemarksButton")
                 view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                view_btn.setStyleSheet(ExtruderExcelRecordsUI.LINK_BUTTON_STYLE)
 
-                # Connect click to open dialog with full text
-                view_btn.clicked.connect(lambda checked, r=str(remarks_content): self.open_remarks_dialog(r))
+                # Connect click using a closure to capture specific text
+                # We use default arg r=remarks_content to capture the value at this iteration
+                view_btn.clicked.connect(lambda checked, r=remarks_content: self.open_remarks_dialog(r))
 
                 layout.addWidget(view_btn)
-                self.ui.data_table.setCellWidget(row, 12, container)
+                self.ui.data_table.setCellWidget(row, 9, container)
 
             else:
                 # Case B: Empty -> Italic "No Remarks"
@@ -199,9 +222,9 @@ class ExtruderExcelRecords(QWidget):
                 font = QFont()
                 font.setItalic(True)
                 no_rem_item.setFont(font)
-                no_rem_item.setForeground(QColor("#adb5bd"))
+                no_rem_item.setForeground(QColor("#adb5bd"))  # Gray color
                 no_rem_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-                self.ui.data_table.setItem(row, 12, no_rem_item)
+                self.ui.data_table.setItem(row, 9, no_rem_item)
 
         self.ui.data_table.setSortingEnabled(True)
 
