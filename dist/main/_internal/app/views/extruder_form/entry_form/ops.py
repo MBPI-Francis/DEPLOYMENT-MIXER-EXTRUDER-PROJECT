@@ -237,6 +237,7 @@ class ExtruderOpsController:
             ).order_by(TblProd02.T_SEQ).all()
             return [{"mat_code": r.T_MATCODE, "qty": r.T_WT} for r in records]
 
+
     def get_details_for_lot(self, lot_number: str) -> Dict | None:
         # This method remains correct and unchanged
         if not lot_number: return None

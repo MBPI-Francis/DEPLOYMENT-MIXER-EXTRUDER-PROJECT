@@ -85,15 +85,54 @@ class BulkExportWorker(QThread):
             exporter.generate_single_report(record, file_path)
         self.progress.emit(100, "Finalizing...")
 
+    # # --- THIS IS THE CORRECTED METHOD ---
+    # def _export_to_separate_sheets(self, exporter, total):
+    #     # 1. Load the template workbook. This will become our output file.
+    #     output_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
+    #
+    #     # 2. Get the first sheet, which is our template.
+    #     template_sheet = output_wb.active
+    #
+    #     is_first_record = True
+    #     for i, record_id in enumerate(self.record_ids):
+    #         if not self._is_running: return
+    #         record = self.ops.get_full_record_by_id(record_id)
+    #         if not record: continue
+    #
+    #         self.progress.emit(int((i / total) * 100), f"Processing {record.ref_no} ({i + 1}/{total})...")
+    #
+    #         current_sheet = None
+    #         if is_first_record:
+    #             # For the first record, use the sheet that's already in the workbook.
+    #             current_sheet = template_sheet
+    #             is_first_record = False
+    #         else:
+    #             # For all other records, create a copy of the original template sheet.
+    #             current_sheet = output_wb.copy_worksheet(template_sheet)
+    #
+    #         # Set the title for the current sheet
+    #         sheet_title = f"Ref {record.ref_no}".replace('/', '_').replace('\\', '_')[:31]
+    #         current_sheet.title = sheet_title
+    #
+    #         # Populate the data onto this sheet
+    #
+    #         exporter.populate_sheet(current_sheet, record, overwrite_formulas=False)
+    #
+    #     self.progress.emit(100, "Saving file...")
+    #     output_wb.save(self.output_path)
+    #
+    # # --- END CORRECTION ---
+
     # --- THIS IS THE CORRECTED METHOD ---
     def _export_to_separate_sheets(self, exporter, total):
-        # 1. Load the template workbook. This will become our output file.
-        output_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
+        # 1. Load the pristine template once to use as a read-only source.
+        template_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
+        template_sheet = template_wb.active
 
-        # 2. Get the first sheet, which is our template.
-        template_sheet = output_wb.active
+        # 2. Create the final output workbook from scratch.
+        output_wb = openpyxl.Workbook()
+        output_wb.remove(output_wb.active) # remove default sheet
 
-        is_first_record = True
         for i, record_id in enumerate(self.record_ids):
             if not self._is_running: return
             record = self.ops.get_full_record_by_id(record_id)
@@ -101,26 +140,39 @@ class BulkExportWorker(QThread):
 
             self.progress.emit(int((i / total) * 100), f"Processing {record.ref_no} ({i + 1}/{total})...")
 
-            current_sheet = None
-            if is_first_record:
-                # For the first record, use the sheet that's already in the workbook.
-                current_sheet = template_sheet
-                is_first_record = False
-            else:
-                # For all other records, create a copy of the original template sheet.
-                current_sheet = output_wb.copy_worksheet(template_sheet)
-
-            # Set the title for the current sheet
+            # 3. Create a new, blank sheet in the output workbook for this record.
             sheet_title = f"Ref {record.ref_no}".replace('/', '_').replace('\\', '_')[:31]
-            current_sheet.title = sheet_title
+            new_sheet = output_wb.create_sheet(title=sheet_title)
 
-            # Populate the data onto this sheet
+            # 4. Manually build a perfect copy of the template's structure onto the new sheet.
+            # This ensures no data is ever carried over from a previous record.
+            for col_letter in [get_column_letter(c) for c in range(1, template_sheet.max_column + 1)]:
+                new_sheet.column_dimensions[col_letter].width = template_sheet.column_dimensions[col_letter].width
+            for row_idx, dim in template_sheet.row_dimensions.items():
+                if dim.height is not None:
+                    new_sheet.row_dimensions[row_idx].height = dim.height
 
-            exporter.populate_sheet(current_sheet, record, overwrite_formulas=False)
+            for row in template_sheet.iter_rows():
+                for cell in row:
+                    new_cell = new_sheet.cell(row=cell.row, column=cell.column)
+                    new_cell.value = cell.value # Copy static labels
+                    if cell.has_style:
+                        new_cell.font = cell.font.copy()
+                        new_cell.border = cell.border.copy()
+                        new_cell.fill = cell.fill.copy()
+                        new_cell.number_format = cell.number_format
+                        new_cell.protection = cell.protection.copy()
+                        new_cell.alignment = cell.alignment.copy()
+
+            for mc_range in template_sheet.merged_cells.ranges:
+                new_sheet.merge_cells(str(mc_range))
+
+            # 5. Now that we have a guaranteed clean sheet, populate it.
+            # We keep the template's formulas, so `overwrite_formulas` is False.
+            exporter.populate_sheet(new_sheet, record, overwrite_formulas=False)
 
         self.progress.emit(100, "Saving file...")
         output_wb.save(self.output_path)
-
     # --- END CORRECTION ---
 
     def _export_to_single_sheet(self, exporter, total):
@@ -199,6 +251,8 @@ class ExportWorker(QThread):
         except Exception as e:
             # Send the full traceback for detailed error reporting
             self.error.emit(f"An error occurred during export:\n\n{traceback.format_exc()}")
+
+
 class ExtruderRecordsView(QWidget):
     data_changed = pyqtSignal()
 

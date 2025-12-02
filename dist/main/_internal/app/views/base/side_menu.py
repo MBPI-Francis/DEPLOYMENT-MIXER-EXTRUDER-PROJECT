@@ -9,6 +9,7 @@ class SideMenu:
     """
     def __init__(self):
         # We will store references to the buttons here so we can connect them later.
+        self.btn_extruder_old_rec = None
         self.btn_extruder_config = None
         self.btn_mixer_old_record = None
         self.btn_mixer_machine = None
@@ -64,6 +65,9 @@ class SideMenu:
         self.btn_extruder_form = self._create_menu_button("Extruder Form", "fa5s.file-alt")
         layout.addWidget(self.btn_extruder_form)
 
+        self.btn_extruder_old_rec = self._create_menu_button("Extruder Old Records", "fa5s.file-alt")
+        layout.addWidget(self.btn_extruder_old_rec)
+
         self.btn_extruder_report = self._create_menu_button("Extruder Report", "fa5s.chart-pie")
         # layout.addWidget(self.btn_extruder_report)
 
@@ -98,4 +102,5 @@ class SideMenu:
         # self.btn_mixer_report.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(3))
         self.btn_extruder_config.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(3))
         self.btn_extruder_form.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(4))
-        self.btn_extruder_report.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(5))
+        self.btn_extruder_old_rec.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(5))
+        self.btn_extruder_report.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(6))

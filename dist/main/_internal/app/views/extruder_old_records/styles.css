@@ -1,0 +1,308 @@
+/* ============================================================ */
+/*    EXTRUDER OLD RECORDS MODULE STYLES                        */
+/* ============================================================ */
+
+/* --- Main Tab Container (ExtruderOldRecordsView) --- */
+/* These styles replace the inline stylesheet originally in main_view.py */
+
+QTabWidget::pane {
+    background: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    top: -1px; /* Overlap the tab bar bottom border for a seamless look */
+}
+
+QTabBar::tab {
+    background: transparent;
+    min-width: 150px;
+    padding: 10px 15px;
+    font-weight: bold;
+    color: #6c757d;
+    font-size: 11pt;
+    border-bottom: 3px solid transparent;
+    margin-right: 5px;
+}
+
+QTabBar::tab:selected {
+    color: #2c3e50;
+    border-bottom: 3px solid #2c3e50; /* Active tab indicator */
+}
+
+QTabBar::tab:!selected:hover {
+    color: #495057;
+    border-bottom: 3px solid #dee2e6; /* Hover effect */
+}
+
+/* --- Vertical Scrollbar (Your Existing Style) --- */
+QTableWidget QScrollBar:vertical {
+    border: none;
+    background: #f1f3f5; /* Track color */
+    width: 8px;          /* Width of the vertical scrollbar */
+    margin: 0px 0px 0px 0px;
+}
+
+QTableWidget QScrollBar::handle:vertical {
+    background: #adb5bd; /* Handle color */
+    min-height: 20px;    /* Minimum handle height */
+    border-radius: 4px;
+}
+
+QTableWidget QScrollBar::handle:vertical:hover {
+    background: #868e96; /* Handle color on hover */
+}
+
+QTableWidget QScrollBar::add-line:vertical,
+QTableWidget QScrollBar::sub-line:vertical {
+    height: 0;           /* Hide the arrow buttons */
+    background: none;
+}
+
+
+/* --- Horizontal Scrollbar (New Matching Style) --- */
+QTableWidget QScrollBar:horizontal {
+    border: none;
+    background: #f1f3f5; /* Track color */
+    height: 8px;         /* Height of the horizontal scrollbar */
+    margin: 0px 0px 0px 0px;
+}
+
+QTableWidget QScrollBar::handle:horizontal {
+    background: #adb5bd; /* Handle color */
+    min-width: 20px;     /* Minimum handle width */
+    border-radius: 4px;
+}
+
+QTableWidget QScrollBar::handle:horizontal:hover {
+    background: #868e96; /* Handle color on hover */
+}
+
+QTableWidget QScrollBar::add-line:horizontal,
+QTableWidget QScrollBar::sub-line:horizontal {
+    width: 0;            /* Hide the arrow buttons */
+    background: none;
+}
+
+/* --- Common rules to make the track area behind the handle transparent --- */
+QTableWidget QScrollBar::add-page, QTableWidget QScrollBar::sub-page {
+    background: none;
+}
+
+/* --- Module Header --- */
+QLabel#header_label {
+    font-size: 22px;
+    font-weight: 700; /* Bold */
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+/* --- Action Buttons (Refresh, etc.) --- */
+QPushButton#ActionButton {
+    background-color: #ffffff;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 10pt;
+    font-weight: 600;
+    color: #495057;
+    min-width: 100px;
+}
+
+QPushButton#ActionButton:hover {
+    background-color: #f8f9fa;
+    border-color: #adb5bd;
+    color: #212529;
+}
+
+QPushButton#ActionButton:pressed {
+    background-color: #e2e6ea;
+    border-color: #dae0e5;
+}
+
+/* --- Search Input Specifics --- */
+QLineEdit {
+    padding: 6px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #fff;
+    font-size: 10pt;
+}
+
+QLineEdit:focus {
+    border: 1px solid #80bdff;
+}
+
+/* --- Table Widget Customization --- */
+/* Ensures the table looks clean within this specific module */
+QTableWidget {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    gridline-color: #f1f3f5;
+    selection-background-color: #e7f5ff; /* Light blue selection */
+    selection-color: #1864ab;            /* Dark blue text on selection */
+}
+
+QHeaderView::section {
+    background-color: #f8f9fa;
+    color: #495057;
+    padding: 8px 12px;
+    border: none;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: bold;
+    font-size: 10pt;
+ }
+
+         QTabWidget::pane {
+            background: white;
+            border-radius: 8px;
+        }
+        QTabBar::tab {
+            background: transparent;
+            min-width: 120px;
+            padding: 8px;
+            font-weight: bold;
+            color: #555;
+            font-size: 16px;
+        }
+        QTabBar::tab:selected {
+            color: #2c3e50;
+            border-bottom: 2px solid #2c3e50;
+        }
+        QTabBar::tab:!selected:hover {
+            color: #2c3e50;
+            border-bottom: 2px solid #2c3e50;
+        }
+
+        /* Add this to your style.css file */
+
+        QScrollArea#scroll_area {
+            border: none;
+            background-color: transparent;
+        }
+
+        QWidget#scroll_content_widget {
+            background-color: #ffffff;
+        }
+
+        /* === SCROLLBARS & MENUS (Unchanged) === */
+        QScrollBar:vertical {
+            border: none; background: #f1f3f5; width: 8px; margin: 0px;
+        }
+        QScrollBar::handle:vertical {
+            background: #adb5bd; min-height: 20px; border-radius: 4px;
+        }
+        QScrollBar::handle:vertical:hover { background: #868e96; }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            height: 0; background: none;
+        }
+
+       QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 25px;
+    border-left-width: 1px;
+    border-left-color: #ced4da;
+    border-left-style: solid;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #f8f9fa, stop: 1 #e9ecef);
+}
+QComboBox::down-arrow {
+    image: url(app/widgets/widget_icons/chevron-down.svg);
+    width: 12px;
+    height: 12px;
+}
+QComboBox::down-arrow:on { top: 1px; }
+QComboBox QAbstractItemView {
+    background-color: white;
+    color: black;
+    selection-background-color: #007bff;
+    selection-color: white;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 14px;
+    padding: 5px;
+}
+
+
+QLineEdit:hover,
+QDateEdit:hover,
+QTimeEdit:hover,
+QComboBox:hover,
+QLineEdit:focus,
+QDateEdit:focus,
+QComboBox:focus {
+    background-color: #e7f1ff;
+    border: 1px solid #80bdff;
+}
+
+ QDialog {
+            background-color: #ffffff;
+        }
+        QLabel {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+        QLineEdit, QComboBox {
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 14px;
+            background-color: #ffffff;
+            min-height: 20px;
+        }
+
+
+        /* ComboBox Dropdown Styling */
+        QComboBox QAbstractItemView {
+            background-color: #ffffff;
+            border: 1px solid #ced4da;
+            selection-background-color: #e7f5ff;
+            selection-color: #000000;
+            outline: none;
+            padding: 5px;
+        }
+
+        /* Buttons */
+        QPushButton {
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        QPushButton#EditDialogCancelButton {
+            background-color: #ffffff;
+            color: #495057;
+            border: 1px solid #ced4da;
+        }
+        QPushButton#EditDialogCancelButton:hover {
+            background-color: #f1f3f5;
+        }
+        QPushButton#PrimaryDialogButton {
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+        }
+        QPushButton#PrimaryDialogButton:hover {
+            background-color: #0b5ed7;
+        }
+
+
+        /* REMARKS BUTTON */
+
+         #RemarksButton {
+            background-color: transparent;
+            border: none;
+            color: #0d6efd; /* Bootstrap Primary Blue */
+            text-align: left;
+            font-size: 13px;
+            padding: 0px;
+        }
+         #RemarksButton:hover {
+            text-decoration: underline;
+            color: #0a58ca;
+        }
+         #RemarksButton:pressed {
+            color: #0a58ca;
+        }
