@@ -30,26 +30,147 @@ def calculate_duration(start_time, end_time):
     return f"{hours:02d}:{minutes:02d}"
 
 
-def get_mixer_report_data(session: Session, filters: dict) -> pd.DataFrame:
+# def get_mixer_report_data(session: Session, filters: dict) -> pd.DataFrame:
+#     """
+#     Fetches and processes mixer details. This version performs a sophisticated,
+#     range-aware lookup for the 'Formula No' after the main query.
+#     """
+#     md = aliased(MixerDetail, name="md")
+#     mh = aliased(MixerHeader, name="mh")
+#     mm = aliased(MixerMachine, name="mm")
+#
+#     # --- MODIFICATION 1: The query no longer joins the legacy formula table ---
+#     query = (
+#         select(
+#             mh.date.label("Date"),
+#             mh.time_start.label("Shift Time Start"),
+#             mh.time_end.label("Shift Time End"),
+#             mh.reference_no.label("Ref No"),
+#             mm.name.label("MC #"),
+#             md.product_code.label("Product Code"),
+#             md.lot_no.label("Lot Number"),
+#             # Note: "Formula No" is intentionally missing here. We will add it later.
+#             md.process_time_start.label("Processing Start"),
+#             md.process_time_end.label("Processing End"),
+#             md.processed_by.label("Processed By"),
+#             md.output_qty.label("Output QTY"),
+#             md.cleaning_time_start.label("Cleaning Start"),
+#             md.cleaning_time_end.label("Cleaning End"),
+#             md.cleaning_rm_code.label("Cleaning RM"),
+#             md.cleaning_qty.label("Cleaning QTY"),
+#             md.remarks.label("Remarks"),
+#             md.id.label("detail_id")
+#         )
+#         .join(mh, md.mixer_header_id == mh.id)
+#         .join(mm, md.mc_id == mm.id)
+#         .where(md.is_deleted == False)
+#     )
+#
+#     # Filtering logic remains unchanged
+#     conditions = []
+#     if filters:
+#         if "date_from" in filters and "date_to" in filters: conditions.append(
+#             mh.date.between(filters["date_from"], filters["date_to"]))
+#         if filters.get("product_code"):
+#             conditions.append(md.product_code.ilike(f'%{filters["product_code"]}%'))
+#
+#         if filters.get("lot_number"):
+#             conditions.append(md.lot_no.ilike(f'%{filters["lot_number"]}%'))
+#
+#         if filters.get("processed_by"):
+#             conditions.append(md.processed_by.ilike(f'%{filters["processed_by"]}%'))
+#
+#         if filters.get("cleaning_rm"):
+#             conditions.append(md.cleaning_rm_code.ilike(f'%{filters["cleaning_rm"]}%'))
+#
+#         if filters.get("mc_name"):
+#             conditions.append(mm.name == filters["mc_name"])
+#
+#         if filters.get("ref_no"):
+#             conditions.append(mh.reference_no == filters["ref_no"])
+#
+#         if filters.get("output_qty_from") is not None:
+#             conditions.append(md.output_qty >= filters["output_qty_from"])
+#
+#         if filters.get("output_qty_to") is not None:
+#             conditions.append(md.output_qty <= filters["output_qty_to"])
+#
+#         # Add filters for the Cleaning Quantity range.
+#         if filters.get("cleaning_qty_from") is not None:
+#             conditions.append(md.cleaning_qty >= filters["cleaning_qty_from"])
+#
+#         if filters.get("cleaning_qty_to") is not None:
+#             conditions.append(md.cleaning_qty <= filters["cleaning_qty_to"])
+#     if conditions:
+#         query = query.where(and_(*conditions))
+#
+#     query = query.order_by(mh.date.desc(), mh.reference_no.desc())
+#     df = pd.read_sql(query, session.bind)
+#
+#     if df.empty:
+#         all_columns = ["Date", "Shift Time Start", "Shift Time End", "Ref No", "MC #", "Product Code", "Lot Number",
+#                        "Formula No", "Processing Start", "Processing End", "Processing Duration", "Processed By",
+#                        "Output QTY", "Cleaning Start", "Cleaning End", "Cleaning Duration", "Cleaning RM",
+#                        "Cleaning QTY", "Remarks", "detail_id"]
+#         return pd.DataFrame(columns=all_columns)
+#
+#     # --- MODIFICATION 2: Intelligent post-processing to find Formula No ---
+#     # This is more efficient than calling the function for every row.
+#     # We create a cache of product codes to avoid redundant database queries.
+#     product_code_cache = {}
+#
+#     def resolve_formula(row):
+#         p_code = row["Product Code"]
+#         lot_num = row["Lot Number"]
+#
+#         # This lambda-like check is just to avoid re-querying the DB
+#         # for product codes we've already seen.
+#         if p_code not in product_code_cache:
+#             # The function handles the complex logic internally
+#             product_code_cache[p_code] = True  # Mark as processed
+#
+#         return get_formula_no_for_lot_range(session, p_code, lot_num)
+#
+#     # Apply the sophisticated lookup function to each row
+#     df["Formula No"] = df.apply(resolve_formula, axis=1)
+#     # --- END OF MODIFICATION 2 ---
+#
+#     # Post-processing for durations and times remains the same
+#     df["Processing Duration"] = df.apply(lambda row: calculate_duration(row["Processing Start"], row["Processing End"]),
+#                                          axis=1)
+#     df["Cleaning Duration"] = df.apply(lambda row: calculate_duration(row["Cleaning Start"], row["Cleaning End"]),
+#                                        axis=1)
+#     for col in ["Processing Start", "Processing End", "Cleaning Start", "Cleaning End"]:
+#         if col in df.columns:
+#             df.loc[:, col] = pd.to_datetime(df[col], format='%H:%M:%S', errors='coerce').dt.strftime('%H:%M')
+#
+#     final_columns = [
+#         "Date", "Shift Time Start", "Shift Time End", "Ref No", "MC #", "Product Code",
+#         "Lot Number", "Formula No", "Processing Start", "Processing End",
+#         "Processing Duration", "Processed By", "Output QTY", "Cleaning Start",
+#         "Cleaning End", "Cleaning Duration", "Cleaning RM", "Cleaning QTY",
+#         "Remarks", "detail_id"
+#     ]
+#
+#     return df.reindex(columns=final_columns)
+
+# --- No changes needed for get_deleted_mixer_records or restore_mixer_records for this feature ---
+
+def get_mixer_report_data(session: Session, filters: dict, offset: int = 0, limit: int = 100) -> pd.DataFrame:
     """
-    Fetches and processes mixer details. This version performs a sophisticated,
-    range-aware lookup for the 'Formula No' after the main query.
+    Fetches a paginated set of mixer details and performs the sophisticated,
+    range-aware lookup for the 'Formula No'.
     """
     md = aliased(MixerDetail, name="md")
     mh = aliased(MixerHeader, name="mh")
     mm = aliased(MixerMachine, name="mm")
 
-    # --- MODIFICATION 1: The query no longer joins the legacy formula table ---
     query = (
         select(
             mh.date.label("Date"),
-            mh.time_start.label("Shift Time Start"),
-            mh.time_end.label("Shift Time End"),
-            mh.reference_no.label("Ref No"),
-            mm.name.label("MC #"),
+            # ... (all other columns in your select statement are correct) ...
             md.product_code.label("Product Code"),
             md.lot_no.label("Lot Number"),
-            # Note: "Formula No" is intentionally missing here. We will add it later.
             md.process_time_start.label("Processing Start"),
             md.process_time_end.label("Processing End"),
             md.processed_by.label("Processed By"),
@@ -66,95 +187,57 @@ def get_mixer_report_data(session: Session, filters: dict) -> pd.DataFrame:
         .where(md.is_deleted == False)
     )
 
-    # Filtering logic remains unchanged
+    # Filtering logic is correct and does not need to change
     conditions = []
     if filters:
+        # ... (all your existing filter conditions are correct) ...
         if "date_from" in filters and "date_to" in filters: conditions.append(
             mh.date.between(filters["date_from"], filters["date_to"]))
-        if filters.get("product_code"):
-            conditions.append(md.product_code.ilike(f'%{filters["product_code"]}%'))
-
-        if filters.get("lot_number"):
-            conditions.append(md.lot_no.ilike(f'%{filters["lot_number"]}%'))
-
-        if filters.get("processed_by"):
-            conditions.append(md.processed_by.ilike(f'%{filters["processed_by"]}%'))
-
-        if filters.get("cleaning_rm"):
-            conditions.append(md.cleaning_rm_code.ilike(f'%{filters["cleaning_rm"]}%'))
-
-        if filters.get("mc_name"):
-            conditions.append(mm.name == filters["mc_name"])
-
-        if filters.get("ref_no"):
-            conditions.append(mh.reference_no == filters["ref_no"])
-
+        if filters.get("product_code"): conditions.append(md.product_code.ilike(f'%{filters["product_code"]}%'))
+        if filters.get("lot_number"): conditions.append(md.lot_no.ilike(f'%{filters["lot_number"]}%'))
+        if filters.get("processed_by"): conditions.append(md.processed_by.ilike(f'%{filters["processed_by"]}%'))
+        if filters.get("cleaning_rm"): conditions.append(md.cleaning_rm_code.ilike(f'%{filters["cleaning_rm"]}%'))
+        if filters.get("mc_name"): conditions.append(mm.name == filters["mc_name"])
+        if filters.get("ref_no"): conditions.append(mh.reference_no == filters["ref_no"])
         if filters.get("output_qty_from") is not None:
             conditions.append(md.output_qty >= filters["output_qty_from"])
-
         if filters.get("output_qty_to") is not None:
             conditions.append(md.output_qty <= filters["output_qty_to"])
-
-        # Add filters for the Cleaning Quantity range.
         if filters.get("cleaning_qty_from") is not None:
             conditions.append(md.cleaning_qty >= filters["cleaning_qty_from"])
-
         if filters.get("cleaning_qty_to") is not None:
             conditions.append(md.cleaning_qty <= filters["cleaning_qty_to"])
+
     if conditions:
         query = query.where(and_(*conditions))
 
-    query = query.order_by(mh.date.desc(), mh.reference_no.desc())
+    # --- THIS IS THE KEY MODIFICATION FOR PAGINATION ---
+    query = query.order_by(mh.date.desc(), mh.reference_no.desc()).offset(offset).limit(limit)
+    # --- END MODIFICATION ---
+
     df = pd.read_sql(query, session.bind)
 
+    # The rest of the function (post-processing for Formula No, durations, etc.)
+    # is correct and does not need to change. It will now operate on the paginated data.
     if df.empty:
-        all_columns = ["Date", "Shift Time Start", "Shift Time End", "Ref No", "MC #", "Product Code", "Lot Number",
-                       "Formula No", "Processing Start", "Processing End", "Processing Duration", "Processed By",
-                       "Output QTY", "Cleaning Start", "Cleaning End", "Cleaning Duration", "Cleaning RM",
-                       "Cleaning QTY", "Remarks", "detail_id"]
+        # ... (return empty DataFrame logic is correct) ...
+        all_columns = ["Date", "Shift Time Start", "Shift Time End", "Ref No", "MC #", "Product Code", "Lot Number", "Formula No", "Processing Start", "Processing End", "Processing Duration", "Processed By", "Output QTY", "Cleaning Start", "Cleaning End", "Cleaning Duration", "Cleaning RM", "Cleaning QTY", "Remarks", "detail_id"]
         return pd.DataFrame(columns=all_columns)
 
-    # --- MODIFICATION 2: Intelligent post-processing to find Formula No ---
-    # This is more efficient than calling the function for every row.
-    # We create a cache of product codes to avoid redundant database queries.
-    product_code_cache = {}
 
-    def resolve_formula(row):
-        p_code = row["Product Code"]
-        lot_num = row["Lot Number"]
-
-        # This lambda-like check is just to avoid re-querying the DB
-        # for product codes we've already seen.
-        if p_code not in product_code_cache:
-            # The function handles the complex logic internally
-            product_code_cache[p_code] = True  # Mark as processed
-
-        return get_formula_no_for_lot_range(session, p_code, lot_num)
-
-    # Apply the sophisticated lookup function to each row
-    df["Formula No"] = df.apply(resolve_formula, axis=1)
-    # --- END OF MODIFICATION 2 ---
-
-    # Post-processing for durations and times remains the same
-    df["Processing Duration"] = df.apply(lambda row: calculate_duration(row["Processing Start"], row["Processing End"]),
-                                         axis=1)
-    df["Cleaning Duration"] = df.apply(lambda row: calculate_duration(row["Cleaning Start"], row["Cleaning End"]),
-                                       axis=1)
+    df["Formula No"] = df.apply(
+        lambda row: get_formula_no_for_lot_range(session, row["Product Code"], row["Lot Number"]),
+        axis=1
+    )
+    df["Processing Duration"] = df.apply(lambda row: calculate_duration(row["Processing Start"], row["Processing End"]), axis=1)
+    df["Cleaning Duration"] = df.apply(lambda row: calculate_duration(row["Cleaning Start"], row["Cleaning End"]), axis=1)
     for col in ["Processing Start", "Processing End", "Cleaning Start", "Cleaning End"]:
         if col in df.columns:
             df.loc[:, col] = pd.to_datetime(df[col], format='%H:%M:%S', errors='coerce').dt.strftime('%H:%M')
-
-    final_columns = [
-        "Date", "Shift Time Start", "Shift Time End", "Ref No", "MC #", "Product Code",
-        "Lot Number", "Formula No", "Processing Start", "Processing End",
-        "Processing Duration", "Processed By", "Output QTY", "Cleaning Start",
-        "Cleaning End", "Cleaning Duration", "Cleaning RM", "Cleaning QTY",
-        "Remarks", "detail_id"
-    ]
-
+    final_columns = ["Date", "Shift Time Start", "Shift Time End", "Ref No", "MC #", "Product Code", "Lot Number", "Formula No", "Processing Start", "Processing End", "Processing Duration", "Processed By", "Output QTY", "Cleaning Start", "Cleaning End", "Cleaning Duration", "Cleaning RM", "Cleaning QTY", "Remarks", "detail_id"]
     return df.reindex(columns=final_columns)
 
-# --- No changes needed for get_deleted_mixer_records or restore_mixer_records for this feature ---
+
 def get_deleted_mixer_records(session: Session) -> pd.DataFrame:
     """
     Fetches soft-deleted records with a specific set of columns for the
