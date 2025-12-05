@@ -485,6 +485,8 @@ class MixerRecordsView(QWidget):
         export_button = self.sender()
         menu_position = export_button.mapToGlobal(export_button.rect().bottomLeft())
         export_menu.exec(menu_position)
+
+
     def _handle_export_to_excel(self):
         visible_df = self._get_visible_data_as_dataframe()
         if visible_df.empty:
