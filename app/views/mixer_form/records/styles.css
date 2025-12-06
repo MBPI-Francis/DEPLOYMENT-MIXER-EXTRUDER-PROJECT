@@ -60,54 +60,6 @@ QTableWidget::item:hover {
     background-color: #e9ecef;
 }
 
-/* --- Modern Scrollbar --- */
-QTableWidget QScrollBar:vertical {
-    border: none;
-    background: #f1f3f5;
-    width: 8px;
-    margin: 0px 0px 0px 0px;
-}
-QTableWidget QScrollBar::handle:vertical {
-    background: #adb5bd;
-    min-height: 20px;
-    border-radius: 4px;
-}
-QTableWidget QScrollBar::handle:vertical:hover {
-    background: #868e96;
-}
-QTableWidget QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-    height: 0;
-    background: none;
-}
-
-/* --- Horizontal Scrollbar (New Matching Style) --- */
-QTableWidget QScrollBar:horizontal {
-    border: none;
-    background: #f1f3f5; /* Track color */
-    height: 8px;         /* Height of the horizontal scrollbar */
-    margin: 0px 0px 0px 0px;
-}
-
-QTableWidget QScrollBar::handle:horizontal {
-    background: #adb5bd; /* Handle color */
-    min-width: 20px;     /* Minimum handle width */
-    border-radius: 4px;
-}
-
-QTableWidget QScrollBar::handle:horizontal:hover {
-    background: #868e96; /* Handle color on hover */
-}
-
-QTableWidget QScrollBar::add-line:horizontal,
-QTableWidget QScrollBar::sub-line:horizontal {
-    width: 0;            /* Hide the arrow buttons */
-    background: none;
-}
-
-/* --- Common rules to make the track area behind the handle transparent --- */
-QTableWidget QScrollBar::add-page, QTableWidget QScrollBar::sub-page {
-    background: none;
-}
 
 /* --- NEW STYLES for Buttons and Dialogs --- */
 
@@ -566,4 +518,18 @@ QLabel#SummaryValueLabel {
     font-weight: bold;
     color: #2c3e50; /* A strong, dark blue for the values to make them stand out */
     padding-left: 5px;
+}
+
+QMenu {
+    background-color: #ffffff; border: 1px solid #ced4da;
+    border-radius: 6px; padding: 5px; color: #212529;
+}
+QMenu::item {
+    padding: 8px 25px; border-radius: 4px;
+}
+QMenu::item:selected {
+    background-color: #007bff; color: white;
+}
+QMenu::separator {
+    height: 1px; background: #e9ecef; margin: 5px 0px;
 }
