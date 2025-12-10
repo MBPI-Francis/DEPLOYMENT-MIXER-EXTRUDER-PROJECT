@@ -122,98 +122,37 @@ class BulkExportWorker(QThread):
         self.progress.emit(100, "Saving file...")
         output_wb.save(self.output_path)
 
-    # def _export_to_single_sheet(self, exporter, total):
-    #     output_wb = openpyxl.Workbook()
-    #     output_sheet = output_wb.active
-    #     output_sheet.title = "Bulk Report"
-    #
-    #     template_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
-    #     template_sheet = template_wb.active
-    #     for col_letter in [get_column_letter(i) for i in range(1, template_sheet.max_column + 1)]:
-    #         output_sheet.column_dimensions[col_letter].width = template_sheet.column_dimensions[col_letter].width
-    #
-    #     template_row_heights = {i: dim.height for i, dim in template_sheet.row_dimensions.items()}
-    #     default_row_height = template_sheet.sheet_format.defaultRowHeight
-    #
-    #     for i, record in enumerate(self.records):
-    #         if not self._is_running: return
-    #         self.progress.emit(int((i / total) * 100), f"Processing {record.ref_no} ({i + 1}/{total})...")
-    #
-    #         temp_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
-    #         temp_sheet = temp_wb.active
-    #
-    #         exporter.populate_sheet(temp_sheet, record, row_offset=0, overwrite_formulas=True)
-    #
-    #         row_offset = i * ExcelReportExporter.REPORT_TOTAL_ROWS
-    #         for row_idx in range(1, ExcelReportExporter.REPORT_TOTAL_ROWS + 2):
-    #             height = template_row_heights.get(row_idx, default_row_height)
-    #             if height is not None:
-    #                 output_sheet.row_dimensions[row_idx + row_offset].height = height
-    #
-    #         for row in temp_sheet.iter_rows():
-    #             for cell in row:
-    #                 new_cell = output_sheet.cell(row=cell.row + row_offset, column=cell.column)
-    #                 new_cell.value = cell.value
-    #                 if cell.has_style:
-    #                     new_cell.font = cell.font.copy()
-    #                     new_cell.border = cell.border.copy()
-    #                     new_cell.fill = cell.fill.copy()
-    #                     new_cell.number_format = cell.number_format
-    #                     new_cell.protection = cell.protection.copy()
-    #                     new_cell.alignment = cell.alignment.copy()
-    #
-    #         for mc_range in temp_sheet.merged_cells.ranges:
-    #             output_sheet.merge_cells(start_row=mc_range.min_row + row_offset, start_column=mc_range.min_col,
-    #                                      end_row=mc_range.max_row + row_offset, end_column=mc_range.max_col)
-    #
-    #     self.progress.emit(100, "Saving file...")
-    #     output_wb.save(self.output_path)
-
     def _export_to_single_sheet(self, exporter, total):
         output_wb = openpyxl.Workbook()
         output_sheet = output_wb.active
         output_sheet.title = "Bulk Report"
 
-        # Setup columns based on template
         template_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
         template_sheet = template_wb.active
         for col_letter in [get_column_letter(i) for i in range(1, template_sheet.max_column + 1)]:
             output_sheet.column_dimensions[col_letter].width = template_sheet.column_dimensions[col_letter].width
 
-        # We need to copy row heights carefully, but since heights vary per report,
-        # we will do it dynamically inside the loop.
-
-        current_write_row = 0
+        template_row_heights = {i: dim.height for i, dim in template_sheet.row_dimensions.items()}
+        default_row_height = template_sheet.sheet_format.defaultRowHeight
 
         for i, record in enumerate(self.records):
             if not self._is_running: return
             self.progress.emit(int((i / total) * 100), f"Processing {record.ref_no} ({i + 1}/{total})...")
 
-            # 1. Load a fresh temp template for this record
             temp_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
             temp_sheet = temp_wb.active
 
-            # 2. Populate it (offset 0). The exporter will insert rows into temp_sheet if needed.
-            # extra_rows = exporter.populate_sheet(temp_sheet, record, row_offset=0, overwrite_formulas=True)
-            # We don't strictly need the return value here because we just copy whatever the temp_sheet became.
             exporter.populate_sheet(temp_sheet, record, row_offset=0, overwrite_formulas=True)
 
-            # 3. Copy the (potentially expanded) temp_sheet to the main output_sheet
-            # We iterate over all rows in the temp sheet.
-            max_row_in_temp = temp_sheet.max_row
+            row_offset = i * ExcelReportExporter.REPORT_TOTAL_ROWS
+            for row_idx in range(1, ExcelReportExporter.REPORT_TOTAL_ROWS + 2):
+                height = template_row_heights.get(row_idx, default_row_height)
+                if height is not None:
+                    output_sheet.row_dimensions[row_idx + row_offset].height = height
 
-            # Copy row dimensions
-            for r in range(1, max_row_in_temp + 1):
-                # Row height
-                if r in temp_sheet.row_dimensions:
-                    dim = temp_sheet.row_dimensions[r]
-                    if dim.height is not None:
-                        output_sheet.row_dimensions[current_write_row + r].height = dim.height
-
-            # Copy cells
             for row in temp_sheet.iter_rows():
                 for cell in row:
-                    new_cell = output_sheet.cell(row=cell.row + current_write_row, column=cell.column)
+                    new_cell = output_sheet.cell(row=cell.row + row_offset, column=cell.column)
                     new_cell.value = cell.value
                     if cell.has_style:
                         new_cell.font = cell.font.copy()
@@ -223,22 +162,13 @@ class BulkExportWorker(QThread):
                         new_cell.protection = cell.protection.copy()
                         new_cell.alignment = cell.alignment.copy()
 
-            # Copy Merged Cells
             for mc_range in temp_sheet.merged_cells.ranges:
-                output_sheet.merge_cells(
-                    start_row=mc_range.min_row + current_write_row,
-                    start_column=mc_range.min_col,
-                    end_row=mc_range.max_row + current_write_row,
-                    end_column=mc_range.max_col
-                )
-
-            # 4. Update the write pointer for the next report
-            # We add max_row_in_temp to stack them immediately after one another.
-            # (Optionally add +1 if a gap is desired, but standard is usually continuous)
-            current_write_row += max_row_in_temp
+                output_sheet.merge_cells(start_row=mc_range.min_row + row_offset, start_column=mc_range.min_col,
+                                         end_row=mc_range.max_row + row_offset, end_column=mc_range.max_col)
 
         self.progress.emit(100, "Saving file...")
         output_wb.save(self.output_path)
+
 
 class ExtruderRecordsView(QWidget):
     data_changed = pyqtSignal()
