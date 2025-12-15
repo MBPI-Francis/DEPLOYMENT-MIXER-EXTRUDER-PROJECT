@@ -254,16 +254,31 @@ class ExtruderRecordViewDialog(QDialog):
         self.target_output_hr_label.setText(to_dec(getattr(record, 'target_output_per_hour', None)))
         self.shift_label.setText(to_str(getattr(record.shift, 'name', None)))
         self.mc_no_label.setText(to_str(getattr(record.machine, 'name', None)))
+
         if record.machine_details:
             self.feed_rate_label.setText(to_str(record.machine_details.feed_rate))
             self.rpm_label.setText(to_str(record.machine_details.rpm))
             self.screen_size_label.setText(to_str(getattr(record.machine_details.screen_size, 'size', None)))
             self.screw_config_label.setText(to_str(getattr(record.machine_details.screw_config, 'name', None)))
             self.vacuum_on_label.setText("Yes" if record.machine_details.is_vacuum_on else "No")
+
+
+        # for temp in record.machine_temps:
+        #     if temp.zone and temp.zone.name in self.zone_labels: self.zone_labels[temp.zone.name].setText(
+        #         to_str(temp.temp_value))
+
+        # --- THIS IS THE CORRECTED LOGIC ---
         for temp in record.machine_temps:
-            if temp.zone and temp.zone.name in self.zone_labels: self.zone_labels[temp.zone.name].setText(
-                to_str(temp.temp_value))
+            if temp.zone and temp.zone.name in self.zone_labels:
+                temp_value = temp.temp_value
+                # If the value is 0 or None, display a blank string. Otherwise, display the value.
+                # `if temp_value` correctly handles None, 0, and Decimal('0.00')
+                display_text = str(temp_value) if temp_value else ""
+                self.zone_labels[temp.zone.name].setText(display_text)
+        # --- END FIX ---
+
         self.output_log_table.setRowCount(0)
+
         for output in sorted(record.extruder_outputs, key=lambda x: (x.datetime_start is None, x.datetime_start)):
             row_pos = self.output_log_table.rowCount()
             self.output_log_table.insertRow(row_pos)
