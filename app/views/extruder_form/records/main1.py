@@ -357,56 +357,6 @@ class ExtruderRecordsView(QWidget):
             context_menu.addAction(delete_action)
         context_menu.exec(self.ui.table_widget.mapToGlobal(position))
 
-    # def _start_bulk_export(self):
-    #     if self.bulk_export_worker:
-    #         QMessageBox.warning(self, "Export in Progress", "A bulk export is already running.")
-    #         return
-    #     record_count = self.ui.table_widget.rowCount()
-    #     dialog = BulkExportDialog(record_count, self)
-    #     if dialog.exec() == QDialog.DialogCode.Accepted:
-    #         option = dialog.get_selected_option()
-    #
-    #         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-    #         try:
-    #             record_ids = [int(self.ui.table_widget.item(row, 0).text()) for row in range(record_count)]
-    #             records_to_sort = [self.ops.get_full_record_by_id(rid) for rid in record_ids]
-    #
-    #             def get_min_start_time(record):
-    #                 start_times = [out.datetime_start for out in record.extruder_outputs if out.datetime_start]
-    #                 return min(start_times) if start_times else datetime.max
-    #
-    #             sorted_records = sorted(
-    #                 records_to_sort,
-    #                 key=lambda r: (getattr(r.machine, 'name', ''), get_min_start_time(r))
-    #             )
-    #         finally:
-    #             QApplication.restoreOverrideCursor()
-    #
-    #         output_path = ""
-    #         if option == BulkExportDialog.SEPARATE_FILES:
-    #             output_path = QFileDialog.getExistingDirectory(self, "Select Folder to Save Reports")
-    #         else:
-    #             default_filename = f"Bulk_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"
-    #             output_path, _ = QFileDialog.getSaveFileName(self, "Save Bulk Report", default_filename,
-    #                                                          "Excel Files (*.xlsx)")
-    #
-    #         if not output_path:
-    #             return
-    #
-    #         self.progress = QProgressDialog("Starting bulk export...", "Cancel", 0, 100, self)
-    #         self.progress.setWindowTitle("Bulk Exporting")
-    #         self.progress.setWindowModality(Qt.WindowModality.WindowModal)
-    #
-    #         self.bulk_export_worker = BulkExportWorker(sorted_records, option, output_path, self.ops)
-    #         self.bulk_export_worker.progress.connect(self._update_bulk_progress)
-    #         self.bulk_export_worker.finished.connect(self._on_bulk_export_finished)
-    #         self.bulk_export_worker.error.connect(self._on_bulk_export_error)
-    #
-    #         self.progress.canceled.connect(self.bulk_export_worker.stop)
-    #         self.progress.show()
-    #
-    #         self.bulk_export_worker.start()
-
     def _start_bulk_export(self):
         if self.bulk_export_worker:
             QMessageBox.warning(self, "Export in Progress", "A bulk export is already running.")
@@ -432,18 +382,12 @@ class ExtruderRecordsView(QWidget):
             finally:
                 QApplication.restoreOverrideCursor()
 
-            # --- FIX: Default to Desktop Directory ---
-            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-
             output_path = ""
             if option == BulkExportDialog.SEPARATE_FILES:
-                # Ask for a Folder, defaulting to Desktop
-                output_path = QFileDialog.getExistingDirectory(self, "Select Folder to Save Reports", desktop_path)
+                output_path = QFileDialog.getExistingDirectory(self, "Select Folder to Save Reports")
             else:
-                # Ask for a File, defaulting to Desktop
                 default_filename = f"Bulk_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                default_full_path = os.path.join(desktop_path, default_filename)
-                output_path, _ = QFileDialog.getSaveFileName(self, "Save Bulk Report", default_full_path,
+                output_path, _ = QFileDialog.getSaveFileName(self, "Save Bulk Report", default_filename,
                                                              "Excel Files (*.xlsx)")
 
             if not output_path:
@@ -478,41 +422,6 @@ class ExtruderRecordsView(QWidget):
                     parent=self).exec()
         self.bulk_export_worker = None
 
-    # def _export_record_to_excel(self):
-    #     if self.bulk_export_worker:
-    #         QMessageBox.warning(self, "Export in Progress", "A bulk export is already running. Please wait.")
-    #         return
-    #     record_id, _ = self._get_selected_record_info()
-    #     if record_id is None: return
-    #     try:
-    #         record = self.ops.get_full_record_by_id(record_id)
-    #         if not record:
-    #             QMessageBox.warning(self, "Not Found", "Could not retrieve the full record details for export.")
-    #             return
-    #     except Exception:
-    #         ErrorDialog("Database Error", "Failed to fetch record data.", details=traceback.format_exc(),
-    #                     parent=self).exec()
-    #         return
-    #     default_filename = f"Extruder_Report_{record.ref_no}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-    #     file_path, _ = QFileDialog.getSaveFileName(self, "Save Excel Report", default_filename, "Excel Files (*.xlsx)")
-    #     if not file_path:
-    #         return
-    #     QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-    #     try:
-    #         exporter = ExcelReportExporter(self.ops)
-    #         exporter.generate_single_report(record, file_path)
-    #
-    #         reply = QMessageBox.information(self, "Export Successful",
-    #                                         f"Report successfully saved.\n\nDo you want to open the file?",
-    #                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-    #         if reply == QMessageBox.StandardButton.Yes:
-    #             os.startfile(file_path)
-    #     except Exception:
-    #         ErrorDialog("Export Error", "Failed to save the Excel file.", details=traceback.format_exc(),
-    #                     parent=self).exec()
-    #     finally:
-    #         QApplication.restoreOverrideCursor()
-
     def _export_record_to_excel(self):
         if self.bulk_export_worker:
             QMessageBox.warning(self, "Export in Progress", "A bulk export is already running. Please wait.")
@@ -528,16 +437,10 @@ class ExtruderRecordsView(QWidget):
             ErrorDialog("Database Error", "Failed to fetch record data.", details=traceback.format_exc(),
                         parent=self).exec()
             return
-
-        # --- FIX: Default to Desktop ---
-        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
         default_filename = f"Extruder_Report_{record.ref_no}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        default_full_path = os.path.join(desktop_path, default_filename)
-
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save Excel Report", default_full_path, "Excel Files (*.xlsx)")
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Excel Report", default_filename, "Excel Files (*.xlsx)")
         if not file_path:
             return
-
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             exporter = ExcelReportExporter(self.ops)
@@ -548,13 +451,7 @@ class ExtruderRecordsView(QWidget):
                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
                 os.startfile(file_path)
-
-        except PermissionError:
-            QApplication.restoreOverrideCursor()
-            QMessageBox.warning(self, "Permission Denied",
-                                "Unable to save the file.\n\nPlease ensure it is not open in Excel or another program.")
         except Exception:
-            QApplication.restoreOverrideCursor()
             ErrorDialog("Export Error", "Failed to save the Excel file.", details=traceback.format_exc(),
                         parent=self).exec()
         finally:

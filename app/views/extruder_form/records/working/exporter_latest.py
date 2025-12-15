@@ -16,10 +16,8 @@ class ExcelReportExporter:
     Handles populating the extruder report Excel template.
     Strictly follows the algorithm:
     1. Insert Data Rows.
-    2. Format New Data Rows (Styles).
+    2. Format New Data Rows (Merge A:C, D:E, I:J) + Remove Top Border for I:J.
     3. FORCE REPAIR Footer Merges (Last 7 Rows).
-    4. SEVER Footer/Data Boundaries (Prevent overlaps).
-    5. FINAL PASS: Force Data Merges (I:J) on all data rows.
     """
     TEMPLATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "extruder_report_format.xlsx")
 
@@ -52,6 +50,7 @@ class ExcelReportExporter:
             prod_ids = [pid.strip() for pid in record_object.production_id.split(';') if pid.strip()]
             if prod_ids:
                 raw_materials = self.controller.get_aggregated_materials_for_production_ids(prod_ids)
+                # Filter out blank names or zero/None quantities
                 valid_materials = [
                     (mat, qty) for mat, qty in raw_materials
                     if mat and str(mat).strip() and (qty or 0) > 0
@@ -105,7 +104,7 @@ class ExcelReportExporter:
                     merges_to_remove.append(merge_range)
             for m in merges_to_remove: sheet.merged_cells.remove(m)
 
-            # --- D. Format New Rows (Styles Only) ---
+            # --- D. Format New Rows ---
             for i in range(extra_rows):
                 target_row_idx = insert_pos + i
 
@@ -139,6 +138,12 @@ class ExcelReportExporter:
                         else:
                             target_cell.border = copy(source_cell.border)
 
+                # Merges
+                sheet.merge_cells(start_row=target_row_idx, start_column=1, end_row=target_row_idx, end_column=3)  # A-C
+                sheet.merge_cells(start_row=target_row_idx, start_column=4, end_row=target_row_idx, end_column=5)  # D-E
+                sheet.merge_cells(start_row=target_row_idx, start_column=9, end_row=target_row_idx,
+                                  end_column=10)  # I-J
+
             # --- E. Restore Bottom Border to the Last Data Row ---
             last_data_row = new_rows_end
             if saved_bottom_border_style:
@@ -160,23 +165,7 @@ class ExcelReportExporter:
         # 5. REPAIR FOOTER MERGES (7 Rows)
         self._repair_footer_merges(sheet, self.FOOTER_START_ROW + footer_offset)
 
-        # 6. SEVER DATA-FOOTER BOUNDARY
-        # Ensure no vertical merges cross from Data (last_row) into Footer (first_row)
-        self._sever_vertical_merges(sheet, current_data_end_row)
-
-        # 7. FINAL PASS: FORCE DATA MERGES
-        # We iterate through ALL data rows (start to end) and enforce the I:J merge.
-        # This fixes the "last 3 rows unmerged" issue.
-        data_start_abs = self.DATA_START_ROW + row_offset
-        for r in range(data_start_abs, current_data_end_row + 1):
-            # A:C
-            self._safe_merge(sheet, r, 1, r, 3)
-            # D:E
-            self._safe_merge(sheet, r, 4, r, 5)
-            # I:J
-            self._safe_merge(sheet, r, 9, r, 10)
-
-        # 8. Populate Data
+        # 6. Populate Data
         self._fill_header_info(sheet, record_object, row_offset)
         self._fill_summary_and_calculations(sheet, record_object, row_offset)
         self._fill_output_log(sheet, sorted_outputs, row_offset, footer_offset, overwrite_formulas,
@@ -185,26 +174,6 @@ class ExcelReportExporter:
                                       overwrite_formulas, current_data_end_row)
         self._fill_purging_info(sheet, record_object, footer_offset)
         self._fill_footer_info(sheet, record_object, footer_offset)
-
-    def _safe_merge(self, sheet, r1, c1, r2, c2):
-        """Helper to merge without crashing if already merged."""
-        try:
-            sheet.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
-        except:
-            pass  # Already merged or conflict, usually fine as we cleaned before
-
-    def _sever_vertical_merges(self, sheet, boundary_row):
-        """
-        Finds any merge that spans across `boundary_row` and `boundary_row + 1`.
-        Removes it to prevent Data rows merging into Footer rows.
-        """
-        merges_to_remove = []
-        for merge in sheet.merged_cells.ranges:
-            if merge.min_row <= boundary_row and merge.max_row > boundary_row:
-                merges_to_remove.append(merge)
-
-        for m in merges_to_remove:
-            sheet.merged_cells.remove(m)
 
     def _repair_footer_merges(self, sheet: Worksheet, footer_start_row: int):
         """
@@ -236,20 +205,19 @@ class ExcelReportExporter:
         # --- ROW 1 (Totals) ---
         force_merge_rect(r1, 1, r1, 5)  # A:E
 
-        # Clean I:J overlap on Row 1
+        # Clean I:J overlap if any
         overlaps_ij = []
         for merge in sheet.merged_cells.ranges:
-            if not (merge.max_col < 9 or merge.min_col > 10):
-                # Check vertical intersection with Row 1
-                if merge.min_row <= r1 <= merge.max_row:
+            if merge.min_row == r1 and merge.max_row == r1:
+                if not (merge.max_col < 9 or merge.min_col > 10):
                     overlaps_ij.append(merge)
         for m in overlaps_ij: sheet.merged_cells.remove(m)
 
-        # Clean M:N overlap on Row 1 (Fixing the merged Total Input issue)
+        # Explicitly Clean M:N overlap for Row 1 (Lot Totals)
         overlaps_mn = []
         for merge in sheet.merged_cells.ranges:
-            if not (merge.max_col < 13 or merge.min_col > 14):
-                if merge.min_row <= r1 <= merge.max_row:
+            if merge.min_row == r1 and merge.max_row == r1:
+                if not (merge.max_col < 13 or merge.min_col > 14):
                     overlaps_mn.append(merge)
         for m in overlaps_mn: sheet.merged_cells.remove(m)
 
@@ -342,7 +310,7 @@ class ExcelReportExporter:
         start_row = self.DATA_START_ROW + row_offset
         total_lot_qty_prod = 0.0
 
-        # Fill Materials
+        # Fill Materials (Formula Section)
         for i, (mat_code, total_qty) in enumerate(valid_materials):
             current_row = start_row + i
             mat_cell = sheet[f'I{current_row}']
@@ -352,12 +320,14 @@ class ExcelReportExporter:
             qty_cell = sheet[f'K{current_row}']
             qty_cell.value = float(total_qty or 0)
             qty_cell.alignment = Alignment(horizontal='right', vertical='center')
+            # --- FEATURE ADD: 7 Decimal Places for Formula Qty ---
             qty_cell.number_format = '#,##0.0000000'
 
         lot_quantities_map = {}
         if lot_numbers:
             lot_quantities_map = self.controller.get_produced_quantities_for_lots(lot_numbers)
 
+        # Fill Lots
         for i, lot in enumerate(lot_numbers):
             row = start_row + i
             sheet[f'M{row}'].value = lot
@@ -382,7 +352,10 @@ class ExcelReportExporter:
             total_input_cell.value = f"=SUM(K{data_start_idx}:K{current_data_end_row})"
             total_lot_qty_cell.value = f"=SUM(N{data_start_idx}:N{current_data_end_row})"
 
+        # --- FEATURE ADD: 7 Decimal Places for Total Formula Qty ---
         total_input_cell.number_format = '#,##0.00'
+        # total_input_cell.number_format = '#,##0.0000000'
+
         total_lot_qty_cell.number_format = '#,##0.00'
         total_lot_qty_cell.alignment = Alignment(horizontal='right', vertical='center')
 
@@ -409,19 +382,19 @@ class ExcelReportExporter:
             minutes, _ = divmod(rem, 60)
             sheet[f'E{27 + footer_offset}'].value = f"{int(hours):02d}:{int(minutes):02d}"
 
-        # Row 4 (B:E) - Resin Details
+        # Row 4 (B:E)
         resin_details_str = ", ".join(
             [f"{getattr(d.resin, 'abbreviation', 'N/A')} = {d.qty}" for d in header.purging_details])
         sheet[f'B{28 + footer_offset}'].value = resin_details_str
 
-        # Row 5 (B:D) - Resin Used Abbreviation
+        # Row 5 (B:D)
         resin_abbrev = getattr(header.resin_used, 'abbreviation', 'N/A')
         sheet[f'B{29 + footer_offset}'].value = resin_abbrev
 
-        # Row 6 (B:D) - Siever
+        # Row 6 (B:D)
         sheet[f'B{30 + footer_offset}'].value = header.siever_used
 
-        # Row 7 (B:D) - Palletizer
+        # Row 7 (B:D)
         sheet[f'B{31 + footer_offset}'].value = header.palletizer_used
 
     def _fill_footer_info(self, sheet, record, footer_offset):
