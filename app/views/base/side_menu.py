@@ -45,8 +45,8 @@ class SideMenu:
         self.btn_mixer_old_record = self._create_menu_button("Mixer Old Records", "fa5s.file-signature")
         layout.addWidget(self.btn_mixer_old_record)
 
-        # self.btn_mixer_report = self._create_menu_button("Mixer Report", "fa5s.chart-bar")
-        # layout.addWidget(self.btn_mixer_report)
+        self.btn_mixer_report = self._create_menu_button("Mixer Report", "fa5s.chart-bar")
+        layout.addWidget(self.btn_mixer_report)
         #
         # extruder_label = QLabel("EXTRUDER MODULES")
         # extruder_label.setObjectName("SectionHeader")
@@ -99,8 +99,10 @@ class SideMenu:
         self.btn_mixer_form.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(1))
         self.btn_mixer_old_record.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(2))
 
-        # self.btn_mixer_report.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(3))
+
         self.btn_extruder_config.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(3))
         self.btn_extruder_form.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(4))
         self.btn_extruder_old_rec.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(5))
         self.btn_extruder_report.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(6))
+
+        self.btn_mixer_report.clicked.connect(lambda: self.dashboard.stacked_widget.setCurrentIndex(7))

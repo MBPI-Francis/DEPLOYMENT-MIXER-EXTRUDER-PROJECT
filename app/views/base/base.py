@@ -25,6 +25,7 @@ from ..mixer_machine.main import MixerMachineMainView
 from ..extruder_config.main_view import ExtruderConfigView
 from app.features.sync_legacy_db import SyncController
 from ..mixer_old_records.main_view import MixerOldRecordsView
+from ..mixer_benchmark_report.view import MixerBenchmarkView
 
 
 class Base(QMainWindow):
@@ -113,11 +114,12 @@ class Base(QMainWindow):
         self.add_stack_page("Mixer Machines", MixerMachineMainView(session_factory=self.Session)) #Index 0
         self.add_stack_page("Mixer Form", MixerFormMainView(session_factory=self.Session)) #Index 1
         self.add_stack_page("Mixer Old Records", MixerOldRecordsView(session_factory=self.Session)) #Index 2
-        # self.add_stack_page("Mixer Report", MixerReportView(session_factory=self.Session))
+
         self.add_stack_page("Extruder Configurations", ExtruderConfigView(session_factory=self.Session)) #Index 3
         self.add_stack_page("Extruder Form", ExtruderFormView(session_factory=self.Session)) #Index 4
         self.add_stack_page("Extruder Old Records", ExtruderOldRecordsView(session_factory=self.Session)) #Index 5
         self.add_stack_page("Extruder Report", ExtruderReportView(session_factory=self.Session)) #Index 6
+        self.add_stack_page("Mixer Report", MixerBenchmarkView(session_factory=self.Session)) #Index 7
 
         self.stacked_widget.currentChanged.connect(self.on_page_changed)
         self.on_page_changed(0)

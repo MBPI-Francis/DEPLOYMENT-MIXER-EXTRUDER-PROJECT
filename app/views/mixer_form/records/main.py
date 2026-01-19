@@ -633,27 +633,6 @@ class MixerRecordsView(QWidget):
             self.live_search_worker = None
 
 
-    # def _get_visible_data_as_dataframe(self) -> pd.DataFrame:
-    #     visible_data = []
-    #     headers = [self.table.horizontalHeaderItem(i).text() for i in range(self.table.columnCount())]
-    #     for row in range(self.table.rowCount()):
-    #         if not self.table.isRowHidden(row):
-    #             row_data = {}
-    #             detail_id = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-    #             for col, header in enumerate(headers):
-    #                 if header == "Remarks":
-    #                     row_data[header] = self.full_data.loc[self.full_data['detail_id'] == detail_id, 'Remarks'].iloc[0]
-    #                 else:
-    #                     item = self.table.item(row, col)
-    #                     row_data[header] = item.text() if item else ""
-    #             visible_data.append(row_data)
-    #     df = pd.DataFrame(visible_data)
-    #     numeric_cols = {"Ref No": int, "Output QTY": float, "Cleaning QTY": float}
-    #     for col, col_type in numeric_cols.items():
-    #         if col in df.columns:
-    #             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(col_type)
-    #     return df
-
     def _get_visible_data_as_dataframe(self) -> pd.DataFrame:
         """
         --- THIS IS THE FIX ---
