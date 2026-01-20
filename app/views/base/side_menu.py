@@ -69,7 +69,7 @@ class SideMenu:
         layout.addWidget(self.btn_extruder_old_rec)
 
         self.btn_extruder_report = self._create_menu_button("Extruder Report", "fa5s.chart-pie")
-        # layout.addWidget(self.btn_extruder_report)
+        layout.addWidget(self.btn_extruder_report)
 
         layout.addStretch()
 
