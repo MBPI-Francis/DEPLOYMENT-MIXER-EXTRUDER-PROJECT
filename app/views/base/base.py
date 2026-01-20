@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 import qtawesome as qta
 
 from app.helpers import load_styles
-from app.views.extruder_report import ExtruderReportView
+from app.views.extruder_benchmark_report import ExtruderReportView
 from app.views.extruder_form import ExtruderFormView
 from app.views.mixer_report import MixerReportView
 from app.views.base.side_menu import SideMenu
