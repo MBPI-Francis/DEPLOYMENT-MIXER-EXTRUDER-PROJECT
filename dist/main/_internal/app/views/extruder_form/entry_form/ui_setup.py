@@ -141,7 +141,7 @@ class Ui_ExtruderEntryForm:
 
         lot_layout = QHBoxLayout()
         self.lot_number_input = QLineEdit()
-        self.lot_number_input.setReadOnly(True)
+        # self.lot_number_input.setReadOnly(True)
         self.lot_number_select_btn = QPushButton("Select...")
         lot_layout.addWidget(self.lot_number_input)
         lot_layout.addWidget(self.lot_number_select_btn)

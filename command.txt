@@ -1,0 +1,3 @@
+# This is the command to make the project .exe file using Pyinstaller:
+
+pyinstaller .\main.spec
