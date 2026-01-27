@@ -280,7 +280,7 @@ class Ui_ExtruderEntryForm:
 
         # self.purging_details_table = QTableWidget(0, 3)
         self.purging_details_table = TabAwareTableWidget(0, 3)
-        self.purging_details_table.setHorizontalHeaderLabels(["Resin","Qty (Kg.)", "Notes/Additives"])
+        self.purging_details_table.setHorizontalHeaderLabels(["Resin Purged/Used","Qty (Kg.)", "Notes/Additives"])
 
         self.purging_details_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.purging_details_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
