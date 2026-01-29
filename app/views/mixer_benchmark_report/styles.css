@@ -1,0 +1,116 @@
+/* --- GLOBAL RESET --- */
+QWidget {
+    background-color: #f0f2f5;
+    font-family: "Segoe UI", "Roboto", sans-serif;
+    font-size: 13px;
+    color: #333;
+}
+
+/* --- CARD CONTAINERS (GroupBox) --- */
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #dcdfe6;
+    border-radius: 10px;
+    margin-top: 1.2em; /* Space for title */
+    padding: 10px;
+}
+
+/* Title Styling */
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 15px;
+    padding: 0 5px;
+    color: #409eff; /* Blue title */
+    font-weight: 800;
+    font-size: 14px;
+    background-color: transparent;
+}
+
+/* --- INPUT FIELDS --- */
+QDateEdit, QComboBox, QLineEdit {
+    border: 1px solid #dcdfe6;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background-color: white;
+    min-height: 24px;
+}
+
+QDateEdit:focus, QComboBox:focus {
+    border: 1px solid #409eff;
+}
+
+QDateEdit::drop-down, QComboBox::drop-down {
+    border: none;
+    width: 25px;
+}
+
+/* --- BUTTONS --- */
+QPushButton {
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 700;
+    border: none;
+    color: white;
+}
+
+QPushButton#BtnRefresh { background-color: #409eff; }
+QPushButton#BtnRefresh:hover { background-color: #66b1ff; }
+
+QPushButton#BtnExport { background-color: #67c23a; }
+QPushButton#BtnExport:hover { background-color: #85ce61; }
+
+/* --- TABLE --- */
+QTreeWidget {
+    border: 1px solid #dcdfe6;
+    border-radius: 10px;
+    background-color: #ffffff;
+    alternate-background-color: #fafafa;
+    outline: none;
+}
+
+QTreeWidget::item {
+    height: 32px;
+    border-bottom: 1px solid #f2f6fc;
+}
+
+QTreeWidget::item:selected {
+    background-color: #ecf5ff;
+    color: #409eff;
+}
+
+QHeaderView::section {
+    background-color: #f5f7fa;
+    color: #606266;
+    font-weight: bold;
+    border: none;
+    border-bottom: 2px solid #e4e7ed;
+    padding: 8px;
+    text-transform: uppercase;
+}
+
+/* --- FOOTER STATS --- */
+QLabel#StatLabel {
+    color: #909399; /* Gray label */
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+QLabel#StatValue {
+    color: #303133; /* Dark Value */
+    font-size: 20px;
+    font-weight: 800;
+}
+
+/* --- LOADING BAR --- */
+QProgressBar {
+    border: none;
+    background: #e4e7ed;
+    border-radius: 2px;
+}
+QProgressBar::chunk {
+    background: #409eff;
+    border-radius: 2px;
+}

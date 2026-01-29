@@ -1,0 +1,130 @@
+WITH RECURSIVE
+-- 1. Explode Mixer Lots: Split "1001-1005; 2001" into separate rows
+mixer_exploded AS (
+    SELECT
+        d.id AS detail_id,
+        d.mixer_header_id,
+        d.product_code,
+        d.lot_no AS original_lot_str,
+        d.output_qty,
+        TRIM(unnest(string_to_array(d.lot_no, ';'))) AS segment_lot -- Split by semicolon
+    FROM tbl_mixer_details d
+    JOIN tbl_mixer_headers h ON d.mixer_header_id = h.id
+    WHERE d.is_deleted = false AND h.is_deleted = false
+),
+
+-- 2. Parse Mixer Ranges: Turn "1001AN-1005AN" into Start:1001, End:1005, Suffix:AN
+mixer_parsed AS (
+    SELECT
+        detail_id,
+        product_code,
+        original_lot_str,
+        output_qty,
+        segment_lot,
+        -- Extract Start Number
+        (regexp_matches(
+            CASE WHEN position('-' in segment_lot) > 0 THEN split_part(segment_lot, '-', 1) ELSE segment_lot END,
+            '^(\d+)'
+        ))[1]::INT AS mix_start,
+        -- Extract End Number
+        (regexp_matches(
+            CASE WHEN position('-' in segment_lot) > 0 THEN split_part(segment_lot, '-', 2) ELSE segment_lot END,
+            '^(\d+)'
+        ))[1]::INT AS mix_end,
+        -- Extract Suffix (Assumes suffix is at the end of the string)
+        (regexp_matches(segment_lot, '([A-Za-z]+)$'))[1] AS mix_suffix
+    FROM mixer_exploded
+),
+
+-- 3. Parse Prod01 Ranges: Turn "1001AN-1010AN" into Start:1001, End:1010, Suffix:AN
+prod_parsed AS (
+    SELECT
+        "T_PRODCODE" AS prod_code,
+        "T_LOTNUM" AS prod_lot_str,
+        "T_FID" AS formula_no,
+        COALESCE("T_QTYBATCH", 0) AS qty_batch,
+        -- Extract Start
+        (regexp_matches(
+            CASE WHEN position('-' in "T_LOTNUM") > 0 THEN split_part("T_LOTNUM", '-', 1) ELSE "T_LOTNUM" END,
+            '^(\d+)'
+        ))[1]::INT AS prod_start,
+        -- Extract End
+        (regexp_matches(
+            CASE WHEN position('-' in "T_LOTNUM") > 0 THEN split_part("T_LOTNUM", '-', 2) ELSE "T_LOTNUM" END,
+            '^(\d+)'
+        ))[1]::INT AS prod_end,
+        -- Extract Suffix
+        (regexp_matches("T_LOTNUM", '([A-Za-z]+)$'))[1] AS prod_suffix
+    FROM tbl_prod01
+    WHERE "T_DELETED" IS NOT TRUE
+      AND "T_PRODCODE" IN (SELECT DISTINCT product_code FROM tbl_mixer_details WHERE is_deleted=false)
+),
+
+-- 4. Join and Calculate Intersection
+-- This finds which Prod01 range covers the Mixer range (or parts of it)
+calculated_matches AS (
+    SELECT
+        m.detail_id,
+        m.output_qty, -- The Actual Output
+        p.formula_no,
+        p.qty_batch,
+        -- Intersection Math: Overlap = Min(End) - Max(Start) + 1
+        -- Example: Mix(1003-1005) vs Prod(1001-1010) -> Min(1005,1010) - Max(1003,1001) + 1 = 1005 - 1003 + 1 = 3 lots
+        (LEAST(m.mix_end, p.prod_end) - GREATEST(m.mix_start, p.prod_start) + 1) AS overlapping_lots,
+
+        -- Calculated Expected for this segment: Overlapping Lots * Batch Weight
+        (LEAST(m.mix_end, p.prod_end) - GREATEST(m.mix_start, p.prod_start) + 1) * p.qty_batch AS segment_expected_qty
+
+    FROM mixer_parsed m
+    JOIN prod_parsed p
+      ON m.product_code = p.prod_code
+      AND m.mix_suffix = p.prod_suffix
+      -- Logic: The ranges must overlap
+      AND m.mix_start <= p.prod_end
+      AND m.mix_end >= p.prod_start
+),
+
+-- 5. Aggregate back to Mixer Record Level
+final_summary AS (
+    SELECT
+        detail_id,
+        -- Get distinct formula (if multiple, string agg them)
+        STRING_AGG(DISTINCT formula_no::text, '; ') AS resolved_formula,
+        -- We take the average batch weight found (mostly for reference, as multiple might exist)
+        ROUND(AVG(qty_batch), 2) AS avg_qty_batch,
+        -- Sum up the expected quantities from all segments
+        SUM(segment_expected_qty) AS total_expected_produced
+    FROM calculated_matches
+    GROUP BY detail_id
+)
+
+-- 6. Final Presentation
+SELECT
+    h.created_at AS "Date Created",
+    d.lot_no AS "Lot Number",
+    d.product_code AS "Product Code",
+    COALESCE(s.resolved_formula, 'Unspecified') AS "Formula",
+
+    -- Calculated Expected Output (The Denominator)
+    COALESCE(s.total_expected_produced, 0) AS "QTY Produced (Expected)",
+
+    -- Actual Output (The Numerator)
+    d.output_qty AS "QTY Output (Actual)",
+
+    -- Reference Batch Weight (from Prod01)
+    COALESCE(s.avg_qty_batch, 0) AS "QTY Per Batch (Ref)",
+
+    -- Yield Calculation
+    CASE
+        WHEN s.total_expected_produced > 0 THEN
+            ROUND((d.output_qty / s.total_expected_produced * 100)::numeric, 2)
+        ELSE 0
+    END AS "Yield %"
+
+FROM tbl_mixer_details d
+JOIN tbl_mixer_headers h ON d.mixer_header_id = h.id
+LEFT JOIN final_summary s ON d.id = s.detail_id
+WHERE d.is_deleted = false
+	AND h.is_deleted = false
+	AND d.lot_no = '8749X-8759X'
+ORDER BY h.created_at DESC;
