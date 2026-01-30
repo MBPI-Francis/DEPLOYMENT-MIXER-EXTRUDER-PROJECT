@@ -5,9 +5,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
 from datetime import datetime, date, timedelta, time
 
-# Import cast and String inside function or at top
-from sqlalchemy import cast, String
-
 # Import Models
 from models import MixerDetail, MixerHeader, MixerMachine, TblProd01
 
@@ -63,91 +60,24 @@ def calculate_duration_minutes(start, end):
     return hours * 60 if hours is not None else None
 
 
-# --- OPTIMIZED FILTER OPTIONS ---
 def get_filter_options(session: Session):
-    """
-    Only loads Machines and Products initially.
-    Formulas are now loaded asynchronously via search_formulas to prevent lag.
-    """
     machines = session.scalars(
         select(MixerMachine.name).where(MixerMachine.is_deleted == False).order_by(MixerMachine.name)).all()
     products = session.scalars(select(MixerDetail.product_code).distinct().order_by(MixerDetail.product_code)).all()
 
-    # NOTE: We DO NOT load formulas here anymore. It's too heavy.
+    formulas = session.scalars(select(TblProd01.T_FID).where(TblProd01.T_DELETED != True).distinct()).all()
+    clean_formulas = []
+    for f in formulas:
+        if f is not None and f != 0:
+            clean_formulas.append(str(int(f)))
+
+    formula_list = sorted(list(set(clean_formulas)))
 
     return {
         "machines": ["All"] + list(machines),
-        "products": ["All"] + list(products)
+        "products": ["All"] + list(products),
+        "formulas": ["All"] + formula_list
     }
-
-
-# --- NEW: LIVE SEARCH FUNCTION ---
-# def search_formulas(session: Session, search_term: str):
-#     """
-#     Searches TblProd01 for formulas matching the term.
-#     Limits results to 50 to ensure high performance.
-#     """
-#     if not search_term:
-#         return []
-#
-#     # Clean the term
-#     term = search_term.strip()
-#
-#     # Query distinct formulas from TblProd01
-#     # We cast to TEXT to allow string searching (LIKE '10%')
-#     query = (
-#         select(TblProd01.T_FID)
-#         .where(
-#             and_(
-#                 TblProd01.T_DELETED != True,
-#                 # Cast integer ID to string for searching
-#                 cast(TblProd01.T_FID, String).like(f"{term}%")
-#             )
-#         )
-#         .distinct()
-#         .limit(50)  # Limit is crucial for performance
-#     )
-#
-#
-#     results = session.scalars(query).all()
-#
-#     # Format results (remove decimals)
-#     clean_results = []
-#     for r in results:
-#         if r is not None and r != 0:
-#             try:
-#                 clean_results.append(str(int(r)))
-#             except:
-#                 clean_results.append(str(r))
-#
-#     return sorted(list(set(clean_results)))
-
-
-# --- UPDATED SEARCH FUNCTION ---
-def search_formulas(session: Session, search_term: str):
-    """
-    Searches formulas. If search_term is empty, returns the first 50 results.
-    """
-    query = select(TblProd01.T_FID).where(TblProd01.T_DELETED != True).distinct()
-
-    if search_term:
-        term = search_term.strip()
-        query = query.where(cast(TblProd01.T_FID, String).like(f"{term}%"))
-
-    # Always limit to prevents lag
-    query = query.limit(50)
-
-    results = session.scalars(query).all()
-
-    clean_results = []
-    for r in results:
-        if r is not None and r != 0:
-            try:
-                clean_results.append(str(int(r)))
-            except:
-                clean_results.append(str(r))
-
-    return sorted(list(set(clean_results)))
 
 
 def get_benchmark_data(session: Session, filters: dict):

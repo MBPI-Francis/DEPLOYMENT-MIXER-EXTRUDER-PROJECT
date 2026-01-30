@@ -1,3 +1,4 @@
+
 import os
 import pandas as pd
 from PyQt6.QtWidgets import (
@@ -7,14 +8,34 @@ from PyQt6.QtWidgets import (
     QCheckBox, QProgressBar, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QDate, QThread, pyqtSignal
-from PyQt6.QtGui import QColor, QBrush
+from PyQt6.QtGui import QColor
 
 import qtawesome as qta
 
 # Custom Widgets
 from app.widgets.smart_combo_box import SmartComboBox
-from .ops import get_benchmark_data, get_filter_options
-from .exporter import ExtruderBenchmarkExporter
+from .ops import get_benchmark_data, get_filter_options, search_formulas
+from .exporter import BenchmarkExporter
+
+
+# --- THREADS (Unchanged) ---
+class FormulaSearchWorker(QThread):
+    results_ready = pyqtSignal(list)
+
+    def __init__(self, session_factory, search_term):
+        super().__init__()
+        self.session_factory = session_factory
+        self.search_term = search_term
+
+    def run(self):
+        session = self.session_factory()
+        try:
+            results = search_formulas(session, self.search_term)
+            self.results_ready.emit(results)
+        except:
+            self.results_ready.emit([])
+        finally:
+            session.close()
 
 
 class ReportLoaderThread(QThread):
@@ -38,22 +59,21 @@ class ReportLoaderThread(QThread):
             session.close()
 
 
-class ExtruderReportView(QWidget):
+# --- MAIN VIEW ---
+class MixerBenchmarkView(QWidget):
     def __init__(self, session_factory, parent=None):
         super().__init__(parent)
         self.Session = session_factory
         self.summary_valid = pd.DataFrame()
         self.summary_invalid = pd.DataFrame()
         self.raw_df = pd.DataFrame()
+        self.search_worker = None
 
         self.init_ui()
         self.apply_styles()
         self.load_initial_options()
 
     def apply_styles(self):
-        # Re-use the Mixer styles if they are identical, or create a copy
-        # Assuming you want consistency, we can point to the same qss file if path allows,
-        # otherwise create a local styles.qss in this folder with the same content.
         css_path = os.path.join(os.path.dirname(__file__), "styles.css")
         if os.path.exists(css_path):
             with open(css_path, "r") as f:
@@ -62,27 +82,25 @@ class ExtruderReportView(QWidget):
     def init_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(15)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setContentsMargins(0,0,0,0)
+
 
         # --- 1. FILTER CARD ---
         filter_group = QGroupBox()
-        card_layout = QVBoxLayout(filter_group)
-        card_layout.setContentsMargins(20, 20, 20, 20)
-        card_layout.setSpacing(15)
+        # Main layout for the filter box
+        main_filter_layout = QVBoxLayout(filter_group)
+        main_filter_layout.setContentsMargins(15, 0, 15, 0)
+        main_filter_layout.setSpacing(10)
+        # filter_layout.setContentsMargins(15,0, 15, 0)
+        # filter_layout.setVerticalSpacing(10)
+        # filter_layout.setHorizontalSpacing(10)
 
-        # Helper
-        def create_field_box(label_text, widget):
-            container = QWidget()
-            l = QVBoxLayout(container)
-            l.setContentsMargins(0, 0, 0, 0)
-            l.setSpacing(5)
-            lbl = QLabel(label_text)
-            lbl.setStyleSheet("color: #5f6368; font-weight: 600; font-size: 11px; text-transform: uppercase;")
-            l.addWidget(lbl)
-            l.addWidget(widget)
-            return container
+        # --- Grid for Inputs ---
+        grid_layout = QGridLayout()
+        grid_layout.setVerticalSpacing(10)
+        grid_layout.setHorizontalSpacing(10)
 
-        # Inputs
+        # Initialize Inputs
         self.date_from = QDateEdit(calendarPopup=True, date=QDate.currentDate().addMonths(-1))
         self.date_to = QDateEdit(calendarPopup=True, date=QDate.currentDate())
 
@@ -91,8 +109,7 @@ class ExtruderReportView(QWidget):
 
         self.combo_formula = SmartComboBox()
         self.combo_formula.setPlaceholderText("Search Formula...")
-        # Note: Extruder formula search might just filter existing items if list is small,
-        # but we can implement the search logic if needed. For now, standard filter.
+        self.combo_formula.full_search_requested.connect(self.on_formula_search)
 
         self.combo_machine = SmartComboBox()
         self.combo_machine.setPlaceholderText("Select Machine...")
@@ -114,36 +131,58 @@ class ExtruderReportView(QWidget):
         self.btn_export.clicked.connect(self.export_to_excel)
         self.btn_export.setFixedHeight(35)
 
-        # Layout Rows
-        row1 = QHBoxLayout()
-        row1.setSpacing(15)
-        row1.addWidget(create_field_box("Start Date", self.date_from), 1)
-        row1.addWidget(create_field_box("End Date", self.date_to), 1)
-        row1.addWidget(create_field_box("Machine", self.combo_machine), 1)
+        # --- Helper to create Label+Input Stack ---
+        def create_field_box(label_text, widget):
+            container = QWidget()
+            layout = QVBoxLayout(container)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(4)  # Tight spacing between label and input
 
-        row2 = QHBoxLayout()
-        row2.setSpacing(15)
-        row2.addWidget(create_field_box("Product Code", self.combo_product), 2)
-        row2.addWidget(create_field_box("Formula No", self.combo_formula), 1)
+            lbl = QLabel(label_text)
+            lbl.setStyleSheet("color: #64748b; font-weight: bold; font-size: 11px; text-transform: uppercase;")
 
-        row3 = QHBoxLayout()
-        row3.setSpacing(20)
-        row3.addWidget(self.chk_include_null)
-        row3.addWidget(self.chk_include_zero)
-        row3.addStretch()
-        row3.addWidget(self.btn_refresh)
-        row3.addWidget(self.btn_export)
+            layout.addWidget(lbl)
+            layout.addWidget(widget)
+            return container
 
-        card_layout.addLayout(row1)
-        card_layout.addLayout(row2)
-        card_layout.addLayout(row3)
+        # --- Placing Widgets in Grid ---
 
+        # Row 0: Date From | Date To | Machine
+        grid_layout.addWidget(create_field_box("Start Date", self.date_from), 0, 0)
+        grid_layout.addWidget(create_field_box("End Date", self.date_to), 0, 1)
+
+
+        # Row 1: Product (Spans 2 cols) | Formula
+        # This prevents Product from being excessively long (spanning 3) but gives it enough room
+        grid_layout.addWidget(create_field_box("Product Code", self.combo_product), 0, 2)
+        grid_layout.addWidget(create_field_box("Machine", self.combo_machine), 0, 3)
+        grid_layout.addWidget(create_field_box("Formula No", self.combo_formula), 0, 4)
+
+        # Add Grid to Main Filter Layout
+        main_filter_layout.addLayout(grid_layout)
+
+        # --- Bottom Row: Checkboxes & Buttons ---
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(20)
+
+        # Checkboxes (Left aligned)
+        bottom_row.addWidget(self.chk_include_null)
+        bottom_row.addWidget(self.chk_include_zero)
+
+        bottom_row.addStretch()  # Spacer
+
+        # Buttons (Right aligned)
+        bottom_row.addWidget(self.btn_refresh)
+        bottom_row.addWidget(self.btn_export)
+
+        main_filter_layout.addLayout(bottom_row)
         main_layout.addWidget(filter_group)
+
 
         # --- 2. PROGRESS ---
         self.loader = QProgressBar()
         self.loader.setRange(0, 0)
-        self.loader.setFixedHeight(4)
+        self.loader.setFixedHeight(3)
         self.loader.setTextVisible(False)
         self.loader.setStyleSheet(
             "QProgressBar {border: none; background: transparent;} QProgressBar::chunk { background: #3b82f6; }")
@@ -155,7 +194,7 @@ class ExtruderReportView(QWidget):
         self.tree.setObjectName("BenchmarkTable")
         self.tree.setHeaderLabels([
             "Product", "Machine", "Formula",
-            "Output (kg/hr)", "Clean Time", "Clean Mat", "Yield %", "Details / Remarks"
+            "Output (kg/hr)", "Clean Time", "Clean Mat", "Yield %", "Details"
         ])
         self.tree.setAlternatingRowColors(True)
         self.tree.setIndentation(15)
@@ -164,63 +203,80 @@ class ExtruderReportView(QWidget):
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setStretchLastSection(True)
         header.setFixedHeight(30)
-        header.resizeSection(7, 300)
 
         main_layout.addWidget(self.tree, 1)
 
-        # --- 4. STAT CARDS ---
+        # --- 4. STAT CARDS (NEW LAYOUT) ---
+        # Container widget for the cards
         stats_container = QWidget()
         stats_layout = QHBoxLayout(stats_container)
         stats_layout.setContentsMargins(0, 5, 0, 0)
+        stats_layout.setSpacing(0)
 
-        def create_stat_card(title, color):
+        # Helper to create a nice card
+        def create_stat_card(title, icon_name, color):
             card = QFrame()
             card.setObjectName("StatCard")
-            card.setFixedHeight(80)
-            l = QVBoxLayout(card)
-            l.setContentsMargins(15, 10, 15, 10)
-            l.setSpacing(4)
+            card.setFixedHeight(70)  # Fixed height for uniformity
 
-            t = QLabel(title)
-            t.setObjectName("CardTitle")
-            v = QLabel("-")
-            v.setObjectName("CardValue")
-            v.setStyleSheet(f"color: {color};")
+            card_layout = QHBoxLayout(card)
+            card_layout.setContentsMargins(10, 10, 10, 10)
 
-            l.addWidget(t)
-            l.addWidget(v)
-            l.addStretch()
-            return card, v
+            # Left: Icon (Optional, text for now) or just Title/Value vertical
+            vbox = QVBoxLayout()
+            vbox.setSpacing(2)
+
+            lbl_title = QLabel(title)
+            lbl_title.setObjectName("CardTitle")
+
+            lbl_value = QLabel("-")
+            lbl_value.setObjectName("CardValue")
+            lbl_value.setStyleSheet(f"color: {color};")  # Dynamic color for value
+
+            vbox.addWidget(lbl_title)
+            vbox.addWidget(lbl_value)
+            vbox.addStretch()
+
+            card_layout.addLayout(vbox)
+            return card, lbl_value
+
+        # Create 4 Cards
+        # We put them in a groupbox just for the label "Standard Deviation"
 
         footer_group = QGroupBox()
         footer_layout = QHBoxLayout(footer_group)
-        footer_layout.setContentsMargins(10, 10, 10, 10)
-        footer_layout.setSpacing(15)
+        footer_layout.setContentsMargins(10, 0, 10, 0)
+        footer_layout.setSpacing(10)
 
-        w_out, self.lbl_std_output = create_stat_card("Output Dev", "#2563eb")
-        w_time, self.lbl_std_ct = create_stat_card("Time Dev", "#d97706")
-        w_mat, self.lbl_std_cm = create_stat_card("Mat Dev", "#059669")
-        w_yield, self.lbl_std_yield = create_stat_card("Yield Dev", "#dc2626")
+        card_out, self.lbl_std_output = create_stat_card("AVG Output/hr Deviation", , "#2563eb")  # Blue
+        card_time, self.lbl_std_ct = create_stat_card("AVG Cleaning Time Deviation", "clock", "#d97706")  # Amber
+        card_mat, self.lbl_std_cm = create_stat_card("AVG Cleaning Material Used", "box", "#059669")  # Emerald
+        card_yield, self.lbl_std_yield = create_stat_card("AVG Yield", "percent", "#dc2626")  # Red
 
-        footer_layout.addWidget(w_out)
-        footer_layout.addWidget(w_time)
-        footer_layout.addWidget(w_mat)
-        footer_layout.addWidget(w_yield)
+        footer_layout.addWidget(card_out)
+        footer_layout.addWidget(card_time)
+        footer_layout.addWidget(card_mat)
+        footer_layout.addWidget(card_yield)
 
         main_layout.addWidget(footer_group)
 
-    # --- LOGIC ---
+
     def load_initial_options(self):
         session = self.Session()
         try:
             opts = get_filter_options(session)
             self.combo_machine.populate_initial(opts["machines"])
             self.combo_product.populate_initial(opts["products"])
-            self.combo_formula.populate_initial(opts["formulas"])
         except Exception as e:
             print(f"Error: {e}")
         finally:
             session.close()
+
+    def on_formula_search(self, term):
+        if self.search_worker and self.search_worker.isRunning(): return
+        self.search_worker = FormulaSearchWorker(self.Session, term)
+        self.search_worker.results_ready.connect(self.combo_formula.update_with_search_results)
+        self.search_worker.start()
 
     def start_data_load(self):
         self.tree.clear()
@@ -266,26 +322,15 @@ class ExtruderReportView(QWidget):
     def populate_tree(self):
         self.tree.setUpdatesEnabled(False)
 
-        def get_yield_remark_and_color(yield_val):
-            if pd.isna(yield_val): return "Yield not calculated", "#6c757d"
-            if yield_val >= 95:
-                return "Acceptable yield. Within normal limits.", "#198754"
-            elif yield_val >= 90:
-                return "Low yield. Monitoring required.", "#d97706"
-            elif yield_val >= 85:
-                return "Alarming yield. Investigation required.", "#fd7e14"
-            else:
-                return "Critical yield loss. Action required.", "#dc3545"
-
         def add_rows(df, is_valid):
             for _, row in df.iterrows():
                 item = QTreeWidgetItem(self.tree)
                 item.setText(0, str(row["product_code"]))
-                item.setText(1, str(row["machine_number"]))
-                item.setText(2, str(row["formula_number"]))
+                item.setText(1, str(row["machine_name"]))
+                item.setText(2, str(row["formula_no"]))
                 item.setText(3, f"{row['avg_output_rate']:.2f}")
-                item.setText(4, f"{row['avg_purge_mins']:.2f}")
-                item.setText(5, f"{row['avg_purge_mat']:.2f}")
+                item.setText(4, f"{row['avg_clean_time']:.2f}")
+                item.setText(5, f"{row['avg_clean_mat']:.2f}")
 
                 y_val = row.get('avg_yield')
                 if pd.notna(y_val):
@@ -293,12 +338,10 @@ class ExtruderReportView(QWidget):
                 else:
                     item.setText(6, "N/A")
 
-                # Parent Details: Just count
                 count_str = f"{row['record_count']} batches"
                 if not is_valid: count_str += " (Unspec Yield)"
                 item.setText(7, count_str)
 
-                # Parent Style
                 for i in range(8):
                     font = item.font(i)
                     font.setBold(True)
@@ -306,40 +349,28 @@ class ExtruderReportView(QWidget):
                     item.setBackground(i, QColor("#ffffff"))
                     item.setForeground(i, QColor("#2c3e50"))
 
-                # Drill Down
                 subset = self.raw_df[
                     (self.raw_df["product_code"] == row["product_code"]) &
-                    (self.raw_df["machine_number"] == row["machine_number"]) &
-                    (self.raw_df["formula_number"] == row["formula_number"])
+                    (self.raw_df["machine_name"] == row["machine_name"]) &
+                    (self.raw_df["formula_no"] == row["formula_no"])
                     ]
 
                 for _, det in subset.iterrows():
                     child = QTreeWidgetItem(item)
-                    child.setText(0, str(det["time_start"]))
-                    child.setText(1, str(det["reference_number"]))
-                    child.setText(2, str(det["lot_number"]))
-                    child.setText(3, f"{det['output_per_hour']:.2f}")
-                    child.setText(4, f"{det['purging_duration_minutes']:.2f}")
-                    child.setText(5, f"{det['total_cleaning_material']:.2f}")
+                    child.setText(0, str(det["date"]))
+                    child.setText(1, str(det["reference_no"]))
+                    child.setText(2, str(det["lot_no"]))
+                    child.setText(3, f"{det['output_rate_hr']:.2f}")
+                    child.setText(4, f"{det['cleaning_mins']:.2f}")
+                    child.setText(5, f"{det['cleaning_qty']:.2f}")
+                    y_raw = det.get("yield_pct")
+                    child.setText(6, f"{y_raw:.2f}%" if pd.notna(y_raw) else "-")
 
-                    y_raw = det.get("yield_value")
-                    if pd.notna(y_raw):
-                        child.setText(6, f"{y_raw:.2f}%")
-                        # Child Remarks
-                        rem_text, rem_color = get_yield_remark_and_color(y_raw)
-                        child.setText(7, rem_text)
-                        child.setForeground(7, QBrush(QColor(rem_color)))
-                    else:
-                        child.setText(6, "-")
-                        child.setText(7, "-")
-
-                    # Child Style
                     bg_color = QColor("#f8f9fa")
                     text_color = QColor("#5f6368")
-                    for k in range(7):
+                    for k in range(8):
                         child.setBackground(k, bg_color)
                         child.setForeground(k, text_color)
-                    child.setBackground(7, bg_color)
 
         add_rows(self.summary_valid, True)
         add_rows(self.summary_invalid, False)
@@ -355,8 +386,8 @@ class ExtruderReportView(QWidget):
             return
         try:
             s_out = self.summary_valid["avg_output_rate"].std()
-            s_ct = self.summary_valid["avg_purge_mins"].std()
-            s_cm = self.summary_valid["avg_purge_mat"].std()
+            s_ct = self.summary_valid["avg_clean_time"].std()
+            s_cm = self.summary_valid["avg_clean_mat"].std()
             s_yld = self.summary_valid["avg_yield"].std()
 
             s_out = 0.0 if pd.isna(s_out) else s_out
@@ -375,11 +406,11 @@ class ExtruderReportView(QWidget):
         if self.summary_valid.empty and self.summary_invalid.empty: return
         from PyQt6.QtWidgets import QFileDialog
         path, _ = QFileDialog.getSaveFileName(self, "Save Report",
-                                              f"Extruder_Benchmark_{QDate.currentDate().toString('yyyy-MM-dd')}.xlsx",
+                                              f"Mixer_Benchmark_{QDate.currentDate().toString('yyyy-MM-dd')}.xlsx",
                                               "Excel Files (*.xlsx)")
         if path:
             try:
-                ExtruderBenchmarkExporter().export(self.summary_valid, self.summary_invalid, self.raw_df, path)
+                BenchmarkExporter().export(self.summary_valid, self.summary_invalid, self.raw_df, path)
                 QMessageBox.information(self, "Success", "Export Complete!")
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))

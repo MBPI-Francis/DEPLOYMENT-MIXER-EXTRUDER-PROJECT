@@ -623,7 +623,7 @@ class MixerBenchmarkView(QWidget):
         footer_layout.setContentsMargins(10, 25, 10, 10)
         footer_layout.setSpacing(15)
 
-        card_out, self.lbl_std_output = create_stat_card("Output Deviation", "chart-line", "#2563eb")  # Blue
+        card_out, self.lbl_std_output = create_stat_card("Output Deviation", , "#2563eb")  # Blue
         card_time, self.lbl_std_ct = create_stat_card("Time Deviation", "clock", "#d97706")  # Amber
         card_mat, self.lbl_std_cm = create_stat_card("Material Deviation", "box", "#059669")  # Emerald
         card_yield, self.lbl_std_yield = create_stat_card("Yield Deviation", "percent", "#dc2626")  # Red
