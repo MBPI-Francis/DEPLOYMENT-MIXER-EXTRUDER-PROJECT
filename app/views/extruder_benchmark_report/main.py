@@ -67,17 +67,17 @@ class ExtruderReportView(QWidget):
         # --- 1. FILTER CARD ---
         filter_group = QGroupBox()
         card_layout = QVBoxLayout(filter_group)
-        card_layout.setContentsMargins(20, 20, 20, 20)
-        card_layout.setSpacing(15)
+        card_layout.setContentsMargins(15, 0, 15, 0)
+        card_layout.setSpacing(10)
 
         # Helper
         def create_field_box(label_text, widget):
             container = QWidget()
             l = QVBoxLayout(container)
             l.setContentsMargins(0, 0, 0, 0)
-            l.setSpacing(5)
+            l.setSpacing(4)
             lbl = QLabel(label_text)
-            lbl.setStyleSheet("color: #5f6368; font-weight: 600; font-size: 11px; text-transform: uppercase;")
+            lbl.setStyleSheet("color: #64748b; font-weight: bold; font-size: 11px; text-transform: uppercase;")
             l.addWidget(lbl)
             l.addWidget(widget)
             return container
@@ -151,7 +151,7 @@ class ExtruderReportView(QWidget):
         self.tree = QTreeWidget()
         self.tree.setObjectName("BenchmarkTable")
         self.tree.setHeaderLabels([
-            "Product", "Machine", "Formula",
+            "Product Code", "Machine", "Formula",
             "Output (kg/hr)", "Clean Time", "Clean Mat", "Yield %", "Details / Remarks"
         ])
         self.tree.setAlternatingRowColors(True)
@@ -173,10 +173,10 @@ class ExtruderReportView(QWidget):
         def create_stat_card(title, color):
             card = QFrame()
             card.setObjectName("StatCard")
-            card.setFixedHeight(80)
+            card.setFixedHeight(70)
             l = QVBoxLayout(card)
-            l.setContentsMargins(15, 10, 15, 10)
-            l.setSpacing(4)
+            l.setContentsMargins(10, 10, 10, 10)
+            l.setSpacing(2)
 
             t = QLabel(title)
             t.setObjectName("CardTitle")
@@ -191,13 +191,13 @@ class ExtruderReportView(QWidget):
 
         footer_group = QGroupBox()
         footer_layout = QHBoxLayout(footer_group)
-        footer_layout.setContentsMargins(10, 10, 10, 10)
-        footer_layout.setSpacing(15)
+        footer_layout.setContentsMargins(10, 0, 10, 0)
+        footer_layout.setSpacing(10)
 
-        w_out, self.lbl_std_output = create_stat_card("Output Dev", "#2563eb")
-        w_time, self.lbl_std_ct = create_stat_card("Time Dev", "#d97706")
-        w_mat, self.lbl_std_cm = create_stat_card("Mat Dev", "#059669")
-        w_yield, self.lbl_std_yield = create_stat_card("Yield Dev", "#dc2626")
+        w_out, self.lbl_std_output = create_stat_card("AVG Output/hr Deviation", "#2563eb")
+        w_time, self.lbl_std_ct = create_stat_card("AVG Cleaning Time Deviation", "#d97706")
+        w_mat, self.lbl_std_cm = create_stat_card("AVG Cleaning Material Used", "#059669")
+        w_yield, self.lbl_std_yield = create_stat_card("Yield Deviation", "#dc2626")
 
         footer_layout.addWidget(w_out)
         footer_layout.addWidget(w_time)
