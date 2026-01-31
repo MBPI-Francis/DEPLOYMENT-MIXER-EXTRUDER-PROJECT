@@ -25,7 +25,7 @@ from ..mixer_machine.main import MixerMachineMainView
 from ..extruder_config.main_view import ExtruderConfigView
 from app.features.sync_legacy_db import SyncController
 from ..mixer_old_records.main_view import MixerOldRecordsView
-from ..mixer_benchmark_report.view import MixerBenchmarkView
+from ..mixer_benchmark_report.main import MixerBenchmarkView
 
 
 class Base(QMainWindow):

@@ -120,23 +120,20 @@ class ExtruderReportView(QWidget):
         row1.addWidget(create_field_box("Start Date", self.date_from), 1)
         row1.addWidget(create_field_box("End Date", self.date_to), 1)
         row1.addWidget(create_field_box("Machine", self.combo_machine), 1)
+        row1.addWidget(create_field_box("Product Code", self.combo_product), 1)
+        row1.addWidget(create_field_box("Formula No", self.combo_formula), 1)
 
         row2 = QHBoxLayout()
-        row2.setSpacing(15)
-        row2.addWidget(create_field_box("Product Code", self.combo_product), 2)
-        row2.addWidget(create_field_box("Formula No", self.combo_formula), 1)
-
-        row3 = QHBoxLayout()
-        row3.setSpacing(20)
-        row3.addWidget(self.chk_include_null)
-        row3.addWidget(self.chk_include_zero)
-        row3.addStretch()
-        row3.addWidget(self.btn_refresh)
-        row3.addWidget(self.btn_export)
+        row2.setSpacing(20)
+        row2.addWidget(self.chk_include_null)
+        row2.addWidget(self.chk_include_zero)
+        row2.addStretch()
+        row2.addWidget(self.btn_refresh)
+        row2.addWidget(self.btn_export)
 
         card_layout.addLayout(row1)
         card_layout.addLayout(row2)
-        card_layout.addLayout(row3)
+
 
         main_layout.addWidget(filter_group)
 

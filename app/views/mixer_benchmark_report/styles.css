@@ -151,3 +151,38 @@ QCheckBox::indicator:checked {
     border-color: #3b82f6;
 }
 
+
+/* --- MESSAGE BOX STYLING --- */
+QMessageBox {
+    background-color: #ffffff;
+    border: 1px solid #dcdfe6;
+}
+
+/* Style the text inside the box */
+QMessageBox QLabel {
+    color: #333333;
+    font-size: 13px;
+    font-weight: normal;
+    background-color: transparent;
+}
+
+/* Style the buttons (OK, Cancel, Yes, No) */
+QMessageBox QPushButton {
+    background-color: #3b82f6; /* Blue matching your theme */
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    padding: 6px 20px;
+    font-weight: 700;
+    font-size: 12px;
+    min-width: 60px;
+}
+
+QMessageBox QPushButton:hover {
+    background-color: #2563eb;
+}
+
+QMessageBox QPushButton:pressed {
+    background-color: #1d4ed8;
+}
+

@@ -229,7 +229,7 @@ class MixerBenchmarkView(QWidget):
         card_out, self.lbl_std_output = create_stat_card("AVG Output/hr Deviation", "#2563eb")
         card_time, self.lbl_std_ct = create_stat_card("AVG Cleaning Time Deviation", "#d97706")
         card_mat, self.lbl_std_cm = create_stat_card("AVG Cleaning Material Used", "#059669")
-        card_yield, self.lbl_std_yield = create_stat_card("Yield Dev", "#dc2626")
+        card_yield, self.lbl_std_yield = create_stat_card("Yield Deviation", "#dc2626")
 
         footer_layout.addWidget(card_out)
         footer_layout.addWidget(card_time)
