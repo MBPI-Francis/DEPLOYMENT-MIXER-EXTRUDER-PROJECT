@@ -176,7 +176,7 @@ class MixerBenchmarkView(QWidget):
         self.tree = QTreeWidget()
         self.tree.setObjectName("BenchmarkTable")
         self.tree.setHeaderLabels([
-            "Product", "Machine", "Formula",
+            "Product Code", "Machine", "Formula",
             "Output (kg/hr)", "Clean Time", "Clean Mat", "Yield %", "Details / Remarks"
         ])
         self.tree.setAlternatingRowColors(True)
