@@ -12,20 +12,30 @@ WITH output_aggregates AS (
     GROUP BY
         extruder_form_data_id
 ),
+
 purging_time_and_code_aggregates AS (
-    -- 2. Purging Time & Code Logic
     SELECT
-        extruder_form_data_id,
-        MIN(time_start) AS purging_start_time,
-        MAX(time_end) AS purging_end_time,
-        SUM(EXTRACT(EPOCH FROM (time_end - time_start))) / 60.0 AS purging_duration_minutes,
-        -- NEW: Aggregate Purging Product Codes (Distinct)
-        STRING_AGG(DISTINCT product_code, ', ') AS purging_to_code
-    FROM
-        tbl_extruder_purging_headers
-    GROUP BY
-        extruder_form_data_id
+        tbl_extruder_purging_headers.extruder_form_data_id,
+        min(tbl_extruder_purging_headers.time_start) AS purging_start_time,
+        max(tbl_extruder_purging_headers.time_end) AS purging_end_time,
+
+        -- FIX IS HERE: Handle Midnight Crossing Logic inside the SUM --
+        SUM(
+            EXTRACT(EPOCH FROM
+                CASE
+                    WHEN tbl_extruder_purging_headers.time_end < tbl_extruder_purging_headers.time_start
+                    THEN (tbl_extruder_purging_headers.time_end - tbl_extruder_purging_headers.time_start) + INTERVAL '24 hours'
+                    ELSE (tbl_extruder_purging_headers.time_end - tbl_extruder_purging_headers.time_start)
+                END
+            )
+        ) / 60.0 AS purging_duration_minutes,
+        ---------------------------------------------------------------
+
+        string_agg(DISTINCT tbl_extruder_purging_headers.product_code::text, ', '::text) AS purging_to_code
+    FROM tbl_extruder_purging_headers
+    GROUP BY tbl_extruder_purging_headers.extruder_form_data_id
 ),
+
 purging_material_aggregates AS (
     -- 3. Purging Material Logic
     SELECT
