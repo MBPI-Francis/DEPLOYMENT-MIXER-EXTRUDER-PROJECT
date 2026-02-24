@@ -3,8 +3,8 @@ import openpyxl
 from copy import copy
 from datetime import datetime, timedelta
 from decimal import Decimal
-import pandas as pd
-from openpyxl.styles import Alignment, Border, Side, Font, PatternFill
+
+from openpyxl.styles import Alignment, Border, Side
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils.cell import get_column_letter
 
@@ -452,90 +452,3 @@ class ExcelReportExporter:
 
         # Supervisors -> Row 6 (Merged M30:N30)
         sheet[f'M{30 + footer_offset}'].value = ", ".join(supervisors) if supervisors else "N/A"
-
-
-class ExtruderListExporter:
-    """
-    Exports the current list view of Extruder Records to Excel,
-    including the dynamic summary box at the bottom.
-    """
-
-    def export_list(self, df: pd.DataFrame, summary_stats: dict, filepath: str):
-        # 1. Create Excel Writer
-        with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
-            # 2. Write Main Data
-            # Rename columns for professional headers
-            export_df = df.rename(columns={
-                'Ref No': 'Reference No',
-                'Machine': 'Machine Name',
-                'Output QTY': 'Total Output (kg)',
-                'Waste QTY': 'Total Waste (kg)',
-                'Processing Duration': 'Processing Time (HH:MM)',
-                'Waste Duration': 'Waste Time (HH:MM)'
-            })
-
-            sheet_name = "Extruder Records"
-            export_df.to_excel(writer, sheet_name=sheet_name, index=False)
-
-            # 3. Access Workbook/Worksheet for formatting
-            workbook = writer.book
-            worksheet = writer.sheets[sheet_name]
-
-            # 4. Auto-fit Columns
-            for column in worksheet.columns:
-                max_length = 0
-                column_letter = get_column_letter(column[0].column)
-                for cell in column:
-                    try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                    except:
-                        pass
-                adjusted_width = (max_length + 2)
-                worksheet.column_dimensions[column_letter].width = adjusted_width
-
-            # 5. Append Summary Box (2 rows below data)
-            last_row = len(df) + 1
-            start_summary_row = last_row + 3
-
-            # Styles
-            header_font = Font(bold=True, color="FFFFFF")
-            header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")  # Blue
-
-            # -- Row 1: Output & Processing --
-            # Total Output
-            worksheet.cell(row=start_summary_row, column=1, value="Total Output Qty:").font = Font(bold=True)
-            worksheet.cell(row=start_summary_row, column=2, value=summary_stats['total_output'])
-
-            # Processing Duration
-            worksheet.cell(row=start_summary_row, column=3, value="Total Processing Duration:").font = Font(bold=True)
-            worksheet.cell(row=start_summary_row, column=4, value=summary_stats['proc_duration_str'])
-
-            # Excel Decimal
-            worksheet.cell(row=start_summary_row, column=5, value="Processing (Decimal):").font = Font(bold=True)
-            worksheet.cell(row=start_summary_row, column=6, value=summary_stats['proc_decimal'])
-
-            # -- Row 2: Waste --
-            start_summary_row += 1
-            # Total Waste
-            worksheet.cell(row=start_summary_row, column=1, value="Total Waste Qty:").font = Font(bold=True)
-            worksheet.cell(row=start_summary_row, column=2, value=summary_stats['total_waste'])
-
-            # Waste Duration
-            worksheet.cell(row=start_summary_row, column=3, value="Total Waste Duration:").font = Font(bold=True)
-            worksheet.cell(row=start_summary_row, column=4, value=summary_stats['waste_duration_str'])
-
-            # Excel Decimal
-            worksheet.cell(row=start_summary_row, column=5, value="Waste (Decimal):").font = Font(bold=True)
-            worksheet.cell(row=start_summary_row, column=6, value=summary_stats['waste_decimal'])
-
-            # Apply Borders to Summary Area
-            thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
-                                 bottom=Side(style='thin'))
-            for r in range(start_summary_row - 1, start_summary_row + 1):
-                for c in range(1, 7):
-                    cell = worksheet.cell(row=r, column=c)
-                    cell.border = thin_border
-                    # Align numbers right
-                    if c % 2 == 0:
-                        cell.alignment = Alignment(horizontal='right')

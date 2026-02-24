@@ -9,13 +9,12 @@ from typing import Type, List
 import openpyxl
 import pandas as pd  # Added for DataFrame handling
 from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.copier import WorksheetCopy
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QDate, QPoint, QThread
 from PyQt6.QtGui import QAction, QColor, QBrush
 from PyQt6.QtWidgets import (QWidget, QTableWidgetItem, QMessageBox, QApplication, QMenu, QDialog, QProgressDialog,
                              QFileDialog, QGroupBox, QGridLayout, QLabel,
-                             QVBoxLayout)  # Added layout widgets
+                             QVBoxLayout)  # Added QGroupBox, QGridLayout, QLabel, QVBoxLayout
 from sqlalchemy.orm import Session
 
 from .bulk_export_dialog import BulkExportDialog
@@ -189,28 +188,26 @@ class ExtruderRecordsView(QWidget):
         self.ops = ExtruderRecordsOperations(session_factory)
 
         self.bulk_export_worker = None
+        self.full_data = pd.DataFrame()  # Initialize the dataframe
+
         self.filter_dialog = FilterDialog(session_factory, self)
         self.advanced_filters = {}
         self.is_loading = False
         self.is_deleted_color = QColor("#e0e0e0")
 
-        # --- NEW: Initialize full_data DataFrame ---
-        self.full_data = pd.DataFrame()
-
         self._setup_connections()
 
-        # --- NEW: Create Summary Box and Add to Layout ---
+        # --- NEW: Integrate Summary Box ---
         self.summary_box = self._create_summary_box()
-        # Adding to the main layout of the UI (assuming ui.verticalLayout exists as per standard Qt Designer output)
-        # If your UI file layout name is different, adjust 'verticalLayout'
+        # Ensure we add the summary box to the main layout.
+        # Since setupUi(self) creates a layout on self (likely a grid or vertical layout),
+        # we append the summary box to it.
         if self.layout():
             self.layout().addWidget(self.summary_box)
         else:
-            # Fallback if no layout exists directly on widget
-            # We assume ui.frame or similar exists, we create a VBox to hold everything
+            # Fallback if no layout exists (unlikely with generated UI)
             layout = QVBoxLayout(self)
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.addWidget(self.ui.frame)  # Assuming the table is inside this frame
+            layout.addWidget(self.ui.frame)  # Assuming frame/groupbox exists
             layout.addWidget(self.summary_box)
 
         self.load_initial_data()
@@ -230,38 +227,34 @@ class ExtruderRecordsView(QWidget):
         layout.setSpacing(10)
 
         self.total_output_label = QLabel("0.00")
-        self.total_waste_qty_label = QLabel("0.00")  # Corresponds to Mixer's Cleaning QTY
+        self.total_waste_qty_label = QLabel("0.00")  # Changed from Cleaning to Waste
         self.total_proc_duration_label = QLabel("0:00")
-        self.total_waste_duration_label = QLabel("0:00")
+        self.total_waste_duration_label = QLabel("0:00")  # Changed from Cleaning to Waste
         self.proc_excel_decimal_label = QLabel("0.00")
-        self.waste_excel_decimal_label = QLabel("0.00")
+        self.waste_excel_decimal_label = QLabel("0.00")  # Changed from Cleaning to Waste
 
         all_value_labels = [
             self.total_output_label, self.total_waste_qty_label,
             self.total_proc_duration_label, self.total_waste_duration_label,
             self.proc_excel_decimal_label, self.waste_excel_decimal_label
         ]
-
         for label in all_value_labels:
             label.setObjectName("SummaryValueLabel")
             label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
-        # Layout Logic: 2 Rows, 3 Columns of Data pairs
+        # Row 0: Production Data
         layout.addWidget(QLabel("<b>Total Output Qty:</b>"), 0, 0)
         layout.addWidget(self.total_output_label, 0, 1)
-
         layout.addWidget(QLabel("<b>Total Processing Duration (HH:MM):</b>"), 0, 2)
         layout.addWidget(self.total_proc_duration_label, 0, 3)
-
         layout.addWidget(QLabel("<b>Processing Duration (Excel Decimal):</b>"), 0, 4)
         layout.addWidget(self.proc_excel_decimal_label, 0, 5)
 
+        # Row 1: Waste/Purging Data
         layout.addWidget(QLabel("<b>Total Waste Qty:</b>"), 1, 0)
         layout.addWidget(self.total_waste_qty_label, 1, 1)
-
         layout.addWidget(QLabel("<b>Total Waste Duration (HH:MM):</b>"), 1, 2)
         layout.addWidget(self.total_waste_duration_label, 1, 3)
-
         layout.addWidget(QLabel("<b>Waste Duration (Excel Decimal):</b>"), 1, 4)
         layout.addWidget(self.waste_excel_decimal_label, 1, 5)
 
@@ -270,7 +263,7 @@ class ExtruderRecordsView(QWidget):
         layout.setColumnStretch(6, 2)
         return summary_box
 
-    # --- NEW: Summary Box Update Logic ---
+    # --- NEW: Summary Box Calculation Logic ---
     def _update_summary_box(self):
         df_to_summarize = self.full_data
 
@@ -289,7 +282,7 @@ class ExtruderRecordsView(QWidget):
         # 2. Total Waste QTY
         total_waste = df_to_summarize['Waste QTY'].sum()
 
-        # 3. Processing Duration Summation
+        # 3. Processing Duration
         total_proc_delta = timedelta()
         for duration_str in df_to_summarize['Processing Duration'].dropna().astype(str):
             if ':' in duration_str:
@@ -301,7 +294,7 @@ class ExtruderRecordsView(QWidget):
                 except (ValueError, TypeError):
                     continue
 
-        # 4. Waste Duration Summation
+        # 4. Waste Duration
         total_waste_delta = timedelta()
         for duration_str in df_to_summarize['Waste Duration'].dropna().astype(str):
             if ':' in duration_str:
@@ -313,7 +306,7 @@ class ExtruderRecordsView(QWidget):
                 except (ValueError, TypeError):
                     continue
 
-        # Calculate Seconds/Hours/Minutes for Display
+        # Calculations for Excel Decimals
         proc_total_seconds = total_proc_delta.total_seconds()
         proc_total_hours = int(proc_total_seconds // 3600)
         proc_total_minutes = int((proc_total_seconds % 3600) // 60)
@@ -322,12 +315,10 @@ class ExtruderRecordsView(QWidget):
         waste_total_hours = int(waste_total_seconds // 3600)
         waste_total_minutes = int((waste_total_seconds % 3600) // 60)
 
-        # 5. Calculate Excel Decimals (Cyclical 24h as per request)
-        # Formula: (Hours % 24) + (Minutes / 60)
         proc_excel_decimal = (proc_total_hours % 24) + (proc_total_minutes / 60)
         waste_excel_decimal = (waste_total_hours % 24) + (waste_total_minutes / 60)
 
-        # 6. Update Labels
+        # Update Labels
         self.total_output_label.setText(f"{total_output:,.2f}")
         self.total_waste_qty_label.setText(f"{total_waste:,.2f}")
         self.total_proc_duration_label.setText(f"{proc_total_hours}:{proc_total_minutes:02}")
@@ -451,7 +442,6 @@ class ExtruderRecordsView(QWidget):
             finally:
                 QApplication.restoreOverrideCursor()
 
-            # Default to Desktop Directory
             desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
 
             output_path = ""
@@ -548,9 +538,8 @@ class ExtruderRecordsView(QWidget):
         self.ui.table_widget.setSortingEnabled(False)
         self.ui.table_widget.setRowCount(0)
 
-        # Reset data dataframe
-        self.full_data = pd.DataFrame()
-        summary_data_list = []
+        # Initialize list for DataFrame construction
+        df_rows = []
 
         try:
             all_filters = self.advanced_filters.copy()
@@ -565,70 +554,59 @@ class ExtruderRecordsView(QWidget):
             records = self.ops.get_records_with_details(filters=all_filters)
 
             for record_object in records:
+                # Add to table widget (UI)
                 self._add_record_to_table(record_object)
 
-                # --- CALCULATE FOR SUMMARY BOX ---
+                # --- CALCULATION FOR SUMMARY BOX DATAFRAME ---
+                # 1. Total Output
+                r_total_output = sum(out.qty_output for out in record_object.extruder_outputs if out.qty_output)
 
-                # 1. Output QTY
-                r_output = sum(out.qty_output for out in record_object.extruder_outputs if out.qty_output)
+                # 2. Total Waste (Sum of qty_waste if available + Purging Qty if available)
+                # Note: We safely check for 'qty_waste' or 'qty_scrap' attributes to prevent crashes
+                # if the model differs slightly.
+                r_total_waste = 0
+                for out in record_object.extruder_outputs:
+                    r_total_waste += getattr(out, 'qty_waste', 0) or getattr(out, 'qty_scrap', 0) or 0
 
-                # 2. Waste QTY (Safe summation of purging details)
-                r_waste = 0
-                for ph in record_object.purging_headers:
-                    for pd_item in ph.purging_details:
-                        if pd_item.qty:
-                            r_waste += float(pd_item.qty)
-
-                # 3. Processing Duration
-                r_proc_sec = sum(
-                    (out.datetime_end - out.datetime_start).total_seconds()
-                    for out in record_object.extruder_outputs
+                # 3. Processing Duration Calculation
+                r_proc_seconds = sum(
+                    (out.datetime_end - out.datetime_start).total_seconds() for out in record_object.extruder_outputs
                     if out.datetime_start and out.datetime_end and out.datetime_end > out.datetime_start
                 )
-                ph, prem = divmod(r_proc_sec, 3600)
-                pm, _ = divmod(prem, 60)
-                r_proc_str = f"{int(ph)}:{int(pm):02}"
+                r_proc_hours, r_proc_rem = divmod(r_proc_seconds, 3600)
+                r_proc_minutes, _ = divmod(r_proc_rem, 60)
+                r_proc_str = f"{int(r_proc_hours)}:{int(r_proc_minutes):02}"
 
-                # 4. Waste Duration (From Purging Headers)
-                r_waste_sec = 0
+                # 4. Waste Duration Calculation (using Purging time as Waste Duration)
+                r_waste_seconds = 0
                 for p in record_object.purging_headers:
                     if p.time_start and p.time_end:
-                        # Logic to handle times that might cross midnight if they are Time objects
-                        # Assuming they are datetime objects from the logic below,
-                        # but standard sqlalchemy models for Time type return datetime.time.
-                        # We use the same logic as _add_record_to_table for consistency
                         dummy_date = datetime.now().date()
-                        s_dt = datetime.combine(dummy_date, p.time_start)
-                        e_dt = datetime.combine(dummy_date, p.time_end)
-                        if e_dt < s_dt:
-                            e_dt += timedelta(days=1)
-                        r_waste_sec += (e_dt - s_dt).total_seconds()
+                        start_dt = datetime.combine(dummy_date, p.time_start)
+                        end_dt = datetime.combine(dummy_date, p.time_end)
+                        if end_dt < start_dt:
+                            end_dt += timedelta(days=1)
+                        r_waste_seconds += (end_dt - start_dt).total_seconds()
+                r_waste_hours, r_waste_rem = divmod(r_waste_seconds, 3600)
+                r_waste_minutes, _ = divmod(r_waste_rem, 60)
+                r_waste_str = f"{int(r_waste_hours)}:{int(r_waste_minutes):02}"
 
-                wh, wrem = divmod(r_waste_sec, 3600)
-                wm, _ = divmod(wrem, 60)
-                r_waste_str = f"{int(wh)}:{int(wm):02}"
-
-                summary_data_list.append({
-                    'Output QTY': float(r_output or 0),
-                    'Waste QTY': float(r_waste),
+                df_rows.append({
+                    'Output QTY': float(r_total_output or 0),
+                    'Waste QTY': float(r_total_waste),
                     'Processing Duration': r_proc_str,
                     'Waste Duration': r_waste_str
                 })
-
-            # Update DataFrame and UI
-            if summary_data_list:
-                self.full_data = pd.DataFrame(summary_data_list)
-            else:
-                self.full_data = pd.DataFrame(
-                    columns=['Output QTY', 'Waste QTY', 'Processing Duration', 'Waste Duration'])
-
-            self._update_summary_box()
 
         except Exception:
             error_dialog = ErrorDialog("Database Error", "Could not load records.", details=traceback.format_exc(),
                                        parent=self)
             error_dialog.exec()
         finally:
+            # Create DataFrame and update summary box
+            self.full_data = pd.DataFrame(df_rows)
+            self._update_summary_box()
+
             self.is_loading = False
             self.ui.table_widget.setSortingEnabled(True)
             QApplication.restoreOverrideCursor()
@@ -645,6 +623,7 @@ class ExtruderRecordsView(QWidget):
         total_production_hours = total_production_seconds / 3600.0
         output_per_hour = (total_output / decimal.Decimal(
             total_production_hours)) if total_production_hours > 0 else decimal.Decimal(0)
+
         total_purging_seconds = 0
         for p in record.purging_headers:
             if p.time_start and p.time_end:
@@ -657,6 +636,7 @@ class ExtruderRecordsView(QWidget):
         purging_hours, rem = divmod(total_purging_seconds, 3600)
         purging_minutes, _ = divmod(rem, 60)
         purging_time_str = f"{int(purging_hours):02}:{int(purging_minutes):02}"
+
         start_times = [out.datetime_start for out in record.extruder_outputs if out.datetime_start]
         end_times = [out.datetime_end for out in record.extruder_outputs if out.datetime_end]
         min_start_time = min(start_times) if start_times else None
