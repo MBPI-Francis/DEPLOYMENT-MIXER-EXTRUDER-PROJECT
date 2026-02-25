@@ -1,3 +1,5 @@
+# app/views/extruder_form/records/exporter.py
+
 import os
 import openpyxl
 from copy import copy
@@ -460,22 +462,34 @@ class ExtruderListExporter:
     including the dynamic summary box at the bottom.
     """
 
-    def export_list(self, df: pd.DataFrame, summary_stats: dict, filepath: str):
-        # 1. Create Excel Writer
-        with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
-            # 2. Write Main Data
-            # Rename columns for professional headers
-            export_df = df.rename(columns={
-                'Ref No': 'Reference No',
-                'Machine': 'Machine Name',
-                'Output QTY': 'Total Output (kg)',
-                'Waste QTY': 'Total Waste (kg)',
-                'Processing Duration': 'Processing Time (HH:MM)',
-                'Waste Duration': 'Waste Time (HH:MM)'
-            })
+    # Updated Columns List with new fields
+    COLUMNS = [
+        "Date Encoded", "Reference No", "Machine Name", "Product Code",
+        "Formula No", "Lot Number", "Customer", "Total Output",
+        "Target Output", "Date Time Start", "Date Time End",
+        "Extrusion Duration", "Total Output per/hr",
+        "Purging Duration",
+        "Purging To Code",
+        "Cleaning Material",  # <--- New
+        "Total Cleaning QTY",  # <--- New
+        "Operators"
+    ]
 
+    def export_list(self, data_list: list, summary_stats: dict, filepath: str):
+        # 1. Create DataFrame
+        df = pd.DataFrame(data_list)
+
+        # Ensure column order & existence
+        for col in self.COLUMNS:
+            if col not in df.columns:
+                df[col] = ""
+
+        df = df[self.COLUMNS]
+
+        # 2. Write to Excel
+        with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
             sheet_name = "Extruder Records"
-            export_df.to_excel(writer, sheet_name=sheet_name, index=False)
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
 
             # 3. Access Workbook/Worksheet for formatting
             workbook = writer.book
@@ -487,55 +501,71 @@ class ExtruderListExporter:
                 column_letter = get_column_letter(column[0].column)
                 for cell in column:
                     try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
+                        if cell.value:
+                            val_len = len(str(cell.value))
+                            if val_len > max_length:
+                                max_length = val_len
                     except:
                         pass
-                adjusted_width = (max_length + 2)
+
+                adjusted_width = min(max_length + 3, 50)  # Cap width
                 worksheet.column_dimensions[column_letter].width = adjusted_width
 
+            # ... (Rest of the Summary Box logic remains exactly the same as previous) ...
             # 5. Append Summary Box (2 rows below data)
             last_row = len(df) + 1
             start_summary_row = last_row + 3
 
             # Styles
             header_font = Font(bold=True, color="FFFFFF")
-            header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")  # Blue
+            header_fill = PatternFill(start_color="2F5597", end_color="2F5597", fill_type="solid")
 
             # -- Row 1: Output & Processing --
             # Total Output
-            worksheet.cell(row=start_summary_row, column=1, value="Total Output Qty:").font = Font(bold=True)
+            cell = worksheet.cell(row=start_summary_row, column=1, value="Total Output Qty:")
+            cell.font = header_font;
+            cell.fill = header_fill
             worksheet.cell(row=start_summary_row, column=2, value=summary_stats['total_output'])
 
             # Processing Duration
-            worksheet.cell(row=start_summary_row, column=3, value="Total Processing Duration:").font = Font(bold=True)
+            cell = worksheet.cell(row=start_summary_row, column=3, value="Total Processing Duration:")
+            cell.font = header_font;
+            cell.fill = header_fill
             worksheet.cell(row=start_summary_row, column=4, value=summary_stats['proc_duration_str'])
 
-            # Excel Decimal
-            worksheet.cell(row=start_summary_row, column=5, value="Processing (Decimal):").font = Font(bold=True)
+            # Proc Decimal
+            cell = worksheet.cell(row=start_summary_row, column=5, value="Processing (Excel Decimal):")
+            cell.font = header_font;
+            cell.fill = header_fill
             worksheet.cell(row=start_summary_row, column=6, value=summary_stats['proc_decimal'])
 
             # -- Row 2: Waste --
             start_summary_row += 1
-            # Total Waste
-            worksheet.cell(row=start_summary_row, column=1, value="Total Waste Qty:").font = Font(bold=True)
+
+            # Waste Qty (matches Total Cleaning QTY concept)
+            cell = worksheet.cell(row=start_summary_row, column=1, value="Total Purging Qty:")
+            cell.font = header_font;
+            cell.fill = header_fill
             worksheet.cell(row=start_summary_row, column=2, value=summary_stats['total_waste'])
 
             # Waste Duration
-            worksheet.cell(row=start_summary_row, column=3, value="Total Waste Duration:").font = Font(bold=True)
+            cell = worksheet.cell(row=start_summary_row, column=3, value="Total Purging Duration:")
+            cell.font = header_font;
+            cell.fill = header_fill
             worksheet.cell(row=start_summary_row, column=4, value=summary_stats['waste_duration_str'])
 
-            # Excel Decimal
-            worksheet.cell(row=start_summary_row, column=5, value="Waste (Decimal):").font = Font(bold=True)
+            # Waste Decimal
+            cell = worksheet.cell(row=start_summary_row, column=5, value="Purging (Excel Decimal):")
+            cell.font = header_font;
+            cell.fill = header_fill
             worksheet.cell(row=start_summary_row, column=6, value=summary_stats['waste_decimal'])
 
-            # Apply Borders to Summary Area
+            # Borders
             thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
                                  bottom=Side(style='thin'))
             for r in range(start_summary_row - 1, start_summary_row + 1):
                 for c in range(1, 7):
                     cell = worksheet.cell(row=r, column=c)
                     cell.border = thin_border
-                    # Align numbers right
                     if c % 2 == 0:
                         cell.alignment = Alignment(horizontal='right')

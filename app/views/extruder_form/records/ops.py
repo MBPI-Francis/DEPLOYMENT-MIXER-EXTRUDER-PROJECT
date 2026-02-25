@@ -22,6 +22,8 @@ from app.database.legacy_ops import (
     search_all_lot_numbers as legacy_search_lot_numbers,
 )
 
+from datetime import datetime, timedelta
+
 
 class ExtruderRecordsOperations:
     def __init__(self, session_factory: Type[Session]):
@@ -89,20 +91,24 @@ class ExtruderRecordsOperations:
     def get_records_with_details(self, filters: dict = None):
         """
         Fetches ExtruderFormData records by applying all filters at the database level.
-        Includes FIX for DetachedInstanceError by eager loading PurgingDetails.
+        Includes FIX for DetachedInstanceError by eager loading PurgingDetails AND Resin.
         """
         if filters is None:
             filters = {}
 
         session = self.Session()
         try:
-            # --- QUERY OPTIMIZATION FIX ---
-            # We must load PurgingDetails to calculate Waste QTY in the UI after session closes.
+            # --- QUERY LOADING STRATEGY ---
+            # We use selectinload for collections and joinedload for single items (like Resin)
             query = session.query(ExtruderFormData).options(
                 joinedload(ExtruderFormData.machine),
                 selectinload(ExtruderFormData.extruder_outputs),
-                # FIX: Chain selectinload to fetch details inside headers
-                selectinload(ExtruderFormData.purging_headers).selectinload(PurgingHeader.purging_details),
+
+                # FIX IS HERE: Chain the loading to get Resin inside PurgingDetails
+                selectinload(ExtruderFormData.purging_headers)
+                .selectinload(PurgingHeader.purging_details)
+                .joinedload(PurgingDetail.resin),
+
                 selectinload(ExtruderFormData.extruder_personnels).joinedload(ExtruderPersonnel.employee)
             )
 
@@ -235,3 +241,109 @@ class ExtruderRecordsOperations:
             return False
         finally:
             session.close()
+
+    # --- UPDATED: Optimized Data Fetching for Export ---
+    def get_export_data(self, filters: dict = None):
+        """
+        Fetches flattened data specifically for the Summary List Export.
+        """
+        records = self.get_records_with_details(filters)
+
+        export_data = []
+
+        for r in records:
+            # 1. Calculate Time & Duration
+            start_times = [o.datetime_start for o in r.extruder_outputs if o.datetime_start]
+            end_times = [o.datetime_end for o in r.extruder_outputs if o.datetime_end]
+
+            time_start = min(start_times) if start_times else None
+            time_end = max(end_times) if end_times else None
+
+            # Total Extrusion Duration
+            total_ext_seconds = sum(
+                (o.datetime_end - o.datetime_start).total_seconds()
+                for o in r.extruder_outputs
+                if o.datetime_start and o.datetime_end and o.datetime_end > o.datetime_start
+            )
+
+            ext_total_minutes = int(total_ext_seconds // 60)
+            ext_hours = ext_total_minutes // 60
+            ext_minutes = ext_total_minutes % 60
+            ext_duration_str = f"{ext_hours:02}:{ext_minutes:02}"
+
+            # 2. Outputs
+            total_output = sum(o.qty_output or 0 for o in r.extruder_outputs)
+
+            total_hours_float = total_ext_seconds / 3600.0
+            out_per_hr = (float(total_output) / total_hours_float) if total_hours_float > 0 else 0.0
+
+            # 3. Purging (Time & Materials)
+            total_purge_seconds = 0
+            purge_codes = set()
+
+            total_cleaning_qty = 0.0
+            cleaning_materials = set()
+
+            for p in r.purging_headers:
+                if p.product_code:
+                    purge_codes.add(p.product_code)
+
+                if p.time_start and p.time_end:
+                    dummy_date = datetime.min.date()
+                    s = datetime.combine(dummy_date, p.time_start)
+                    e = datetime.combine(dummy_date, p.time_end)
+                    if e < s: e += timedelta(days=1)
+                    total_purge_seconds += (e - s).total_seconds()
+
+                # Iterate Details for Materials
+                for d in p.purging_details:
+                    if d.qty:
+                        total_cleaning_qty += float(d.qty)
+
+                    # SAFE ACCESS: Resin is now eager loaded
+                    if d.resin:
+                        mat_name = d.resin.abbreviation or d.resin.name
+                        if mat_name:
+                            cleaning_materials.add(mat_name)
+
+            # Format Strings
+            purge_total_minutes = int(total_purge_seconds // 60)
+            p_hours = purge_total_minutes // 60
+            p_minutes = purge_total_minutes % 60
+            purge_duration_str = f"{p_hours:02}:{p_minutes:02}"
+
+            purge_code_str = ", ".join(sorted(purge_codes))
+            cleaning_mat_str = ", ".join(sorted(cleaning_materials))
+
+            # 4. Operators
+            operators = set()
+            for p in r.extruder_personnels:
+                if p.employee:
+                    name = f"{p.employee.first_name} {p.employee.last_name}".strip()
+                    operators.add(name)
+            operator_str = ", ".join(sorted(operators))
+
+            # 5. Build Row
+            row = {
+                'Date Encoded': r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "",
+                'Reference No': r.ref_no,
+                'Machine Name': r.machine.name if r.machine else "",
+                'Product Code': r.product_code,
+                'Formula No': r.formula_no,
+                'Lot Number': r.lot_number,
+                'Customer': r.customer,
+                'Total Output': float(total_output),
+                'Target Output': float(r.target_output_per_hour or 0),
+                'Date Time Start': time_start.strftime("%Y-%m-%d %H:%M") if time_start else "",
+                'Date Time End': time_end.strftime("%Y-%m-%d %H:%M") if time_end else "",
+                'Extrusion Duration': ext_duration_str,
+                'Total Output per/hr': float(f"{out_per_hr:.2f}"),
+                'Purging Duration': purge_duration_str,
+                'Purging To Code': purge_code_str,
+                'Cleaning Material': cleaning_mat_str,
+                'Total Cleaning QTY': total_cleaning_qty,
+                'Operators': operator_str
+            }
+            export_data.append(row)
+
+        return export_data
