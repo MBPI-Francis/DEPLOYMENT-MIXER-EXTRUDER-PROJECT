@@ -82,96 +82,30 @@ class BulkExportWorker(QThread):
         self.progress.emit(100, "Finalizing...")
 
     def _export_to_separate_sheets(self, exporter, total):
-        """
-        Modified Logic:
-        1. Group records by Machine Name.
-        2. Create one sheet per Machine.
-        3. Stack records for that machine vertically in that sheet.
-        """
-        # 1. Group Records by Machine
-        records_by_machine = {}
-        for record in self.records:
-            # Handle cases where machine might be None
-            machine_name = getattr(record.machine, 'name', 'Unknown Machine')
-            if machine_name not in records_by_machine:
-                records_by_machine[machine_name] = []
-            records_by_machine[machine_name].append(record)
-
-        # 2. Prepare Output Workbook
-        output_wb = openpyxl.Workbook()
-        output_wb.remove(output_wb.active)  # Remove default sheet
-
-        # Prepare Template Reference (for column widths)
         template_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
         template_sheet = template_wb.active
-
-        processed_count = 0
-
-        # Sort machine names so tabs are ordered
-        for machine_name in sorted(records_by_machine.keys()):
+        output_wb = openpyxl.Workbook()
+        output_wb.remove(output_wb.active)
+        for i, record in enumerate(self.records):
             if not self._is_running: return
-
-            # Create Sheet for this Machine
-            # Excel sheet names max 31 chars, no invalid chars
-            safe_sheet_title = str(machine_name).replace('/', '-').replace('\\', '-').replace(':', '')[:31]
-            ws = output_wb.create_sheet(title= "Machine "+safe_sheet_title)
-
-            # Copy Column Widths from Template (Applied once per sheet)
+            self.progress.emit(int((i / total) * 100), f"Processing {record.ref_no} ({i + 1}/{total})...")
+            sheet_title = f"Ref {record.ref_no}".replace('/', '_').replace('\\', '_')[:31]
+            new_sheet = output_wb.create_sheet(title=sheet_title)
             for col_letter in [get_column_letter(c) for c in range(1, template_sheet.max_column + 1)]:
-                ws.column_dimensions[col_letter].width = template_sheet.column_dimensions[col_letter].width
-
-            current_write_row = 0
-            machine_records = records_by_machine[machine_name]
-
-            # 3. Stack Records for this Machine
-            for record in machine_records:
-                if not self._is_running: return
-                processed_count += 1
-                self.progress.emit(int((processed_count / total) * 100),
-                                   f"Processing {machine_name}: {record.ref_no}...")
-
-                # Use a fresh template instance for every record to avoid data contamination
-                temp_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
-                temp_sheet = temp_wb.active
-
-                # Populate the temp sheet (Handles dynamic rows, formatting, etc.)
-                # overwrite_formulas=True is essential for stacking to preserve calculated totals
-                exporter.populate_sheet(temp_sheet, record, row_offset=0, overwrite_formulas=True)
-
-                max_row_in_temp = temp_sheet.max_row
-
-                # Copy Row Heights
-                for r in range(1, max_row_in_temp + 1):
-                    if r in temp_sheet.row_dimensions:
-                        dim = temp_sheet.row_dimensions[r]
-                        if dim.height is not None:
-                            ws.row_dimensions[current_write_row + r].height = dim.height
-
-                # Copy Cells (Values + Styles)
-                for row in temp_sheet.iter_rows():
-                    for cell in row:
-                        new_cell = ws.cell(row=cell.row + current_write_row, column=cell.column)
-                        new_cell.value = cell.value
-                        if cell.has_style:
-                            new_cell.font = cell.font.copy()
-                            new_cell.border = cell.border.copy()
-                            new_cell.fill = cell.fill.copy()
-                            new_cell.number_format = cell.number_format
-                            new_cell.protection = cell.protection.copy()
-                            new_cell.alignment = cell.alignment.copy()
-
-                # Copy Merged Cells (Shifted by current_write_row)
-                for mc_range in temp_sheet.merged_cells.ranges:
-                    ws.merge_cells(
-                        start_row=mc_range.min_row + current_write_row,
-                        start_column=mc_range.min_col,
-                        end_row=mc_range.max_row + current_write_row,
-                        end_column=mc_range.max_col
-                    )
-
-                # Move write pointer down
-                current_write_row += max_row_in_temp
-
+                new_sheet.column_dimensions[col_letter].width = template_sheet.column_dimensions[col_letter].width
+            for row_idx, dim in template_sheet.row_dimensions.items():
+                if dim.height is not None:
+                    new_sheet.row_dimensions[row_idx].height = dim.height
+            for row in template_sheet.iter_rows():
+                for cell in row:
+                    new_cell = new_sheet.cell(row=cell.row, column=cell.column)
+                    new_cell.value = cell.value
+                    if cell.has_style:
+                        new_cell.font, new_cell.border, new_cell.fill, new_cell.number_format, new_cell.protection, new_cell.alignment = \
+                            cell.font.copy(), cell.border.copy(), cell.fill.copy(), cell.number_format, cell.protection.copy(), cell.alignment.copy()
+            for mc_range in template_sheet.merged_cells.ranges:
+                new_sheet.merge_cells(str(mc_range))
+            exporter.populate_sheet(new_sheet, record, overwrite_formulas=False)
         self.progress.emit(100, "Saving file...")
         output_wb.save(self.output_path)
 

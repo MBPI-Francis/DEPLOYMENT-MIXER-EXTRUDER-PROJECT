@@ -77,6 +77,7 @@ class ExtruderRecordViewDialog(QDialog):
 
     def _create_production_details_group(self):
         group = QGroupBox("Production Details")
+        group.setObjectName("ViewGroupBox")
         layout = QFormLayout(group)
         self.ref_no_label = QLabel()
         self.lot_number_label = QLabel()
@@ -96,6 +97,7 @@ class ExtruderRecordViewDialog(QDialog):
 
     def _create_machine_config_group(self):
         group = QGroupBox("Machine and Configuration")
+        group.setObjectName("ViewGroupBox")
         layout = QFormLayout(group)
         self.shift_label = QLabel()
         self.mc_no_label = QLabel()
@@ -115,6 +117,7 @@ class ExtruderRecordViewDialog(QDialog):
 
     def _create_zones_group(self):
         group = QGroupBox("Extruder Zone Temperatures")
+        group.setObjectName("ViewGroupBox")
         layout = QGridLayout(group)
         self.zone_labels = {}
         zones = ["Z12", "Z11", "Z10", "Z9", "Z8", "Z7", "Z6", "Z5", "Z4", "Z3", "Z2", "Z1"]
@@ -127,6 +130,7 @@ class ExtruderRecordViewDialog(QDialog):
 
     def _create_output_log_group(self):
         group = QGroupBox("Extruder Output Log")
+        group.setObjectName("ViewGroupBox")
         layout = QVBoxLayout(group)
         self.output_log_table = QTableWidget(0, 5)
         self.output_log_table.setHorizontalHeaderLabels(["Date", "Time Start", "Time End", "Time Used", "Output (kg)"])
@@ -137,11 +141,13 @@ class ExtruderRecordViewDialog(QDialog):
 
     def _create_purging_resin_group(self):
         group = QGroupBox("Purging and Resin Details")
+        group.setObjectName("ViewGroupBox")
         layout = QVBoxLayout(group)
         self.no_purging_label = QLabel()
         layout.addWidget(self.no_purging_label)
         h_layout = QHBoxLayout()
         purging_sub = QGroupBox("Purging")
+        purging_sub.setObjectName("ViewGroupBox")
         p_layout = QFormLayout(purging_sub)
         self.purging_prod_code_label = QLabel()
         self.purging_start_label = QLabel()
@@ -158,6 +164,7 @@ class ExtruderRecordViewDialog(QDialog):
         p_layout.addRow("Pelletizer:", self.purging_palletizer_label)
         p_layout.addRow("Siever:", self.purging_siever_label)
         resin_sub = QGroupBox("Resin Consumption")
+        resin_sub.setObjectName("ViewGroupBox")
         r_layout = QVBoxLayout(resin_sub)
         self.resin_table = QTableWidget(0, 3)
         self.resin_table.setHorizontalHeaderLabels(["Resin", "Qty (Kg.)", "Notes/Additives",])
@@ -171,6 +178,7 @@ class ExtruderRecordViewDialog(QDialog):
 
     def _create_remarks_personnel_group(self):
         group = QGroupBox("Remarks and Personnel")
+        group.setObjectName("ViewGroupBox")
         layout = QVBoxLayout(group)
         layout.addWidget(QLabel("Remarks:"))
         self.remarks_browser = QTextBrowser()
@@ -186,6 +194,7 @@ class ExtruderRecordViewDialog(QDialog):
 
     def _create_summary_group(self):
         group = QGroupBox("Production Summary")
+        group.setObjectName("ViewGroupBox")
         layout = QFormLayout(group)
         self.summary_total_output_label = QLabel()
         self.summary_total_time_label = QLabel()

@@ -88,31 +88,89 @@ class ExtruderRecordsOperations:
         finally:
             session.close()
 
+    # def get_records_with_details(self, filters: dict = None):
+    #     """
+    #     Fetches ExtruderFormData records by applying all filters at the database level.
+    #     Includes FIX for DetachedInstanceError by eager loading PurgingDetails AND Resin.
+    #     """
+    #     if filters is None:
+    #         filters = {}
+    #
+    #     session = self.Session()
+    #     try:
+    #         # --- QUERY LOADING STRATEGY ---
+    #         # We use selectinload for collections and joinedload for single items (like Resin)
+    #         query = session.query(ExtruderFormData).options(
+    #             joinedload(ExtruderFormData.machine),
+    #             selectinload(ExtruderFormData.extruder_outputs),
+    #
+    #             # FIX IS HERE: Chain the loading to get Resin inside PurgingDetails
+    #             selectinload(ExtruderFormData.purging_headers)
+    #             .selectinload(PurgingHeader.purging_details)
+    #             .joinedload(PurgingDetail.resin),
+    #
+    #             selectinload(ExtruderFormData.extruder_personnels).joinedload(ExtruderPersonnel.employee)
+    #         )
+    #
+    #         # --- DYNAMIC FILTERING ---
+    #         if filters.get('show_only_deleted', False):
+    #             query = query.filter(ExtruderFormData.is_deleted == True)
+    #         else:
+    #             query = query.filter(ExtruderFormData.is_deleted == False)
+    #
+    #         if search_term := filters.get('search_term'):
+    #             search_ilike = f"%{search_term}%"
+    #             search_conditions = [
+    #                 ExtruderFormData.lot_number.ilike(search_ilike),
+    #                 ExtruderFormData.product_code.ilike(search_ilike),
+    #                 ExtruderFormData.customer.ilike(search_ilike)
+    #             ]
+    #             if search_term.isdigit():
+    #                 ref_no_condition = ExtruderFormData.ref_no.cast(String).like(search_ilike)
+    #                 search_conditions.append(ref_no_condition)
+    #             query = query.filter(or_(*search_conditions))
+    #
+    #         if date_from := filters.get('date_from'):
+    #             query = query.filter(func.date(ExtruderFormData.created_at) >= date_from)
+    #         if date_to := filters.get('date_to'):
+    #             query = query.filter(func.date(ExtruderFormData.created_at) <= date_to)
+    #
+    #         if machine_id := filters.get('machine_id'):
+    #             query = query.filter(ExtruderFormData.machine_id == machine_id)
+    #         if product_code := filters.get('product_code'):
+    #             query = query.filter(ExtruderFormData.product_code == product_code)
+    #         if lot_number_exact := filters.get('lot_number_exact'):
+    #             query = query.filter(ExtruderFormData.lot_number == lot_number_exact)
+    #         if operator_id := filters.get('operator_id'):
+    #             query = query.join(ExtruderPersonnel).filter(ExtruderPersonnel.employee_id == operator_id)
+    #
+    #         query = query.order_by(ExtruderFormData.created_at.desc())
+    #         results = query.all()
+    #         return results
+    #
+    #     finally:
+    #         session.close()
+
+    # --- Helper methods to populate the Filter Dialog ---
+
     def get_records_with_details(self, filters: dict = None):
         """
-        Fetches ExtruderFormData records by applying all filters at the database level.
-        Includes FIX for DetachedInstanceError by eager loading PurgingDetails AND Resin.
+        Fetches ExtruderFormData records.
+        DATE FILTER IS NOW APPLIED TO THE `datetime_start` of the output logs.
         """
         if filters is None:
             filters = {}
 
         session = self.Session()
         try:
-            # --- QUERY LOADING STRATEGY ---
-            # We use selectinload for collections and joinedload for single items (like Resin)
             query = session.query(ExtruderFormData).options(
                 joinedload(ExtruderFormData.machine),
                 selectinload(ExtruderFormData.extruder_outputs),
-
-                # FIX IS HERE: Chain the loading to get Resin inside PurgingDetails
-                selectinload(ExtruderFormData.purging_headers)
-                .selectinload(PurgingHeader.purging_details)
-                .joinedload(PurgingDetail.resin),
-
+                selectinload(ExtruderFormData.purging_headers).selectinload(PurgingHeader.purging_details).joinedload(
+                    PurgingDetail.resin),
                 selectinload(ExtruderFormData.extruder_personnels).joinedload(ExtruderPersonnel.employee)
             )
 
-            # --- DYNAMIC FILTERING ---
             if filters.get('show_only_deleted', False):
                 query = query.filter(ExtruderFormData.is_deleted == True)
             else:
@@ -130,10 +188,20 @@ class ExtruderRecordsOperations:
                     search_conditions.append(ref_no_condition)
                 query = query.filter(or_(*search_conditions))
 
+            # --- THIS IS THE CORRECTED DATE FILTER LOGIC ---
+            date_conditions = []
             if date_from := filters.get('date_from'):
-                query = query.filter(func.date(ExtruderFormData.created_at) >= date_from)
+                # Filter where the date part of datetime_start is on or after date_from
+                date_conditions.append(func.date(ExtruderOutput.datetime_start) >= date_from)
             if date_to := filters.get('date_to'):
-                query = query.filter(func.date(ExtruderFormData.created_at) <= date_to)
+                # Filter where the date part of datetime_start is on or before date_to
+                date_conditions.append(func.date(ExtruderOutput.datetime_start) <= date_to)
+
+            if date_conditions:
+                # If any date filters are present, we must JOIN to the ExtruderOutput table
+                # and apply the conditions. We also add distinct() to prevent duplicate rows.
+                query = query.join(ExtruderFormData.extruder_outputs).filter(*date_conditions).distinct()
+            # --- END OF CORRECTION ---
 
             if machine_id := filters.get('machine_id'):
                 query = query.filter(ExtruderFormData.machine_id == machine_id)
@@ -147,11 +215,8 @@ class ExtruderRecordsOperations:
             query = query.order_by(ExtruderFormData.created_at.desc())
             results = query.all()
             return results
-
         finally:
             session.close()
-
-    # --- Helper methods to populate the Filter Dialog ---
 
     def get_distinct_machines(self) -> List[Tuple[int, str]]:
         session = self.Session()
