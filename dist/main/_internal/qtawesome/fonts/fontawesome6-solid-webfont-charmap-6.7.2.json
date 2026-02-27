@@ -259,7 +259,7 @@
     "chart-column": "e0e3",
     "chart-diagram": "e695",
     "chart-gantt": "e0e4",
-    : "f201",
+    "chart-line": "f201",
     "chart-pie": "f200",
     "chart-simple": "e473",
     "check": "f00c",

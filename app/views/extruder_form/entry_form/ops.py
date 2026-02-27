@@ -215,7 +215,12 @@ class ExtruderOpsController:
                 query = query.filter(search_filter)
             if product_code: query = query.filter(TblProd01.T_PRODCODE == product_code)
             if customer: query = query.filter(TblProd01.T_CUSTOMER == customer)
-            results = query.order_by(TblProd01.T_PRODDATE.desc()).offset((page - 1) * page_size).limit(page_size).all()
+            # results = query.order_by(TblProd01.T_PRODDATE.desc()).offset((page - 1) * page_size).limit(page_size).all()
+            results = query.filter(
+                (TblProd01.T_DELETED.is_(False)) | (TblProd01.T_DELETED.is_(None))
+            ).order_by(
+                TblProd01.T_PRODDATE.desc()
+            ).offset((page - 1) * page_size).limit(page_size).all()
 
             return [{
                 "prod_id": r.T_PRODID,
@@ -356,7 +361,8 @@ class ExtruderOpsController:
                         time_end=header_info.get('end_time'),
                         resin_used_id=header_info.get('resin_id'),
                         palletizer_used=Decimal(header_info.get('palletizer', '0')),
-                        siever_used=Decimal(header_info.get('siever', '0'))
+                        siever_used=Decimal(header_info.get('siever', '0')),
+                        water_temp=Decimal(header_info.get('water_temp', '0'))
                     )
                     for detail_data in details_list:
                         if detail_data.get('resin_id'):
@@ -473,7 +479,8 @@ class ExtruderOpsController:
                         product_code=header_info.get('product_code_name'), time_start=header_info.get('start_time'),
                         time_end=header_info.get('end_time'), resin_used_id=header_info.get('resin_id'),
                         palletizer_used=Decimal(header_info.get('palletizer', '0')),
-                        siever_used=Decimal(header_info.get('siever', '0'))
+                        siever_used=Decimal(header_info.get('siever', '0')),
+                        water_temp=Decimal(header_info.get('water_temp', '0'))
                     )
                     for detail_data in form_data.get("purging_details", []):
                         if detail_data.get('resin_id'):

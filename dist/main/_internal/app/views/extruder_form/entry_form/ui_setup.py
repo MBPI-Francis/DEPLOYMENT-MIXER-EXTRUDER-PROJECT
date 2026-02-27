@@ -141,7 +141,7 @@ class Ui_ExtruderEntryForm:
 
         lot_layout = QHBoxLayout()
         self.lot_number_input = QLineEdit()
-        self.lot_number_input.setReadOnly(True)
+        # self.lot_number_input.setReadOnly(True)
         self.lot_number_select_btn = QPushButton("Select...")
         lot_layout.addWidget(self.lot_number_input)
         lot_layout.addWidget(self.lot_number_select_btn)
@@ -254,6 +254,7 @@ class Ui_ExtruderEntryForm:
         self.purging_resin_combo.setObjectName("ComboBox")
         self.purging_palletizer_input = QLineEdit("")
         self.purging_siever_input = QLineEdit("")
+        self.water_temp_input = QLineEdit("")
 
         # --- THIS IS THE FIX ---
         # 1. Create a validator with the 'group' (a QGroupBox) as its proper Qt parent.
@@ -272,6 +273,7 @@ class Ui_ExtruderEntryForm:
         layout.addRow("Resin used (carrier):", self.purging_resin_combo)
         layout.addRow("Pelletizer used:", self.purging_palletizer_input)
         layout.addRow("Siever used:", self.purging_siever_input)
+        layout.addRow("Water Temperature:", self.water_temp_input)
         return group
 
     def _create_resin_consumption_group(self):
@@ -280,7 +282,7 @@ class Ui_ExtruderEntryForm:
 
         # self.purging_details_table = QTableWidget(0, 3)
         self.purging_details_table = TabAwareTableWidget(0, 3)
-        self.purging_details_table.setHorizontalHeaderLabels(["Resin","Qty (Kg.)", "Notes/Additives"])
+        self.purging_details_table.setHorizontalHeaderLabels(["Resin Purged/Used","Qty (Kg.)", "Notes/Additives"])
 
         self.purging_details_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.purging_details_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -333,6 +335,26 @@ class Ui_ExtruderEntryForm:
         layout.addRow("Resin QTY:", self.resin_qty_label)
         spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
         layout.addItem(spacer)
+
+        # ------------------- START: New Code to Add -------------------
+
+        # 1. Create the refresh button and store it as an instance attribute
+        self.refresh_summary_button = QPushButton("Refresh")
+
+        # Set a small fixed size (Width: 80 pixels, Height: 25 pixels)
+        self.refresh_summary_button.setFixedSize(80, 25)
+        self.refresh_summary_button.setToolTip("Recalculate all values in the production summary.")
+
+        # 2. Center the button using a horizontal layout with stretch on both sides
+        button_layout = QHBoxLayout()
+
+        button_layout.addWidget(self.refresh_summary_button)  # Adds the small button in the middle
+        button_layout.addStretch()  # Adds empty flexible space to the right
+
+        # 3. Add the entire horizontal layout as a single spanning row in the form layout
+        layout.addRow(button_layout)
+
+        # -------------------- END: New Code to Add --------------------
         return group
 
 

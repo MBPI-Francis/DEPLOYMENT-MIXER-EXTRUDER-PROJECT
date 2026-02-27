@@ -17,14 +17,14 @@ QMainWindow, QDialog, #ExtruderRecordsView, #ExtruderEntryFormView {
 
 
 /* --- Panels (QGroupBox) --- */
-QGroupBox {
+QGroupBox#ViewGroupBox {
     background-color: #ffffff;
     border: 1px solid #dee2e6;
     border-radius: 8px;
     margin-top: 10px;
     padding: 10px;
 }
-QGroupBox::title {
+QGroupBox#ViewGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
     padding: 0 3px;
@@ -34,6 +34,7 @@ QGroupBox::title {
     font-weight: bold;
 
 }
+
 
 /* Add this to your style.css file */
 
@@ -391,4 +392,36 @@ QComboBox QAbstractItemView {
     border-radius: 4px;
     padding: 6px;
     font-size: 10pt;
+}
+
+QGroupBox#SummaryBox {
+    background-color: #f8f9fa; /* A very light, modern gray background */
+    border: 1px solid #e9ecef; /* A subtle, light border */
+    border-radius: 6px;       /* Generous rounded corners for a soft look */
+
+}
+
+/* This styles the title of the GroupBox ("Visible Data Summary") */
+QGroupBox#SummaryBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 10px;
+    left: 10px;                /* Move the title in from the left edge */
+    color: #495057;            /* A professional, dark gray for the title */
+    font-size: 11pt;
+    font-weight: bold;
+}
+
+/* This styles the static labels (e.g., "Total Output Qty:") */
+QGroupBox#SummaryBox QLabel {
+    font-weight: bold;
+    color: #6c757d; /* A softer gray for the static labels */
+}
+
+/* This styles the dynamic value labels (the numbers) */
+QLabel#SummaryValueLabel {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #2c3e50; /* A strong, dark blue for the values to make them stand out */
+    padding-left: 5px;
 }

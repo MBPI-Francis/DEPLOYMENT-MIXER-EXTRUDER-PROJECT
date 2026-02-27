@@ -46,6 +46,8 @@ class ExtruderEntryFormView(QWidget):
         # --- FIX: Restore the shortcut setup ---
         self._setup_shortcuts()
 
+        self.ui.refresh_summary_button.clicked.connect(self._on_refresh_summary)
+
         css_path = os.path.join(os.path.dirname(__file__), "styles.css")
         if os.path.exists(css_path):
             with open(css_path, "r") as f: self.setStyleSheet(f.read())
@@ -61,6 +63,22 @@ class ExtruderEntryFormView(QWidget):
 
         delete_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
         delete_shortcut.activated.connect(self._on_delete_shortcut)
+
+    def _on_refresh_summary(self):
+        """
+        Slot that is called when the 'Refresh' button is clicked.
+        It triggers the summary recalculation and notifies the user.
+        """
+        # Call your existing calculation method
+        self._update_production_summary()
+
+        # Prompt the user that the refresh is complete
+        QMessageBox.information(
+            self,
+            "Refresh Complete",
+            "The production summary has been refreshed."
+        )
+
 
     def _connect_signals(self):
         self.ui.no_purging_checkbox.toggled.connect(self._on_no_purging_toggled)
@@ -791,6 +809,7 @@ class ExtruderEntryFormView(QWidget):
         self.ui.purging_resin_combo.setCurrentIndex(0)
         self.ui.purging_palletizer_input.setText("")
         self.ui.purging_siever_input.setText("")
+        self.ui.water_temp_input.setText("")
         self.ui.purging_start_time.setTime(QTime(0, 0))
         self.ui.purging_end_time.setTime(QTime(0, 0))
         # --- END FIX ---
@@ -911,7 +930,8 @@ class ExtruderEntryFormView(QWidget):
                     "end_time": self.ui.purging_end_time.time().toPyTime(),
                     "resin_id": self.ui.purging_resin_combo.currentData(),
                     "palletizer": self.ui.purging_palletizer_input.text(),
-                    "siever": self.ui.purging_siever_input.text()
+                    "siever": self.ui.purging_siever_input.text(),
+                    "water_temp": self.ui.water_temp_input.text(),
                 }
                 data["purging_details"] = [
                     {
@@ -933,6 +953,7 @@ class ExtruderEntryFormView(QWidget):
                     "resin_id": self.ui.purging_resin_combo.currentData(),
                     "palletizer": self.ui.purging_palletizer_input.text(),
                     "siever": self.ui.purging_siever_input.text(),
+                    "water_temp": self.ui.water_temp_input.text(),
                 }
                 # And ensure the details list is empty.
                 data["purging_details"] = []
@@ -1250,6 +1271,7 @@ class ExtruderEntryFormView(QWidget):
                 self.ui.purging_resin_combo.setCurrentText(getattr(header.resin_used, 'abbreviation', ''))
                 self.ui.purging_palletizer_input.setText(str(header.palletizer_used or '0'))
                 self.ui.purging_siever_input.setText(str(header.siever_used or '0'))
+                self.ui.water_temp_input.setText(str(header.water_temp or '0'))
         else:
             # If purging was done, uncheck the box and populate all fields.
             self.ui.no_purging_checkbox.setChecked(False)
@@ -1260,6 +1282,7 @@ class ExtruderEntryFormView(QWidget):
             self.ui.purging_resin_combo.setCurrentText(getattr(header.resin_used, 'abbreviation', ''))
             self.ui.purging_palletizer_input.setText(str(header.palletizer_used or '0'))
             self.ui.purging_siever_input.setText(str(header.siever_used or '0'))
+            self.ui.water_temp_input.setText(str(header.water_temp or '0'))
 
             self.ui.purging_details_table.setRowCount(0)
             for detail in header.purging_details:

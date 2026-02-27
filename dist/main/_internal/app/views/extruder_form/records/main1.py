@@ -7,13 +7,14 @@ from datetime import datetime, timedelta
 from typing import Type, List
 
 import openpyxl
+import pandas as pd  # Added for DataFrame handling
 from openpyxl.utils import get_column_letter
-from openpyxl.worksheet.copier import WorksheetCopy
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QDate, QPoint, QThread
 from PyQt6.QtGui import QAction, QColor, QBrush
 from PyQt6.QtWidgets import (QWidget, QTableWidgetItem, QMessageBox, QApplication, QMenu, QDialog, QProgressDialog,
-                             QFileDialog)
+                             QFileDialog, QGroupBox, QGridLayout, QLabel,
+                             QVBoxLayout)  # Added QGroupBox, QGridLayout, QLabel, QVBoxLayout
 from sqlalchemy.orm import Session
 
 from .bulk_export_dialog import BulkExportDialog
@@ -122,66 +123,15 @@ class BulkExportWorker(QThread):
         self.progress.emit(100, "Saving file...")
         output_wb.save(self.output_path)
 
-    # def _export_to_single_sheet(self, exporter, total):
-    #     output_wb = openpyxl.Workbook()
-    #     output_sheet = output_wb.active
-    #     output_sheet.title = "Bulk Report"
-    #
-    #     template_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
-    #     template_sheet = template_wb.active
-    #     for col_letter in [get_column_letter(i) for i in range(1, template_sheet.max_column + 1)]:
-    #         output_sheet.column_dimensions[col_letter].width = template_sheet.column_dimensions[col_letter].width
-    #
-    #     template_row_heights = {i: dim.height for i, dim in template_sheet.row_dimensions.items()}
-    #     default_row_height = template_sheet.sheet_format.defaultRowHeight
-    #
-    #     for i, record in enumerate(self.records):
-    #         if not self._is_running: return
-    #         self.progress.emit(int((i / total) * 100), f"Processing {record.ref_no} ({i + 1}/{total})...")
-    #
-    #         temp_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
-    #         temp_sheet = temp_wb.active
-    #
-    #         exporter.populate_sheet(temp_sheet, record, row_offset=0, overwrite_formulas=True)
-    #
-    #         row_offset = i * ExcelReportExporter.REPORT_TOTAL_ROWS
-    #         for row_idx in range(1, ExcelReportExporter.REPORT_TOTAL_ROWS + 2):
-    #             height = template_row_heights.get(row_idx, default_row_height)
-    #             if height is not None:
-    #                 output_sheet.row_dimensions[row_idx + row_offset].height = height
-    #
-    #         for row in temp_sheet.iter_rows():
-    #             for cell in row:
-    #                 new_cell = output_sheet.cell(row=cell.row + row_offset, column=cell.column)
-    #                 new_cell.value = cell.value
-    #                 if cell.has_style:
-    #                     new_cell.font = cell.font.copy()
-    #                     new_cell.border = cell.border.copy()
-    #                     new_cell.fill = cell.fill.copy()
-    #                     new_cell.number_format = cell.number_format
-    #                     new_cell.protection = cell.protection.copy()
-    #                     new_cell.alignment = cell.alignment.copy()
-    #
-    #         for mc_range in temp_sheet.merged_cells.ranges:
-    #             output_sheet.merge_cells(start_row=mc_range.min_row + row_offset, start_column=mc_range.min_col,
-    #                                      end_row=mc_range.max_row + row_offset, end_column=mc_range.max_col)
-    #
-    #     self.progress.emit(100, "Saving file...")
-    #     output_wb.save(self.output_path)
-
     def _export_to_single_sheet(self, exporter, total):
         output_wb = openpyxl.Workbook()
         output_sheet = output_wb.active
         output_sheet.title = "Bulk Report"
 
-        # Setup columns based on template
         template_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
         template_sheet = template_wb.active
         for col_letter in [get_column_letter(i) for i in range(1, template_sheet.max_column + 1)]:
             output_sheet.column_dimensions[col_letter].width = template_sheet.column_dimensions[col_letter].width
-
-        # We need to copy row heights carefully, but since heights vary per report,
-        # we will do it dynamically inside the loop.
 
         current_write_row = 0
 
@@ -189,28 +139,19 @@ class BulkExportWorker(QThread):
             if not self._is_running: return
             self.progress.emit(int((i / total) * 100), f"Processing {record.ref_no} ({i + 1}/{total})...")
 
-            # 1. Load a fresh temp template for this record
             temp_wb = openpyxl.load_workbook(ExcelReportExporter.TEMPLATE_PATH)
             temp_sheet = temp_wb.active
 
-            # 2. Populate it (offset 0). The exporter will insert rows into temp_sheet if needed.
-            # extra_rows = exporter.populate_sheet(temp_sheet, record, row_offset=0, overwrite_formulas=True)
-            # We don't strictly need the return value here because we just copy whatever the temp_sheet became.
             exporter.populate_sheet(temp_sheet, record, row_offset=0, overwrite_formulas=True)
 
-            # 3. Copy the (potentially expanded) temp_sheet to the main output_sheet
-            # We iterate over all rows in the temp sheet.
             max_row_in_temp = temp_sheet.max_row
 
-            # Copy row dimensions
             for r in range(1, max_row_in_temp + 1):
-                # Row height
                 if r in temp_sheet.row_dimensions:
                     dim = temp_sheet.row_dimensions[r]
                     if dim.height is not None:
                         output_sheet.row_dimensions[current_write_row + r].height = dim.height
 
-            # Copy cells
             for row in temp_sheet.iter_rows():
                 for cell in row:
                     new_cell = output_sheet.cell(row=cell.row + current_write_row, column=cell.column)
@@ -223,7 +164,6 @@ class BulkExportWorker(QThread):
                         new_cell.protection = cell.protection.copy()
                         new_cell.alignment = cell.alignment.copy()
 
-            # Copy Merged Cells
             for mc_range in temp_sheet.merged_cells.ranges:
                 output_sheet.merge_cells(
                     start_row=mc_range.min_row + current_write_row,
@@ -232,13 +172,11 @@ class BulkExportWorker(QThread):
                     end_column=mc_range.max_col
                 )
 
-            # 4. Update the write pointer for the next report
-            # We add max_row_in_temp to stack them immediately after one another.
-            # (Optionally add +1 if a gap is desired, but standard is usually continuous)
             current_write_row += max_row_in_temp
 
         self.progress.emit(100, "Saving file...")
         output_wb.save(self.output_path)
+
 
 class ExtruderRecordsView(QWidget):
     data_changed = pyqtSignal()
@@ -250,6 +188,7 @@ class ExtruderRecordsView(QWidget):
         self.ops = ExtruderRecordsOperations(session_factory)
 
         self.bulk_export_worker = None
+        self.full_data = pd.DataFrame()  # Initialize the dataframe
 
         self.filter_dialog = FilterDialog(session_factory, self)
         self.advanced_filters = {}
@@ -257,6 +196,20 @@ class ExtruderRecordsView(QWidget):
         self.is_deleted_color = QColor("#e0e0e0")
 
         self._setup_connections()
+
+        # --- NEW: Integrate Summary Box ---
+        self.summary_box = self._create_summary_box()
+        # Ensure we add the summary box to the main layout.
+        # Since setupUi(self) creates a layout on self (likely a grid or vertical layout),
+        # we append the summary box to it.
+        if self.layout():
+            self.layout().addWidget(self.summary_box)
+        else:
+            # Fallback if no layout exists (unlikely with generated UI)
+            layout = QVBoxLayout(self)
+            layout.addWidget(self.ui.frame)  # Assuming frame/groupbox exists
+            layout.addWidget(self.summary_box)
+
         self.load_initial_data()
         self._update_ui_for_view_mode()
 
@@ -265,6 +218,113 @@ class ExtruderRecordsView(QWidget):
         css_path = os.path.join(os.path.dirname(__file__), "styles.css")
         if os.path.exists(css_path):
             with open(css_path, "r") as f: self.setStyleSheet(f.read())
+
+    # --- NEW: Summary Box UI Creation ---
+    def _create_summary_box(self) -> QGroupBox:
+        summary_box = QGroupBox("Loaded Data Summary")
+        summary_box.setObjectName("SummaryBox")
+        layout = QGridLayout(summary_box)
+        layout.setSpacing(10)
+
+        self.total_output_label = QLabel("0.00")
+        self.total_waste_qty_label = QLabel("0.00")  # Changed from Cleaning to Waste
+        self.total_proc_duration_label = QLabel("0:00")
+        self.total_waste_duration_label = QLabel("0:00")  # Changed from Cleaning to Waste
+        self.proc_excel_decimal_label = QLabel("0.00")
+        self.waste_excel_decimal_label = QLabel("0.00")  # Changed from Cleaning to Waste
+
+        all_value_labels = [
+            self.total_output_label, self.total_waste_qty_label,
+            self.total_proc_duration_label, self.total_waste_duration_label,
+            self.proc_excel_decimal_label, self.waste_excel_decimal_label
+        ]
+        for label in all_value_labels:
+            label.setObjectName("SummaryValueLabel")
+            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+        # Row 0: Production Data
+        layout.addWidget(QLabel("<b>Total Output Qty:</b>"), 0, 0)
+        layout.addWidget(self.total_output_label, 0, 1)
+        layout.addWidget(QLabel("<b>Total Processing Duration (HH:MM):</b>"), 0, 2)
+        layout.addWidget(self.total_proc_duration_label, 0, 3)
+        layout.addWidget(QLabel("<b>Processing Duration (Excel Decimal):</b>"), 0, 4)
+        layout.addWidget(self.proc_excel_decimal_label, 0, 5)
+
+        # Row 1: Waste/Purging Data
+        layout.addWidget(QLabel("<b>Total Waste Qty:</b>"), 1, 0)
+        layout.addWidget(self.total_waste_qty_label, 1, 1)
+        layout.addWidget(QLabel("<b>Total Waste Duration (HH:MM):</b>"), 1, 2)
+        layout.addWidget(self.total_waste_duration_label, 1, 3)
+        layout.addWidget(QLabel("<b>Waste Duration (Excel Decimal):</b>"), 1, 4)
+        layout.addWidget(self.waste_excel_decimal_label, 1, 5)
+
+        layout.setColumnStretch(2, 1)
+        layout.setColumnStretch(4, 1)
+        layout.setColumnStretch(6, 2)
+        return summary_box
+
+    # --- NEW: Summary Box Calculation Logic ---
+    def _update_summary_box(self):
+        df_to_summarize = self.full_data
+
+        if df_to_summarize.empty:
+            self.total_output_label.setText("0.00")
+            self.total_waste_qty_label.setText("0.00")
+            self.total_proc_duration_label.setText("0:00")
+            self.total_waste_duration_label.setText("0:00")
+            self.proc_excel_decimal_label.setText("0.00")
+            self.waste_excel_decimal_label.setText("0.00")
+            return
+
+        # 1. Total Output QTY
+        total_output = df_to_summarize['Output QTY'].sum()
+
+        # 2. Total Waste QTY
+        total_waste = df_to_summarize['Waste QTY'].sum()
+
+        # 3. Processing Duration
+        total_proc_delta = timedelta()
+        for duration_str in df_to_summarize['Processing Duration'].dropna().astype(str):
+            if ':' in duration_str:
+                try:
+                    parts = list(map(int, duration_str.split(':')))
+                    if len(parts) >= 2:
+                        hours, minutes = parts[0], parts[1]
+                        total_proc_delta += timedelta(hours=hours, minutes=minutes)
+                except (ValueError, TypeError):
+                    continue
+
+        # 4. Waste Duration
+        total_waste_delta = timedelta()
+        for duration_str in df_to_summarize['Waste Duration'].dropna().astype(str):
+            if ':' in duration_str:
+                try:
+                    parts = list(map(int, duration_str.split(':')))
+                    if len(parts) >= 2:
+                        hours, minutes = parts[0], parts[1]
+                        total_waste_delta += timedelta(hours=hours, minutes=minutes)
+                except (ValueError, TypeError):
+                    continue
+
+        # Calculations for Excel Decimals
+        proc_total_seconds = total_proc_delta.total_seconds()
+        proc_total_hours = int(proc_total_seconds // 3600)
+        proc_total_minutes = int((proc_total_seconds % 3600) // 60)
+
+        waste_total_seconds = total_waste_delta.total_seconds()
+        waste_total_hours = int(waste_total_seconds // 3600)
+        waste_total_minutes = int((waste_total_seconds % 3600) // 60)
+
+        proc_excel_decimal = (proc_total_hours % 24) + (proc_total_minutes / 60)
+        waste_excel_decimal = (waste_total_hours % 24) + (waste_total_minutes / 60)
+
+        # Update Labels
+        self.total_output_label.setText(f"{total_output:,.2f}")
+        self.total_waste_qty_label.setText(f"{total_waste:,.2f}")
+        self.total_proc_duration_label.setText(f"{proc_total_hours}:{proc_total_minutes:02}")
+        self.total_waste_duration_label.setText(f"{waste_total_hours}:{waste_total_minutes:02}")
+        self.proc_excel_decimal_label.setText(f"{proc_excel_decimal:.2f}")
+        self.waste_excel_decimal_label.setText(f"{waste_excel_decimal:.2f}")
 
     def _setup_connections(self):
         self.search_timer = QTimer(self)
@@ -382,12 +442,15 @@ class ExtruderRecordsView(QWidget):
             finally:
                 QApplication.restoreOverrideCursor()
 
+            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+
             output_path = ""
             if option == BulkExportDialog.SEPARATE_FILES:
-                output_path = QFileDialog.getExistingDirectory(self, "Select Folder to Save Reports")
+                output_path = QFileDialog.getExistingDirectory(self, "Select Folder to Save Reports", desktop_path)
             else:
                 default_filename = f"Bulk_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                output_path, _ = QFileDialog.getSaveFileName(self, "Save Bulk Report", default_filename,
+                default_full_path = os.path.join(desktop_path, default_filename)
+                output_path, _ = QFileDialog.getSaveFileName(self, "Save Bulk Report", default_full_path,
                                                              "Excel Files (*.xlsx)")
 
             if not output_path:
@@ -437,10 +500,15 @@ class ExtruderRecordsView(QWidget):
             ErrorDialog("Database Error", "Failed to fetch record data.", details=traceback.format_exc(),
                         parent=self).exec()
             return
+
+        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
         default_filename = f"Extruder_Report_{record.ref_no}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save Excel Report", default_filename, "Excel Files (*.xlsx)")
+        default_full_path = os.path.join(desktop_path, default_filename)
+
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Excel Report", default_full_path, "Excel Files (*.xlsx)")
         if not file_path:
             return
+
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             exporter = ExcelReportExporter(self.ops)
@@ -451,7 +519,13 @@ class ExtruderRecordsView(QWidget):
                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
                 os.startfile(file_path)
+
+        except PermissionError:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.warning(self, "Permission Denied",
+                                "Unable to save the file.\n\nPlease ensure it is not open in Excel or another program.")
         except Exception:
+            QApplication.restoreOverrideCursor()
             ErrorDialog("Export Error", "Failed to save the Excel file.", details=traceback.format_exc(),
                         parent=self).exec()
         finally:
@@ -463,6 +537,10 @@ class ExtruderRecordsView(QWidget):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.ui.table_widget.setSortingEnabled(False)
         self.ui.table_widget.setRowCount(0)
+
+        # Initialize list for DataFrame construction
+        df_rows = []
+
         try:
             all_filters = self.advanced_filters.copy()
             all_filters['search_term'] = self.ui.search_input.text()
@@ -474,13 +552,61 @@ class ExtruderRecordsView(QWidget):
                 all_filters['ref_no_search'] = search_term
 
             records = self.ops.get_records_with_details(filters=all_filters)
+
             for record_object in records:
+                # Add to table widget (UI)
                 self._add_record_to_table(record_object)
+
+                # --- CALCULATION FOR SUMMARY BOX DATAFRAME ---
+                # 1. Total Output
+                r_total_output = sum(out.qty_output for out in record_object.extruder_outputs if out.qty_output)
+
+                # 2. Total Waste (Sum of qty_waste if available + Purging Qty if available)
+                # Note: We safely check for 'qty_waste' or 'qty_scrap' attributes to prevent crashes
+                # if the model differs slightly.
+                r_total_waste = 0
+                for out in record_object.extruder_outputs:
+                    r_total_waste += getattr(out, 'qty_waste', 0) or getattr(out, 'qty_scrap', 0) or 0
+
+                # 3. Processing Duration Calculation
+                r_proc_seconds = sum(
+                    (out.datetime_end - out.datetime_start).total_seconds() for out in record_object.extruder_outputs
+                    if out.datetime_start and out.datetime_end and out.datetime_end > out.datetime_start
+                )
+                r_proc_hours, r_proc_rem = divmod(r_proc_seconds, 3600)
+                r_proc_minutes, _ = divmod(r_proc_rem, 60)
+                r_proc_str = f"{int(r_proc_hours)}:{int(r_proc_minutes):02}"
+
+                # 4. Waste Duration Calculation (using Purging time as Waste Duration)
+                r_waste_seconds = 0
+                for p in record_object.purging_headers:
+                    if p.time_start and p.time_end:
+                        dummy_date = datetime.now().date()
+                        start_dt = datetime.combine(dummy_date, p.time_start)
+                        end_dt = datetime.combine(dummy_date, p.time_end)
+                        if end_dt < start_dt:
+                            end_dt += timedelta(days=1)
+                        r_waste_seconds += (end_dt - start_dt).total_seconds()
+                r_waste_hours, r_waste_rem = divmod(r_waste_seconds, 3600)
+                r_waste_minutes, _ = divmod(r_waste_rem, 60)
+                r_waste_str = f"{int(r_waste_hours)}:{int(r_waste_minutes):02}"
+
+                df_rows.append({
+                    'Output QTY': float(r_total_output or 0),
+                    'Waste QTY': float(r_total_waste),
+                    'Processing Duration': r_proc_str,
+                    'Waste Duration': r_waste_str
+                })
+
         except Exception:
             error_dialog = ErrorDialog("Database Error", "Could not load records.", details=traceback.format_exc(),
                                        parent=self)
             error_dialog.exec()
         finally:
+            # Create DataFrame and update summary box
+            self.full_data = pd.DataFrame(df_rows)
+            self._update_summary_box()
+
             self.is_loading = False
             self.ui.table_widget.setSortingEnabled(True)
             QApplication.restoreOverrideCursor()
@@ -497,6 +623,7 @@ class ExtruderRecordsView(QWidget):
         total_production_hours = total_production_seconds / 3600.0
         output_per_hour = (total_output / decimal.Decimal(
             total_production_hours)) if total_production_hours > 0 else decimal.Decimal(0)
+
         total_purging_seconds = 0
         for p in record.purging_headers:
             if p.time_start and p.time_end:
@@ -509,6 +636,7 @@ class ExtruderRecordsView(QWidget):
         purging_hours, rem = divmod(total_purging_seconds, 3600)
         purging_minutes, _ = divmod(rem, 60)
         purging_time_str = f"{int(purging_hours):02}:{int(purging_minutes):02}"
+
         start_times = [out.datetime_start for out in record.extruder_outputs if out.datetime_start]
         end_times = [out.datetime_end for out in record.extruder_outputs if out.datetime_end]
         min_start_time = min(start_times) if start_times else None

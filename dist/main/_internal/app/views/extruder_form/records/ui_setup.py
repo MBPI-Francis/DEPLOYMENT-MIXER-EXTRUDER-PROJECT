@@ -47,7 +47,7 @@ class Ui_ExtruderRecordsList(object):
         self.filter_layout.addWidget(self.search_input, 2)
 
         self.date_from_label = QLabel("From:")
-        self.date_from_input = QDateEdit(calendarPopup=True, date=QDate.currentDate().addMonths(-1))
+        self.date_from_input = QDateEdit(calendarPopup=True)
         self.date_to_label = QLabel("To:")
         self.date_to_input = QDateEdit(calendarPopup=True, date=QDate.currentDate())
 

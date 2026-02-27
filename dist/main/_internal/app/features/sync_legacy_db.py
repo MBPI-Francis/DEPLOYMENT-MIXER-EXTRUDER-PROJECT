@@ -1,6 +1,6 @@
 import os
 from decimal import Decimal, InvalidOperation as DecimalInvalidOperation
-from typing import Set, Tuple, Any
+from typing import Set, Tuple, Any, Dict
 
 import dbfread
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QThread, Qt
@@ -212,7 +212,6 @@ class SyncWorker(QObject):
 
                 new_header = TblFormula01(
                     T_UID=t_uid, T_INDEX=record.get('T_INDEX'), T_DATE=record.get('T_DATE'),
-                    # ... map all other formula01 fields ...
                     T_CUSTOMER=record.get('T_CUSTOMER'), T_PRODCODE=record.get('T_PRODCODE'),
                     T_PRODCOLO=record.get('T_PRODCOLO'), T_DOSAGE=safe_decimal(record.get('T_DOSAGE')),
                     T_LD=safe_decimal(record.get('T_LD')), T_TOTALCON=safe_decimal(record.get('T_TOTALCON')),
@@ -265,7 +264,7 @@ class SyncWorker(QObject):
             # --- NEW: Call the incoming2 sync method ---
             self.progress.emit("Syncing Records....", 85)
             inc2_new = self._sync_incoming2(main_session)
-            
+
             self.progress.emit("Almost Done.....", 95)
             main_session.commit()
 
@@ -285,235 +284,283 @@ class SyncWorker(QObject):
             if self.engine_rm:
                 self.engine_rm.dispose()
 
-    def _sync_prod02(self, session) -> int:
-        """
-        Syncs all records from tbl_prod02.dbf to the TblProd02 table,
-        but intelligently skips any records that already exist in the database
-        to prevent duplicates.
-        """
-        print("Smart Syncing TblProd02: Fetching existing keys from PostgreSQL...")
-        # Step 1: Fetch all existing unique keys from your PostgreSQL table.
-        # Storing them in a 'set' makes checking for existence extremely fast.
-        existing_keys: Set[Tuple[Decimal, int]] = {
-            (row.T_PRODID, row.T_SEQ) for row in session.query(TblProd02.T_PRODID, TblProd02.T_SEQ).all()
-        }
-        records_to_add = []
-        print(f"Found {len(existing_keys)} existing records in tbl_prod02.")
-
-        try:
-            # Use the SafeFieldParser to handle bad dates in the DBF
-            dbf_records = dbfread.DBF(PRODUCTION02_DBF_PATH, encoding='latin1',
-                                      parserclass=SafeFieldParser)._iter_records()
-        except dbfread.exceptions.DBFNotFound:
-            raise FileNotFoundError(f"File not found: {PRODUCTION02_DBF_PATH}")
-
-        # Step 2: Loop through every record in the DBF file.
-        for record in dbf_records:
-            t_prodid = safe_decimal(record.get('T_PRODID'))
-            t_seq = safe_int(record.get('T_SEQ'))
-
-            # --- THIS IS THE CRITICAL LOGIC ---
-            # Step 3: Check if the record should be skipped.
-            # It will be skipped if its key is invalid OR if the key already exists in our set.
-            if not t_prodid or t_seq is None or (t_prodid, t_seq) in existing_keys:
-                continue  # Skip this record and move to the next one.
-            # --- END OF CRITICAL LOGIC ---
-
-            # Step 4: If the code reaches here, the record is NEW. Process it.
-            try:
-                new_prod_detail = TblProd02(
-                    T_PRODID=t_prodid,
-                    T_LOTNUM=record.get('T_LOTNUM'),
-                    T_CDATE=record.get('T_CDATE'),
-                    T_PRODDATE=record.get('T_PRODDATE'),
-                    T_SEQ=t_seq,
-                    T_MATCODE=record.get('T_MATCODE'),
-                    T_PRODA=safe_decimal(record.get('T_PRODA')),
-                    T_LABA=safe_decimal(record.get('T_LABA')),
-                    T_PRODB=safe_decimal(record.get('T_PRODB')),
-                    T_LABB=safe_decimal(record.get('T_LABB')),
-                    T_WT=safe_decimal(record.get('T_WT')),
-                    T_LOSS=safe_decimal(record.get('T_LOSS')),
-                    T_CONS=safe_decimal(record.get('T_CONS')),
-                    T_DELETED=safe_bool(record.get('T_DELETED')),
-                )
-                records_to_add.append(new_prod_detail)
-                # Optimization: Add the new key to our set so we don't add it again
-                # if it's duplicated within the same DBF file.
-                existing_keys.add((t_prodid, t_seq))
-
-            except Exception as e:
-                print(f"Skipping corrupt record in tbl_prod02 for T_PRODID={t_prodid}, T_SEQ={t_seq}. Error: {e}")
-                continue
-
-        # Step 5: Add all the *new* records to the session in one bulk operation.
-        if records_to_add:
-            session.add_all(records_to_add)
-
-        print(f"Adding {len(records_to_add)} new records to tbl_prod02.")
-        return len(records_to_add)
-
 
     # --- NEW METHOD for Raw Materials Sync ---
-    def _sync_raw_materials(self, main_session) -> int:
-        """
-        Fetches all raw materials from the external DB and upserts them
-        into the main application's database.
-        """
+    def _sync_raw_materials(self, main_session) -> Tuple[int, int]:
+        """Upserts raw materials from the external DB."""
         SessionRM = sessionmaker(bind=self.engine_rm)
         session_rm = SessionRM()
-        
         try:
-            # 1. Fetch all records from the source database using the ORM model
             source_materials = session_rm.query(RawMaterials).all()
-            if not source_materials:
-                return 0 # Nothing to sync
+            if not source_materials: return 0, 0
 
-            # 2. Get existing rm_codes from the destination database to check for updates
-            existing_codes = {row.rm_code for row in main_session.query(RawMaterials.rm_code).all()}
-            
-            new_records = []
-            for material in source_materials:
-                if material.rm_code not in existing_codes:
-                    # Create a new RawMaterials object for the main DB session
-                    new_material = RawMaterials(
-                        # Map all relevant fields
-                        id=material.id, # Keep the same UUID
-                        rm_code=material.rm_code,
-                        rm_name=material.rm_name,
-                        description=material.description,
-                        is_deleted=material.is_deleted,
-                        # We don't copy created_by etc. unless those users exist in the main DB
-                    )
-                    new_records.append(new_material)
-            
-            if new_records:
-                main_session.bulk_save_objects(new_records)
-            
-            return len(new_records)
+            existing_map: Dict[str, RawMaterials] = {rec.rm_code: rec for rec in main_session.query(RawMaterials).all()}
+            new_count, updated_count = 0, 0
 
+            for source_rec in source_materials:
+                existing_rec = existing_map.get(source_rec.rm_code)
+
+                if existing_rec:
+                    if (existing_rec.rm_name != source_rec.rm_name or
+                            existing_rec.is_deleted != source_rec.is_deleted):
+                        existing_rec.rm_name = source_rec.rm_name
+                        existing_rec.description = source_rec.description
+                        existing_rec.is_deleted = source_rec.is_deleted
+                        updated_count += 1
+                else:
+                    new_rec = RawMaterials(id=source_rec.id, rm_code=source_rec.rm_code,  # ... map all fields
+                                           )
+                    main_session.add(new_rec)
+                    new_count += 1
+
+            return new_count, updated_count
         finally:
             session_rm.close()
 
 
-    
-    # This method is now only used for tbl_prod01, which has no dependencies
-    def _sync_prod01(self, session) -> int:
-        """Syncs tbl_prod01, safely handling data conversion errors."""
-        existing_prodids: Set[Decimal] = {row.T_PRODID for row in session.query(TblProd01.T_PRODID).all()}
-        records_to_add = []
-        try:
-            dbf_records = dbfread.DBF(PRODUCTION01_DBF_PATH, encoding='latin1')._iter_records()
-        except dbfread.exceptions.DBFNotFound:
-            raise FileNotFoundError(f"File not found: {PRODUCTION01_DBF_PATH}")
 
+    # This method is now only used for tbl_prod01, which has no dependencies
+    def _sync_prod01(self, session) -> Tuple[int, int]:
+        """Upserts tbl_prod01, inserting new and fully updating existing records."""
+        print("Upserting tbl_prod01...")
+        existing_map: Dict[Decimal, TblProd01] = {rec.T_PRODID: rec for rec in session.query(TblProd01).all()}
+        new_count, updated_count = 0, 0
+
+        dbf_records = dbfread.DBF(PRODUCTION01_DBF_PATH, encoding='latin1', parserclass=SafeFieldParser)._iter_records()
         for record in dbf_records:
             t_prodid = safe_decimal(record.get('T_PRODID'))
-            if not t_prodid or t_prodid in existing_prodids:
-                continue
-            
-            try:
-                new_prod = TblProd01(
-                    T_PRODID=t_prodid, T_PRODDATE=record.get('T_PRODDATE'), T_CUSTOMER=record.get('T_CUSTOMER'),
-                    T_FID=safe_int(record.get('T_FID')), T_INDEX=record.get('T_INDEX'), T_PRODCODE=record.get('T_PRODCODE'),
-                    T_PRODCOLO=record.get('T_PRODCOLO'), T_DOSAGE=safe_decimal(record.get('T_DOSAGE')),
-                    T_LD=safe_decimal(record.get('T_LD')), T_QTYREQ=safe_decimal(record.get('T_QTYREQ')),
-                    T_QTYBATCH=safe_decimal(record.get('T_QTYBATCH')), T_QTYPROD=safe_decimal(record.get('T_QTYPROD')),
-                    T_LOTNUM=record.get('T_LOTNUM'), T_ORDERNUM=record.get('T_ORDERNUM'), T_CMNUM=record.get('T_CMNUM'),
-                    T_CMDATE=record.get('T_CMDATE'), T_MIXTIME=record.get('T_MIXTIME'), T_MACHINE=record.get('T_MACHINE'),
-                    T_REMARKS=record.get('T_REMARKS'), T_NOTE=record.get('T_NOTE'), T_USERID=record.get('T_USERID'),
-                    T_PREPARED=record.get('T_PREPARED'), T_ENCODEDB=record.get('T_ENCODEDB'),
-                    T_ENCODEDO=record.get('T_ENCODEDO'), T_DELETED=safe_bool(record.get('T_DELETED')),
-                    T_JDONE=record.get('T_JDONE'), T_CDATE=record.get('T_CDATE'), T_SDATE=record.get('T_SDATE'),
+            if not t_prodid: continue
+
+            existing_rec = existing_map.get(t_prodid)
+
+            if existing_rec:
+                # RECORD EXISTS: Compare all fields and update if any have changed
+                has_changed = False
+
+                # Create a dictionary of the source data with safe conversions
+                source_data = {
+                    'T_PRODDATE': record.get('T_PRODDATE'),
+                    'T_CUSTOMER': record.get('T_CUSTOMER'),
+                    'T_DELETED': safe_bool(record.get('T_DELETED')),
+
+
+                    'T_FID': safe_int(record.get('T_FID')),
+                    'T_INDEX': record.get('T_INDEX'),
+                    'T_PRODCODE': record.get('T_PRODCODE'),
+                    'T_PRODCOLO': record.get('T_PRODCOLO'),
+                    'T_DOSAGE': safe_decimal(record.get('T_DOSAGE')),
+                    'T_LD': safe_decimal(record.get('T_LD')),
+                    'T_QTYREQ': safe_decimal(record.get('T_QTYREQ')),
+                    'T_QTYBATCH': safe_decimal(record.get('T_QTYBATCH')),
+                    'T_QTYPROD': safe_decimal(record.get('T_QTYPROD')),
+                    'T_LOTNUM': record.get('T_LOTNUM'),
+                    'T_ORDERNUM': record.get('T_ORDERNUM'),
+                    'T_CMNUM': record.get('T_CMNUM'),
+                    'T_CMDATE': record.get('T_CMDATE'),
+                    'T_MIXTIME': record.get('T_MIXTIME'),
+                    'T_MACHINE': record.get('T_MACHINE'),
+                    'T_REMARKS': record.get('T_REMARKS'),
+                    'T_NOTE': record.get('T_NOTE'),
+                    'T_USERID': record.get('T_USERID'),
+                    'T_PREPARED': record.get('T_PREPARED'),
+                    'T_ENCODEDB': record.get('T_ENCODEDB'),
+                    'T_ENCODEDO': record.get('T_ENCODEDO'),
+                    'T_JDONE': record.get('T_JDONE'),
+                    'T_CDATE': record.get('T_CDATE'),
+                    'T_SDATE': record.get('T_SDATE'),
+                    'T_FTYPE': record.get('T_FTYPE')
+
+
+                }
+
+                # Check for differences
+                if existing_rec.T_PRODDATE != source_data['T_PRODDATE']: has_changed = True
+                if existing_rec.T_CUSTOMER != source_data['T_CUSTOMER']: has_changed = True
+                if existing_rec.T_DELETED != source_data['T_DELETED']: has_changed = True
+
+                if existing_rec.T_FID != source_data['T_FID']: has_changed = True
+                if existing_rec.T_INDEX != source_data['T_INDEX']: has_changed = True
+                if existing_rec.T_PRODCODE != source_data['T_PRODCODE']: has_changed = True
+                if existing_rec.T_PRODCOLO != source_data['T_PRODCOLO']: has_changed = True
+                if existing_rec.T_DOSAGE != source_data['T_DOSAGE']: has_changed = True
+                if existing_rec.T_LD != source_data['T_LD']: has_changed = True
+                if existing_rec.T_QTYREQ != source_data['T_QTYREQ']: has_changed = True
+                if existing_rec.T_QTYBATCH != source_data['T_QTYBATCH']: has_changed = True
+                if existing_rec.T_QTYPROD != source_data['T_QTYPROD']: has_changed = True
+                if existing_rec.T_LOTNUM != source_data['T_LOTNUM']: has_changed = True
+                if existing_rec.T_ORDERNUM != source_data['T_ORDERNUM']: has_changed = True
+                if existing_rec.T_CMNUM != source_data['T_CMNUM']: has_changed = True
+                if existing_rec.T_CMDATE != source_data['T_CMDATE']: has_changed = True
+                if existing_rec.T_MIXTIME != source_data['T_MIXTIME']: has_changed = True
+                if existing_rec.T_MACHINE != source_data['T_MACHINE']: has_changed = True
+                if existing_rec.T_REMARKS != source_data['T_REMARKS']: has_changed = True
+                if existing_rec.T_NOTE != source_data['T_NOTE']: has_changed = True
+                if existing_rec.T_USERID != source_data['T_USERID']: has_changed = True
+                if existing_rec.T_PREPARED != source_data['T_PREPARED']: has_changed = True
+                if existing_rec.T_ENCODEDB != source_data['T_ENCODEDB']: has_changed = True
+                if existing_rec.T_ENCODEDO != source_data['T_ENCODEDO']: has_changed = True
+                if existing_rec.T_JDONE != source_data['T_JDONE']: has_changed = True
+                if existing_rec.T_CDATE != source_data['T_CDATE']: has_changed = True
+                if existing_rec.T_SDATE != source_data['T_SDATE']: has_changed = True
+                if existing_rec.T_FTYPE != source_data['T_FTYPE']: has_changed = True
+
+
+
+
+
+
+
+                if has_changed:
+                    # Apply all updates from the source
+                    for key, value in source_data.items():
+                        setattr(existing_rec, key, value)
+                    updated_count += 1
+            else:
+                # RECORD IS NEW: Create a new object with all data
+                new_rec = TblProd01(
+                    T_PRODID=t_prodid,
+                    T_PRODDATE=record.get('T_PRODDATE'),
+                    T_CUSTOMER=record.get('T_CUSTOMER'),
+                    T_FID=safe_int(record.get('T_FID')),
+                    T_INDEX=record.get('T_INDEX'),
+                    T_PRODCODE=record.get('T_PRODCODE'),
+                    T_PRODCOLO=record.get('T_PRODCOLO'),
+                    T_DOSAGE=safe_decimal(record.get('T_DOSAGE')),
+                    T_LD=safe_decimal(record.get('T_LD')),
+                    T_QTYREQ=safe_decimal(record.get('T_QTYREQ')),
+                    T_QTYBATCH=safe_decimal(record.get('T_QTYBATCH')),
+                    T_QTYPROD=safe_decimal(record.get('T_QTYPROD')),
+                    T_LOTNUM=record.get('T_LOTNUM'),
+                    T_ORDERNUM=record.get('T_ORDERNUM'),
+                    T_CMNUM=record.get('T_CMNUM'),
+                    T_CMDATE=record.get('T_CMDATE'),
+                    T_MIXTIME=record.get('T_MIXTIME'),
+                    T_MACHINE=record.get('T_MACHINE'),
+                    T_REMARKS=record.get('T_REMARKS'),
+                    T_NOTE=record.get('T_NOTE'),
+                    T_USERID=record.get('T_USERID'),
+                    T_PREPARED=record.get('T_PREPARED'),
+                    T_ENCODEDB=record.get('T_ENCODEDB'),
+                    T_ENCODEDO=record.get('T_ENCODEDO'),
+                    T_DELETED=safe_bool(record.get('T_DELETED')),
+                    T_JDONE=record.get('T_JDONE'),
+                    T_CDATE=record.get('T_CDATE'),
+                    T_SDATE=record.get('T_SDATE'),
                     T_FTYPE=record.get('T_FTYPE')
                 )
-                records_to_add.append(new_prod)
-            except Exception as e:
-                print(f"Skipping corrupt record in tbl_prod01 for T_PRODID={t_prodid}. Error: {e}")
-                continue
+                session.add(new_rec)
+                new_count += 1
 
-        if records_to_add:
-            # You can add directly to the session here
-            session.add_all(records_to_add)
-        return len(records_to_add)
+        print(f"tbl_prod01: {new_count} new, {updated_count} updated.")
+        return new_count, updated_count
 
     # --- NEW METHOD: Logic for syncing customers ---
-    def _sync_customers(self, session) -> int:
-        """
-        Syncs tbl_customer01.dbf to the main application's Customer table.
-        It prevents duplicates based on customer name.
-        """
-        # Get all existing customer names from the destination table to prevent duplicates
+    def _sync_customers(self, session) -> Tuple[int, int]:
+        """Upserts customers."""
+        # For customers, name is the key. Let's assume no updates, only inserts.
         existing_names: Set[str] = {row.name for row in session.query(Customer.name).all()}
-        records_to_add = []
-
-        try:
-            dbf_records = dbfread.DBF(CUSTOMER_DBF_PATH, encoding='latin1')._iter_records()
-        except dbfread.exceptions.DBFNotFound:
-            raise FileNotFoundError(f"File not found: {CUSTOMER_DBF_PATH}")
+        new_count = 0
+        dbf_records = dbfread.DBF(CUSTOMER_DBF_PATH, encoding='latin1', parserclass=SafeFieldParser)._iter_records()
 
         for record in dbf_records:
-            # The customer name is in the 'T_CUSTOMER' field. Strip whitespace.
             customer_name = record.get('T_CUSTOMER', '').strip()
-
-            # Skip if the name is empty or already exists in our database
             if not customer_name or customer_name in existing_names:
                 continue
 
-            # Create a new Customer object. The AuditMixin will handle created_at etc.
             new_customer = Customer(name=customer_name)
-            records_to_add.append(new_customer)
-            # Add the new name to our set to handle duplicates within the DBF file itself
+            session.add(new_customer)
             existing_names.add(customer_name)
+            new_count += 1
 
-        if records_to_add:
-            session.add_all(records_to_add)
-
-        return len(records_to_add)
+        return new_count, 0  # 0 updated
     # --- END NEW METHOD ---
 
-    def _sync_incoming2(self, session) -> int:
-        existing_ctrl_nums: Set[str] = {row.t_ctrlnum for row in session.query(TblIncoming2.t_ctrlnum).all()}
-        records_to_add = []
-        try:
-            dbf_records = dbfread.DBF(INCOMING02_DBF_PATH, encoding='latin1',
-                                      parserclass=SafeFieldParser)._iter_records()
-        except dbfread.exceptions.DBFNotFound:
-            raise FileNotFoundError(f"File not found: {INCOMING02_DBF_PATH}")
+    def _sync_prod02(self, session) -> Tuple[int, int]:
+        """Upserts tbl_prod02, inserting new and fully updating existing records."""
+        existing_map: Dict[Tuple[Decimal, int], TblProd02] = {(rec.T_PRODID, rec.T_SEQ): rec for rec in
+                                                              session.query(TblProd02).all()}
+        new_count, updated_count = 0, 0
+
+        dbf_records = dbfread.DBF(PRODUCTION02_DBF_PATH, encoding='latin1', parserclass=SafeFieldParser)._iter_records()
         for record in dbf_records:
-            # --- THE FIX: Use UPPERCASE keys for all .get() calls ---
-            # Also, add strip() to the control number for robustness.
+            t_prodid, t_seq = safe_decimal(record.get('T_PRODID')), safe_int(record.get('T_SEQ'))
+            if not t_prodid or t_seq is None: continue
+
+            key = (t_prodid, t_seq)
+            existing_rec = existing_map.get(key)
+
+            # Prepare a dictionary of all source data with safe conversions
+            source_data = {
+                'T_LOTNUM': record.get('T_LOTNUM'), 'T_CDATE': record.get('T_CDATE'),
+                'T_PRODDATE': record.get('T_PRODDATE'), 'T_MATCODE': record.get('T_MATCODE'),
+                'T_PRODA': safe_decimal(record.get('T_PRODA')), 'T_LABA': safe_decimal(record.get('T_LABA')),
+                'T_PRODB': safe_decimal(record.get('T_PRODB')), 'T_LABB': safe_decimal(record.get('T_LABB')),
+                'T_WT': safe_decimal(record.get('T_WT')), 'T_LOSS': safe_decimal(record.get('T_LOSS')),
+                'T_CONS': safe_decimal(record.get('T_CONS')), 'T_DELETED': safe_bool(record.get('T_DELETED')),
+            }
+
+            if existing_rec:
+                # Compare each field to see if an update is needed
+                has_changed = False
+                for field, value in source_data.items():
+                    if getattr(existing_rec, field) != value:
+                        has_changed = True
+                        break  # Found a change, no need to check further
+
+                if has_changed:
+                    # Apply all updates
+                    for field, value in source_data.items():
+                        setattr(existing_rec, field, value)
+                    updated_count += 1
+            else:
+                # RECORD IS NEW: Insert it
+                new_detail = TblProd02(T_PRODID=t_prodid, T_SEQ=t_seq, **source_data)
+                session.add(new_detail)
+                new_count += 1
+
+        print(f"tbl_prod02: {new_count} new, {updated_count} updated.")
+        return new_count, updated_count
+
+
+    def _sync_incoming2(self, session) -> Tuple[int, int]:
+        """Upserts tbl_incoming2, inserting new and fully updating existing records."""
+        existing_map: Dict[str, TblIncoming2] = {rec.t_ctrlnum: rec for rec in session.query(TblIncoming2).all()}
+        new_count, updated_count = 0, 0
+
+        dbf_records = dbfread.DBF(INCOMING02_DBF_PATH, encoding='latin1', parserclass=SafeFieldParser)._iter_records()
+        for record in dbf_records:
             t_ctrlnum = record.get('T_CTRLNUM', '').strip()
+            if not t_ctrlnum: continue
 
-            if not t_ctrlnum or t_ctrlnum in existing_ctrl_nums:
-                continue
+            existing_rec = existing_map.get(t_ctrlnum)
 
-            try:
-                new_incoming_record = TblIncoming2(
-                    t_seq=safe_int(record.get('T_SEQ')),
-                    t_ctrlnum=t_ctrlnum,
-                    t_date=record.get('T_DATE'),
-                    t_matcode=record.get('T_MATCODE'),
-                    t_qty=safe_decimal(record.get('T_QTY')),
-                    t_note=record.get('T_NOTE'),
-                    t_uid=record.get('T_UID'),
-                    t_deleted=safe_bool(record.get('T_DELETED')),
-                    t_customer=record.get('T_CUSTOMER'),
-                    t_code=record.get('T_CODE'),
-                    t_po=record.get('T_PO'),
-                    t_datereq=record.get('T_DATEREQ'),
-                    t_datereq2=record.get('T_DATEREQ2'),
-                    t_delto=record.get('T_DELTO'),
-                    t_orderedb=record.get('T_ORDEREDB'),
-                    t_prepared=record.get('T_PREPARED'),
-                    t_mattype=record.get('T_MATTYPE'),
-                    t_status=record.get('T_STATUS'),
-                    t_time=record.get('T_TIME')
-                )
-                records_to_add.append(new_incoming_record)
-                existing_ctrl_nums.add(t_ctrlnum)
-            except Exception as e:
-                print(f"Skipping corrupt record in tbl_incoming2 for T_CTRLNUM={t_ctrlnum}. Error: {e}")
-        if records_to_add:
-            session.add_all(records_to_add)
-        return len(records_to_add)
+            source_data = {
+                't_seq': safe_int(record.get('T_SEQ')), 't_date': record.get('T_DATE'),
+                't_matcode': record.get('T_MATCODE'), 't_qty': safe_decimal(record.get('T_QTY')),
+                't_note': record.get('T_NOTE'), 't_uid': record.get('T_UID'),
+                't_deleted': safe_bool(record.get('T_DELETED')), 't_customer': record.get('T_CUSTOMER'),
+                't_code': record.get('T_CODE'), 't_po': record.get('T_PO'),
+                't_datereq': record.get('T_DATEREQ'), 't_datereq2': record.get('T_DATEREQ2'),
+                't_delto': record.get('T_DELTO'), 't_orderedb': record.get('T_ORDEREDB'),
+                't_prepared': record.get('T_PREPARED'), 't_mattype': record.get('T_MATTYPE'),
+                't_status': record.get('T_STATUS'), 't_time': record.get('T_TIME'),
+            }
+
+            if existing_rec:
+                has_changed = False
+                for field, value in source_data.items():
+                    if getattr(existing_rec, field) != value:
+                        has_changed = True
+                        break
+
+                if has_changed:
+                    for field, value in source_data.items():
+                        setattr(existing_rec, field, value)
+                    updated_count += 1
+            else:
+                new_rec = TblIncoming2(t_ctrlnum=t_ctrlnum, **source_data)
+                session.add(new_rec)
+                new_count += 1
+
+        print(f"tbl_incoming2: {new_count} new, {updated_count} updated.")
+        return new_count, updated_count

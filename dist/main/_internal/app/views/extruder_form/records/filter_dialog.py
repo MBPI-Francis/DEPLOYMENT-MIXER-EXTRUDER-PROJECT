@@ -28,6 +28,9 @@ class Ui_FilterDialog(object):
 
         # Basic Filters Group
         basic_group = QGroupBox("Basic Filters")
+        basic_group.setObjectName("ViewGroupBox")
+
+
         basic_layout = QFormLayout(basic_group)
         self.machine_combo = QComboBox()
         self.machine_combo.setObjectName("FilterComboBox")
@@ -45,6 +48,7 @@ class Ui_FilterDialog(object):
 
         # ... (Rest of the UI setup is unchanged)
         advanced_group = QGroupBox("Advanced Numeric Filters")
+        advanced_group.setObjectName("ViewGroupBox")
         advanced_layout = QFormLayout(advanced_group)
         self.total_output_min = QDoubleSpinBox(maximum=99999.99)
         self.total_output_max = QDoubleSpinBox(maximum=99999.99)
@@ -55,6 +59,7 @@ class Ui_FilterDialog(object):
         advanced_layout.addRow("Output/hr (Min):", self.output_hr_min)
         advanced_layout.addRow("Output/hr (Max):", self.output_hr_max)
         options_group = QGroupBox("Other Options")
+        options_group.setObjectName("ViewGroupBox")
         options_layout = QFormLayout(options_group)
         self.show_deleted_checkbox = QCheckBox("Include deleted records in search")
         options_layout.addRow(self.show_deleted_checkbox)

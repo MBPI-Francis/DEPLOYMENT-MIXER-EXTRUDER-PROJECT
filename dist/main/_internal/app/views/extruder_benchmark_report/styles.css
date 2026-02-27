@@ -1,0 +1,153 @@
+/* --- GLOBAL RESET --- */
+QWidget {
+
+    font-family: "Segoe UI", "Roboto", sans-serif;
+    font-size: 12px;
+    color: #333;
+}
+
+/* --- TRANSPARENCY FIX --- */
+QLabel, QCheckBox {
+    background-color: transparent; /* Ensures no white box behind text */
+    color: #4b5563; /* Slate 600 */
+    font-weight: 600;
+}
+
+/* --- CARD CONTAINERS (GroupBox) --- */
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+
+    padding: 15px;
+}
+
+/* Modern Title */
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 10px;
+    padding: 0 5px;
+    color: #3b82f6; /* Blue 500 */
+    font-weight: 800;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* --- INPUT FIELDS --- */
+QDateEdit, QComboBox, QLineEdit {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 5px 10px;
+    background-color: #ffffff;
+    min-height: 24px;
+    color: #1f2937;
+}
+
+QDateEdit:focus, QComboBox:focus {
+    border: 1px solid #3b82f6;
+    background-color: #fff;
+}
+
+QDateEdit::drop-down, QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+/* --- BUTTONS --- */
+QPushButton {
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-weight: 700;
+    font-size: 12px;
+    border: none;
+    color: white;
+    text-transform: uppercase;
+}
+
+QPushButton#BtnRefresh {
+    background-color: #3b82f6;
+}
+QPushButton#BtnRefresh:hover {
+    background-color: #2563eb;
+}
+
+QPushButton#BtnExport {
+    background-color: #10b981;
+}
+QPushButton#BtnExport:hover {
+    background-color: #059669;
+}
+
+/* --- TABLE --- */
+QTreeWidget {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background-color: #ffffff;
+    alternate-background-color: #f9fafb;
+    outline: none;
+}
+
+QTreeWidget::item {
+    height: 32px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+QTreeWidget::item:selected {
+    background-color: #eff6ff; /* Blue 50 */
+    color: #1e3a8a;
+}
+
+QHeaderView::section {
+    background-color: #f8fafc;
+    color: #64748b;
+    font-weight: 700;
+    border: none;
+    border-bottom: 2px solid #e2e8f0;
+    padding: 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+/* --- STAT CARDS (New) --- */
+QFrame#StatCard {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    /* Optional: Add shadow via code if needed, but simple border is cleaner */
+}
+
+QFrame#StatCard:hover {
+    border: 1px solid #3b82f6; /* Highlight on hover */
+    background-color: #eff6ff;
+}
+
+QLabel#CardTitle {
+    color: #9ca3af; /* Gray 400 */
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    background-color: transparent;
+}
+
+QLabel#CardValue {
+    color: #1f2937; /* Gray 800 */
+    font-size: 18px;
+    font-weight: 800;
+    background-color: transparent;
+}
+
+/* --- CHECKBOX --- */
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: white;
+}
+QCheckBox::indicator:checked {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+

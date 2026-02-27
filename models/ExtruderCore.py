@@ -77,6 +77,7 @@ class PurgingHeader(Base, AuditMixin):
     resin_used_id = Column(SmallInteger, ForeignKey("tbl_extruder_resins.id"), nullable=True)
     palletizer_used = Column(Numeric(10, 2), nullable=True)
     siever_used = Column(Numeric(10, 2), nullable=True)
+    water_temp = Column(Numeric(10, 2), nullable=True)
     extruder_form_data = relationship("ExtruderFormData", back_populates="purging_headers")
     purging_details = relationship("PurgingDetail", back_populates="purging_header", cascade="all, delete-orphan")
     resin_used = relationship("Resin", back_populates="purging_headers")

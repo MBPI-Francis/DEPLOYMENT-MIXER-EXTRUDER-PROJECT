@@ -156,6 +156,7 @@ class ExtruderRecordViewDialog(QDialog):
         self.purging_resin_label = QLabel()
         self.purging_palletizer_label = QLabel()
         self.purging_siever_label = QLabel()
+        self.water_temp_label = QLabel()
         p_layout.addRow("Product Code:", self.purging_prod_code_label)
         p_layout.addRow("Start Time:", self.purging_start_label)
         p_layout.addRow("End Time:", self.purging_end_label)
@@ -163,6 +164,7 @@ class ExtruderRecordViewDialog(QDialog):
         p_layout.addRow("Resin:", self.purging_resin_label)
         p_layout.addRow("Pelletizer:", self.purging_palletizer_label)
         p_layout.addRow("Siever:", self.purging_siever_label)
+        p_layout.addRow("Water Temperature:", self.water_temp_label)
         resin_sub = QGroupBox("Resin Consumption")
         resin_sub.setObjectName("ViewGroupBox")
         r_layout = QVBoxLayout(resin_sub)
@@ -319,6 +321,7 @@ class ExtruderRecordViewDialog(QDialog):
             self.purging_resin_label.setText("N/A")
             self.purging_palletizer_label.setText("N/A")
             self.purging_siever_label.setText("N/A")
+            self.water_temp_label.setText("N/A")
             self.resin_table.setRowCount(0)
         else:
             self.no_purging_label.setVisible(False)
@@ -341,6 +344,7 @@ class ExtruderRecordViewDialog(QDialog):
             self.purging_resin_label.setText(to_str(getattr(purging.resin_used, 'abbreviation', None)))
             self.purging_palletizer_label.setText(to_str(purging.palletizer_used))
             self.purging_siever_label.setText(to_str(purging.siever_used))
+            self.water_temp_label.setText(to_str(purging.water_temp))
             self.resin_table.setRowCount(0)
             for detail in purging.purging_details:
                 row = self.resin_table.rowCount()

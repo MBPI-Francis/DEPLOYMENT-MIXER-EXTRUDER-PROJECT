@@ -147,7 +147,7 @@ class MixerRecordsView(QWidget):
         self.filter_button = QPushButton("Filter Records...", objectName="ActionButton")
         self.clear_filters_button = QPushButton("Clear Filters", objectName="ActionButton")
         self.restore_button = QPushButton("Restore Records...", objectName="ActionButton")
-        self.export_button = QPushButton("Export...", objectName="ActionButton")
+        self.export_button = QPushButton("Export List", objectName="ActionButton")
         top_bar_layout.addWidget(self.search_input)
         top_bar_layout.addStretch()
         top_bar_layout.addWidget(self.refresh_button)
@@ -434,11 +434,11 @@ class MixerRecordsView(QWidget):
         layout.addWidget(QLabel("<b>Total Cleaning Duration:</b>"), 1, 3)
         layout.addWidget(self.total_clean_duration_label, 1, 4)
 
-        layout.addWidget(QLabel("<b>Processing Duration:</b>"), 0, 6)
+        layout.addWidget(QLabel("<b>Processing Duration (Decimal):</b>"), 0, 6)
         layout.addWidget(self.proc_excel_decimal_label, 0, 7)
 
 
-        layout.addWidget(QLabel("<b>Cleaning Duration:</b>"), 1, 6)
+        layout.addWidget(QLabel("<b>Cleaning Duration (Decimal):</b>"), 1, 6)
         layout.addWidget(self.clean_excel_decimal_label, 1, 7)
 
         layout.addWidget(QLabel("<b>Loaded Records:</b>"), 0, 9)
@@ -632,27 +632,6 @@ class MixerRecordsView(QWidget):
             self.live_search_worker.deleteLater()
             self.live_search_worker = None
 
-
-    # def _get_visible_data_as_dataframe(self) -> pd.DataFrame:
-    #     visible_data = []
-    #     headers = [self.table.horizontalHeaderItem(i).text() for i in range(self.table.columnCount())]
-    #     for row in range(self.table.rowCount()):
-    #         if not self.table.isRowHidden(row):
-    #             row_data = {}
-    #             detail_id = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
-    #             for col, header in enumerate(headers):
-    #                 if header == "Remarks":
-    #                     row_data[header] = self.full_data.loc[self.full_data['detail_id'] == detail_id, 'Remarks'].iloc[0]
-    #                 else:
-    #                     item = self.table.item(row, col)
-    #                     row_data[header] = item.text() if item else ""
-    #             visible_data.append(row_data)
-    #     df = pd.DataFrame(visible_data)
-    #     numeric_cols = {"Ref No": int, "Output QTY": float, "Cleaning QTY": float}
-    #     for col, col_type in numeric_cols.items():
-    #         if col in df.columns:
-    #             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(col_type)
-    #     return df
 
     def _get_visible_data_as_dataframe(self) -> pd.DataFrame:
         """

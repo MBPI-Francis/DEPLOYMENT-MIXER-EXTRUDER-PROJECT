@@ -1,0 +1,1 @@
+from app.views.extruder_benchmark_report.main_view import ExtruderReportView

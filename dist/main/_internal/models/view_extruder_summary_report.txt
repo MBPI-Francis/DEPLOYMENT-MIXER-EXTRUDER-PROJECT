@@ -1,0 +1,139 @@
+CREATE OR REPLACE VIEW view_extruder_summary_report AS
+WITH output_aggregates AS (
+    -- 1. Output Logic
+    SELECT
+        extruder_form_data_id,
+        MIN(datetime_start) AS time_start,
+        MAX(datetime_end) AS time_end,
+        SUM(qty_output) AS total_output,
+        SUM(EXTRACT(EPOCH FROM (datetime_end - datetime_start))) / 3600.0 AS total_duration_hours
+    FROM
+        tbl_extruder_outputs
+    GROUP BY
+        extruder_form_data_id
+),
+
+purging_time_and_code_aggregates AS (
+    SELECT
+        tbl_extruder_purging_headers.extruder_form_data_id,
+        min(tbl_extruder_purging_headers.time_start) AS purging_start_time,
+        max(tbl_extruder_purging_headers.time_end) AS purging_end_time,
+
+        -- FIX IS HERE: Handle Midnight Crossing Logic inside the SUM --
+        SUM(
+            EXTRACT(EPOCH FROM
+                CASE
+                    WHEN tbl_extruder_purging_headers.time_end < tbl_extruder_purging_headers.time_start
+                    THEN (tbl_extruder_purging_headers.time_end - tbl_extruder_purging_headers.time_start) + INTERVAL '24 hours'
+                    ELSE (tbl_extruder_purging_headers.time_end - tbl_extruder_purging_headers.time_start)
+                END
+            )
+        ) / 60.0 AS purging_duration_minutes,
+        ---------------------------------------------------------------
+
+        string_agg(DISTINCT tbl_extruder_purging_headers.product_code::text, ', '::text) AS purging_to_code
+    FROM tbl_extruder_purging_headers
+    GROUP BY tbl_extruder_purging_headers.extruder_form_data_id
+),
+
+purging_material_aggregates AS (
+    -- 3. Purging Material Logic
+    SELECT
+        h.extruder_form_data_id,
+        SUM(d.qty) AS total_cleaning_material
+    FROM
+        tbl_extruder_purging_headers h
+    JOIN
+        tbl_extruder_purging_details d ON h.id = d.purging_header_id
+    GROUP BY
+        h.extruder_form_data_id
+),
+operator_aggregates AS (
+    -- 4. Operator Logic: Join Personnel -> Employees and Aggregate Names
+    SELECT
+        ep.extruder_form_data_id,
+        STRING_AGG(DISTINCT (emp.first_name || ' ' || emp.last_name), ', ') AS operators
+    FROM
+        tbl_extruder_personnels ep
+    JOIN
+        tbl_production_employees emp ON ep.employee_id = emp.id
+    WHERE
+        ep.is_deleted = false
+    GROUP BY
+        ep.extruder_form_data_id
+)
+SELECT
+    -- 1. Reference Number
+    h.ref_no AS reference_number,
+
+    -- 2. Machine Number
+    m.name AS machine_number,
+
+    -- 3. Product Code
+    h.product_code,
+
+    -- 4. Lot no
+    h.lot_number,
+
+    -- 5. Formula Number
+    h.formula_no AS formula_number,
+
+    -- 7. Time Start
+    o.time_start,
+
+    -- 8. Time End
+    o.time_end,
+
+    -- 9. Duration (Hours)
+    COALESCE(o.total_duration_hours, 0) AS duration_hours,
+
+    -- 10. Output/hr
+    CASE
+        WHEN o.total_duration_hours > 0 THEN ROUND((o.total_output / o.total_duration_hours)::numeric, 2)
+        ELSE 0
+    END AS output_per_hour,
+
+    -- 11. Target Output/hr
+    h.target_output_per_hour,
+
+    -- 12. Total Output, Expected Output, and Yield Value
+    COALESCE(o.total_output, 0) AS total_output,
+    COALESCE(h.qty_produced, 0::numeric) AS expected_output,
+    COALESCE(o.total_output / h.qty_produced * 100::numeric, 0::numeric) AS yield_value,
+
+    -- 13. Purging Start Time
+    pt.purging_start_time,
+
+    -- 14. Purging End Time
+    pt.purging_end_time,
+
+    -- 15. Purging Duration (Minutes)
+    COALESCE(pt.purging_duration_minutes, 0) AS purging_duration_minutes,
+
+    -- 16. Operator (From Personnel Table)
+    COALESCE(ops.operators, '') AS operator,
+
+    -- 17. Total Cleaning Material
+    COALESCE(pm.total_cleaning_material, 0) AS total_cleaning_material,
+
+    -- 18. Purging To Code
+    pt.purging_to_code,
+
+    -- Hidden IDs
+    h.id AS form_id,
+    h.created_at
+
+FROM
+    tbl_extruder_form_data h
+JOIN
+    tbl_extruder_machines m ON h.machine_id = m.id
+LEFT JOIN
+    output_aggregates o ON h.id = o.extruder_form_data_id
+LEFT JOIN
+    purging_time_and_code_aggregates pt ON h.id = pt.extruder_form_data_id
+LEFT JOIN
+    purging_material_aggregates pm ON h.id = pm.extruder_form_data_id
+LEFT JOIN
+    operator_aggregates ops ON h.id = ops.extruder_form_data_id
+WHERE
+    h.is_deleted = false;
