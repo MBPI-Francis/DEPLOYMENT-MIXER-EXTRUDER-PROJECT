@@ -5,17 +5,15 @@ import time
 from typing import Type, Callable
 from datetime import timedelta
 
-from PyQt6.QtGui import QAction, QKeySequence, QIntValidator
+from PyQt6.QtGui import QAction, QKeySequence
 from sqlalchemy import func
 from sqlalchemy.orm import sessionmaker
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
     QTableWidgetItem, QHeaderView, QAbstractItemView, QMenu, QMessageBox,
     QFileDialog, QLineEdit, QLabel, QDialog, QProgressBar,
-    QGroupBox, QGridLayout, QComboBox, QFrame
+    QGroupBox, QGridLayout
 )
-
-
 from PyQt6.QtCore import Qt, pyqtSlot, QThread, pyqtSignal, QPropertyAnimation, QTimer, QEasingCurve
 
 import pandas as pd
@@ -26,7 +24,7 @@ from app.widgets.workers import LiveSearchWorker
 from .exporter import ExcelExporter
 from .ops import (
     delete_mixer_record, get_mixer_report_data, get_deleted_mixer_records, restore_mixer_records,
-    update_mixer_record, get_editor_initial_data, get_mixer_record_count
+    update_mixer_record, get_editor_initial_data
 )
 from .widgets import (
     FilterDialog, RemarksViewerDialog, RestoreDialog, SecureConfirmationDialog,
@@ -128,9 +126,7 @@ class MixerRecordsView(QWidget):
         self.editor_initial_data = {}
         self.live_search_worker = None
         self.export_worker = None
-        self.RECORDS_PER_PAGE_OPTIONS = ["50", "100", "250", "500", "1000"]
-        self.PAGE_SIZE = 200
-        self.records_per_page = 100
+        self.PAGE_SIZE = 100
         self.current_offset = 0
         self._is_loading_more = False
         self._all_data_loaded = False
@@ -140,81 +136,19 @@ class MixerRecordsView(QWidget):
         self._load_prerequisites()
         self._start_database_monitor()
 
-        # --- INITIALIZE PAGINATION STATE HERE ---
-        self.current_page = 1
-        self.page_size = 100  # Default page size
-        self.total_records = 0
-        # ----------------------------------------
-
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
         top_bar_layout = QHBoxLayout()
-
-        # --- NEW: Enhanced Search Bar Container ---
-        search_container = QHBoxLayout()
-        search_container.setSpacing(5)
-
-        # Scoped Search Dropdown
-        self.search_scope_combo = SmartComboBox()
-        self.search_scope_combo.set_mandatory(False)
-        self.search_scope_combo.addItems([
-            "All Columns",
-            "Product Code",
-            "Lot Number",
-            "Ref No",
-            "Machine",
-            "Processed By"
-        ])
-        self.search_scope_combo.setFixedWidth(120)
-
-        self.search_input = QLineEdit(placeholderText="Enter search text...")
-        self.search_input.setFixedWidth(250)
-
-        self.search_button = QPushButton(icon=qta.icon("fa5s.search"), objectName="ActionButton")
-
-        search_container.addWidget(self.search_scope_combo)
-        search_container.addWidget(self.search_input)
-        search_container.addWidget(self.search_button)
-        # --- END SEARCH BAR ---
-
-
-
+        self.search_input = QLineEdit(placeholderText="Search all loaded columns...")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.setFixedWidth(300)
         self.refresh_button = QPushButton("Refresh", icon=qta.icon("fa5s.sync-alt"), objectName="ActionButton",
                                           toolTip="Refresh the data from the database (Ctrl+R)")
         self.filter_button = QPushButton("Filter Records...", objectName="ActionButton")
         self.clear_filters_button = QPushButton("Clear Filters", objectName="ActionButton")
         self.restore_button = QPushButton("Restore Records...", objectName="ActionButton")
         self.export_button = QPushButton("Export List", objectName="ActionButton")
-
-        self.pagination_container = QWidget()
-        self.pagination_container.setObjectName("paginationWidget")
-        pagination_layout = QHBoxLayout(self.pagination_container)
-
-        self.records_per_page_combo = SmartComboBox()
-        self.records_per_page_combo.addItems(self.RECORDS_PER_PAGE_OPTIONS)
-        self.records_per_page_combo.setCurrentText(str(self.records_per_page))
-        self.records_per_page_combo.setEditable(True)
-        self.records_per_page_combo.setValidator(QIntValidator(1, 999999))
-        self.records_per_page_combo.setFixedWidth(80)
-
-        pagination_layout.addWidget(QLabel("Records per page:"))
-        pagination_layout.addWidget(self.records_per_page_combo)
-        pagination_layout.addStretch()
-
-        self.first_page_btn = QPushButton("<< First")
-        self.prev_page_btn = QPushButton("< Prev")
-        self.page_label = QLabel("Page 1 of 1")
-        self.next_page_btn = QPushButton("Next >")
-        self.last_page_btn = QPushButton("Last >>")
-
-        pagination_layout.addWidget(self.first_page_btn)
-        pagination_layout.addWidget(self.prev_page_btn)
-        pagination_layout.addWidget(self.page_label)
-        pagination_layout.addWidget(self.next_page_btn)
-        pagination_layout.addWidget(self.last_page_btn)
-
-
-        top_bar_layout.addLayout(search_container)
+        top_bar_layout.addWidget(self.search_input)
         top_bar_layout.addStretch()
         top_bar_layout.addWidget(self.refresh_button)
         top_bar_layout.addWidget(self.filter_button)
@@ -231,87 +165,19 @@ class MixerRecordsView(QWidget):
         main_layout.addLayout(top_bar_layout)
         main_layout.addWidget(self.table, 1)
         main_layout.addWidget(self.summary_box)
-        main_layout.addWidget(self.pagination_container)  # Add the pagination widget
         main_layout.addWidget(self.notification_label)
         css_path = os.path.join(os.path.dirname(__file__), "styles.css")
         if os.path.exists(css_path):
             with open(css_path, "r") as f: self.setStyleSheet(f.read())
 
-
     def _connect_signals(self):
-        # NEW: Manual Search Trigger
-        self.search_button.clicked.connect(self.initiate_search)
-        self.search_input.returnPressed.connect(self.initiate_search)  # Hitting Enter key
-
-        # We can also search immediately when the user changes the dropdown scope
-        self.search_scope_combo.currentIndexChanged.connect(self.initiate_search)
-
-
+        self.table.verticalScrollBar().valueChanged.connect(self._on_scroll)
+        self.search_input.textChanged.connect(self.filter_table_by_search)
         self.refresh_button.clicked.connect(lambda: self.refresh_data(is_manual_refresh=True))
         self.filter_button.clicked.connect(self.open_filter_dialog)
         self.clear_filters_button.clicked.connect(self.clear_filters)
         self.restore_button.clicked.connect(self.open_restore_dialog)
         self.export_button.clicked.connect(self.export_to_excel)
-
-        self.first_page_btn.clicked.connect(self.go_to_first_page)
-        self.last_page_btn.clicked.connect(self.go_to_last_page)
-        self.prev_page_btn.clicked.connect(self.prev_page)
-        self.next_page_btn.clicked.connect(self.next_page)
-
-        # Using currentTextChanged to handle the editable combo box
-        self.records_per_page_combo.currentTextChanged.connect(self.change_page_size)
-
-    def go_to_first_page(self):
-        self.current_page = 1
-        self.refresh_data(is_manual_refresh=False)
-
-    def go_to_last_page(self):
-        total_pages = math.ceil(self.total_records / self.records_per_page)
-        self.current_page = max(1, total_pages)
-        self.refresh_data(is_manual_refresh=False)
-
-    def next_page(self):
-        total_pages = math.ceil(self.total_records / self.records_per_page)
-        if self.current_page < total_pages:
-            self.current_page += 1
-            self.refresh_data(is_manual_refresh=False)
-
-    def prev_page(self):
-        if self.current_page > 1:
-            self.current_page -= 1
-            self.refresh_data(is_manual_refresh=False)
-
-    def change_page_size(self, text):
-        try:
-            val = int(text)
-            if val > 0:
-                self.records_per_page = val
-                self.current_page = 1  # Reset to page 1 when size changes
-                # Use a timer to prevent refreshing too fast while user is typing
-                QTimer.singleShot(500, lambda: self.refresh_data(is_manual_refresh=False))
-        except ValueError:
-            pass
-
-
-
-    def initiate_search(self):
-        """Triggered by button, Enter key, or dropdown change."""
-        term = self.search_input.text().strip()
-        scope = self.search_scope_combo.currentText()
-
-        if term:
-            self.current_filters["search_term"] = term
-            self.current_filters["search_field"] = scope
-        else:
-            # Clear search filters if input is empty
-            self.current_filters.pop("search_term", None)
-            self.current_filters.pop("search_field", None)
-
-        self.refresh_data(is_manual_refresh=False)
-
-        if term:
-            self.show_notification(f"Searching {scope} for: '{term}'")
-
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -320,41 +186,19 @@ class MixerRecordsView(QWidget):
             self.refresh_data(is_manual_refresh=False)
 
     def refresh_data(self, is_manual_refresh: bool = True):
-        session = self.Session()
-        try:
-            # 1. Get Count
-            self.total_records = get_mixer_record_count(session, self.current_filters)
-
-            # 2. Calc Pages
-            total_pages = math.ceil(self.total_records / self.records_per_page) if self.total_records > 0 else 1
-            if self.current_page > total_pages: self.current_page = total_pages
-
-            offset = (self.current_page - 1) * self.records_per_page
-            limit = self.records_per_page
-
-            # 3. Update UI
-            self.page_label.setText(f"Page {self.current_page} of {total_pages}")
-
-            self.first_page_btn.setEnabled(self.current_page > 1)
-            self.prev_page_btn.setEnabled(self.current_page > 1)
-            self.next_page_btn.setEnabled(self.current_page < total_pages)
-            self.last_page_btn.setEnabled(self.current_page < total_pages)
-
-            # 4. Fetch Data
-            new_data = get_mixer_report_data(session, self.current_filters, offset=offset, limit=limit)
-
-            self.table.setRowCount(0)
-            self.full_data = new_data
-            self._append_to_table(new_data)
-
-            # 5. Summary Box (Total matching set)
-            self._update_summary_box_full_set(session)
-
-        except Exception as e:
-            QMessageBox.critical(self, "Load Error", f"Could not load data:\n{e}")
-        finally:
-            session.close()
-
+        self.current_offset = 0
+        self.data_frames.clear()
+        self.full_data = pd.DataFrame()  # Ensure full_data is also cleared
+        self._all_data_loaded = False
+        self.table.setRowCount(0)
+        self._update_summary_box()
+        if self.current_filters:
+            print("Filters are active. Loading all matching data...")
+            self._load_all_filtered_data()
+        else:
+            self._load_more_data()
+        if is_manual_refresh:
+            self.show_notification("Data successfully refreshed!")
 
     def _load_all_filtered_data(self):
         """Loads all data matching the current filters in one go."""
@@ -498,36 +342,22 @@ class MixerRecordsView(QWidget):
 
     def _handle_export_to_excel(self):
         if self.export_worker and self.export_worker.isRunning():
-            QMessageBox.warning(self, "Export in Progress", "An export is already running.")
+            QMessageBox.warning(self, "Export in Progress", "An export is already running. Please wait.")
             return
-
-        # 1. Fetch ALL filtered data from the database (ignoring pagination)
-        session = self.Session()
-        try:
-            # We call the same ops function but WITHOUT offset and limit
-            df_to_export = get_mixer_report_data(session, self.current_filters, offset=None, limit=None)
-        except Exception as e:
-            QMessageBox.critical(self, "Export Data Error", f"Could not fetch data for export:\n{e}")
-            return
-        finally:
-            session.close()
-
+        df_to_export = self.full_data
         if df_to_export.empty:
-            QMessageBox.warning(self, "No Data", "There is no data to export.")
+            QMessageBox.warning(self, "No Data", "There is no data to export.");
             return
-
-        # 2. Get file path
         default_filename = f"Mixer_Report_{pd.Timestamp.now().strftime('%Y-%m-%d')}.xlsx"
         file_path, _ = QFileDialog.getSaveFileName(self, "Save Excel Report", default_filename, "Excel Files (*.xlsx)")
         if not file_path: return
-
-        # 3. Start the worker
         self.loading_dialog = LoadingDialog(self)
-        self.loading_dialog.set_text("Exporting ALL filtered records, please wait...")
+        self.loading_dialog.set_text("Exporting to Excel, please wait...")
         self.export_worker = ExportWorker(df_to_export, file_path)
         self.export_worker.success.connect(self._on_export_success)
         self.export_worker.error.connect(self._on_export_error)
         self.export_worker.finished.connect(self.loading_dialog.close)
+        self.export_worker.finished.connect(self.export_worker.deleteLater)
         self.export_worker.start()
         self.loading_dialog.exec()
 
@@ -538,7 +368,6 @@ class MixerRecordsView(QWidget):
         if not self.current_filters: return  # Do nothing if no filters are active
         self.current_filters = {}
         self.search_input.clear()
-        self.search_scope_combo.setCurrentIndex(0)  # Reset to "All Columns"
         self.refresh_data(is_manual_refresh=False)
         QMessageBox.information(self, "Filters Cleared", "All filters have been removed.")
 
@@ -550,6 +379,19 @@ class MixerRecordsView(QWidget):
             self.refresh_data(is_manual_refresh=False)
 
 
+    def _handle_export_to_excel(self):
+        visible_df = self._get_visible_data_as_dataframe()
+        if visible_df.empty:
+            QMessageBox.warning(self, "No Data", "There is no data to export."); return
+        default_filename = f"Mixer_Report_{pd.Timestamp.now().strftime('%Y-%m-%d')}.xlsx"
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Excel Report", default_filename, "Excel Files (*.xlsx)")
+        if not file_path: return
+        try:
+            exporter = ExcelExporter(visible_df)
+            exporter.export(file_path)
+            QMessageBox.information(self, "Export Successful", f"Report successfully saved to:\n{file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"An error occurred during export:\n{e}")
 
     # --- THIS IS THE NEW UI FOR THE SUMMARY BOX ---
     def _create_summary_box(self) -> QGroupBox:
@@ -657,8 +499,8 @@ class MixerRecordsView(QWidget):
         clean_total_hours = int(clean_total_seconds // 3600)
         clean_total_minutes = int((clean_total_seconds % 3600) // 60)
 
-        proc_excel_decimal = proc_total_hours + (proc_total_minutes / 60)
-        clean_excel_decimal = clean_total_hours + (clean_total_minutes / 60)
+        proc_excel_decimal = (proc_total_hours % 24) + (proc_total_minutes / 60)
+        clean_excel_decimal = (clean_total_hours % 24) + (clean_total_minutes / 60)
 
         # 4. Update all UI labels
         self.total_output_label.setText(f"{total_output:,.2f}")
@@ -667,21 +509,6 @@ class MixerRecordsView(QWidget):
         self.total_clean_duration_label.setText(f"{clean_total_hours}:{clean_total_minutes:02}")
         self.proc_excel_decimal_label.setText(f"{proc_excel_decimal:.2f}")
         self.clean_excel_decimal_label.setText(f"{clean_excel_decimal:.2f}")
-
-    def _update_summary_box_full_set(self, session):
-        """Calculates summary for the ENTIRE filtered result, not just the page."""
-        if self.page_size is None:
-            self._update_summary_box()  # Use data already in table
-            return
-
-        # Call get_mixer_report_data without offset/limit to get the true total
-        all_filtered_data = get_mixer_report_data(session, self.current_filters)
-
-        # Temporarily swap full_data to calculate totals
-        original_full_data = self.full_data
-        self.full_data = all_filtered_data
-        self._update_summary_box()
-        self.full_data = original_full_data
 
     # --- THE FOLLOWING TWO METHODS ARE RESTORED ---
     def show_notification(self, message: str, duration_ms: int = 2000):
@@ -709,18 +536,7 @@ class MixerRecordsView(QWidget):
 
     @pyqtSlot(str)
     def _on_export_success(self, filepath: str):
-        # Ask user if they want to open the file
-        reply = QMessageBox.question(
-            self, "Export Successful",
-            f"Report saved to:\n{filepath}\n\nDo you want to open the file now?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
-            try:
-                os.startfile(filepath)  # For Windows
-            except Exception as e:
-                QMessageBox.warning(self, "Error Opening File", f"Could not open file automatically:\n{e}")
+        QMessageBox.information(self, "Export Successful", f"Report successfully saved to:\n{filepath}")
 
     @pyqtSlot(str)
     def _on_export_error(self, error_message: str):

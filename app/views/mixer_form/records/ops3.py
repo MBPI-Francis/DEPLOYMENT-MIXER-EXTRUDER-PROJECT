@@ -189,6 +189,9 @@ def get_mixer_report_data(session: Session, filters: dict, offset: int = None, l
     if conditions:
         query = query.where(and_(*conditions))
 
+    if conditions:
+        query = query.where(and_(*conditions))
+
     # Order by Date descending to see newest records first
     query = query.order_by(mh.date.desc(), mh.reference_no.desc())
 
@@ -350,56 +353,3 @@ def delete_mixer_record(session: Session, detail_id: int):
         # between the time the table was loaded and the delete button was clicked.
         raise ValueError(f"Record with ID {detail_id} not found for deletion.")
 
-
-def get_mixer_record_count(session: Session, filters: dict) -> int:
-    """Returns the total number of records matching the current filters."""
-    md = aliased(MixerDetail, name="md")
-    mh = aliased(MixerHeader, name="mh")
-    mm = aliased(MixerMachine, name="mm")
-
-    query = select(func.count(md.id)).join(mh, md.mixer_header_id == mh.id).join(mm, md.mc_id == mm.id).where(
-        md.is_deleted == False)
-
-    conditions = []
-    if filters.get("search_term"):
-        term = f'%{filters["search_term"]}%'
-        field = filters.get("search_field", "All Columns")
-
-        if field == "All Columns":
-            conditions.append(or_(
-                md.product_code.ilike(term),
-                md.lot_no.ilike(term),
-                md.processed_by.ilike(term),
-                md.cleaning_rm_code.ilike(term),
-                mm.name.ilike(term),
-                cast(mh.reference_no, String).ilike(term)
-            ))
-        elif field == "Product Code":
-            conditions.append(md.product_code.ilike(term))
-        elif field == "Lot Number":
-            conditions.append(md.lot_no.ilike(term))
-        elif field == "Ref No":
-            conditions.append(cast(mh.reference_no, String).ilike(term))
-        elif field == "Machine":
-            conditions.append(mm.name.ilike(term))
-        elif field == "Processed By":
-            conditions.append(md.processed_by.ilike(term))
-
-    if filters:
-        if "date_from" in filters and "date_to" in filters: conditions.append(
-            mh.date.between(filters["date_from"], filters["date_to"]))
-        if filters.get("product_code"): conditions.append(md.product_code.ilike(f'%{filters["product_code"]}%'))
-        if filters.get("lot_number"): conditions.append(md.lot_no.ilike(f'%{filters["lot_number"]}%'))
-        if filters.get("processed_by"): conditions.append(md.processed_by.ilike(f'%{filters["processed_by"]}%'))
-        if filters.get("cleaning_rm"): conditions.append(md.cleaning_rm_code.ilike(f'%{filters["cleaning_rm"]}%'))
-        if filters.get("mc_name"): conditions.append(mm.name == filters["mc_name"])
-        if filters.get("ref_no"): conditions.append(mh.reference_no == filters["ref_no"])
-        if filters.get("output_qty_from") is not None: conditions.append(md.output_qty >= filters["output_qty_from"])
-        if filters.get("output_qty_to") is not None: conditions.append(md.output_qty <= filters["output_qty_to"])
-        if filters.get("cleaning_qty_from") is not None: conditions.append(
-            md.cleaning_qty >= filters["cleaning_qty_from"])
-        if filters.get("cleaning_qty_to") is not None: conditions.append(md.cleaning_qty <= filters["cleaning_qty_to"])
-    if conditions:
-        query = query.where(and_(*conditions))
-
-    return session.execute(query).scalar()
