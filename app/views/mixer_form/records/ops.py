@@ -399,7 +399,10 @@ def get_mixer_record_count(session: Session, filters: dict) -> int:
         if filters.get("cleaning_qty_from") is not None: conditions.append(
             md.cleaning_qty >= filters["cleaning_qty_from"])
         if filters.get("cleaning_qty_to") is not None: conditions.append(md.cleaning_qty <= filters["cleaning_qty_to"])
+
+
     if conditions:
         query = query.where(and_(*conditions))
+
 
     return session.execute(query).scalar()

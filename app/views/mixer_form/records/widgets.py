@@ -132,6 +132,8 @@ class FilterDialog(QDialog):
 
         self._connect_live_search()
 
+
+
     def _connect_live_search(self):
         """Connects signals to the DELEGATION handler."""
         self.product_code.full_search_requested.connect(
@@ -152,6 +154,8 @@ class FilterDialog(QDialog):
         # Date range is always active.
         filters["date_from"] = self.date_from.date().toPyDate()
         filters["date_to"] = self.date_to.date().toPyDate()
+
+
 
         # Handle text and combo box fields
         if self.ref_no.text().strip().isdigit():
