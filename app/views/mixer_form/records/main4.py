@@ -26,7 +26,7 @@ from app.widgets.workers import LiveSearchWorker
 from .exporter import ExcelExporter
 from .ops import (
     delete_mixer_record, get_mixer_report_data, get_deleted_mixer_records, restore_mixer_records,
-    update_mixer_record, get_editor_initial_data, get_mixer_record_count, get_mixer_summary_aggregates
+    update_mixer_record, get_editor_initial_data, get_mixer_record_count
 )
 from .widgets import (
     FilterDialog, RemarksViewerDialog, RestoreDialog, SecureConfirmationDialog,
@@ -117,43 +117,11 @@ class LoadingDialog(QDialog):
         self.label.setText(text)
 
 
-class DataLoaderWorker(QThread):
-    """Handles all DB fetching in background to prevent UI lag."""
-    finished = pyqtSignal(int, pd.DataFrame, dict)  # total_count, table_data, summary_stats
-    error = pyqtSignal(str)
-
-    def __init__(self, session_factory, filters, offset, limit):
-        super().__init__()
-        self.session_factory = session_factory
-        self.filters = filters
-        self.offset = offset
-        self.limit = limit
-
-    def run(self):
-        session = self.session_factory()
-        try:
-            # 1. Get total count
-            total = get_mixer_record_count(session, self.filters)
-
-            # 2. Get Page Data
-            df = get_mixer_report_data(session, self.filters, self.offset, self.limit)
-
-            # 3. Get SQL Aggregates for Summary Box
-            stats = get_mixer_summary_aggregates(session, self.filters)
-
-            self.finished.emit(total, df, stats)
-        except Exception as e:
-            self.error.emit(str(e))
-        finally:
-            session.close()
-
 class MixerRecordsView(QWidget):
     def __init__(self, session_factory: Type[sessionmaker], parent=None):
         super().__init__(parent)
         self.Session = session_factory
         self.data_frames = []
-        self.data_loader_worker = None
-        self.loading_dialog = None
         self.full_data = pd.DataFrame()
         self.machine_list = []
         self.current_filters = {}
@@ -290,14 +258,8 @@ class MixerRecordsView(QWidget):
         self.prev_page_btn.clicked.connect(self.prev_page)
         self.next_page_btn.clicked.connect(self.next_page)
 
-        # # Using currentTextChanged to handle the editable combo box
-        # self.records_per_page_combo.currentTextChanged.connect(self.change_page_size)
-
-        self.records_per_page_combo.activated.connect(self.change_page_size)
-
-        # 2. Trigger when the user types a value and hits the ENTER key
-        self.records_per_page_combo.lineEdit().returnPressed.connect(self.change_page_size)
-
+        # Using currentTextChanged to handle the editable combo box
+        self.records_per_page_combo.currentTextChanged.connect(self.change_page_size)
 
     def go_to_first_page(self):
         self.current_page = 1
@@ -319,24 +281,16 @@ class MixerRecordsView(QWidget):
             self.current_page -= 1
             self.refresh_data(is_manual_refresh=False)
 
-    def change_page_size(self):
-        """
-        Triggered only on selection or pressing Enter.
-        Prevents the infinite loading loop.
-        """
-        text = self.records_per_page_combo.currentText()
+    def change_page_size(self, text):
         try:
             val = int(text)
             if val > 0:
                 self.records_per_page = val
-                self.current_page = 1  # Reset to page 1
-                self.refresh_data(is_manual_refresh=False)
-            else:
-                # Reset to default if user enters 0 or negative
-                self.records_per_page_combo.setCurrentText(str(self.records_per_page))
+                self.current_page = 1  # Reset to page 1 when size changes
+                # Use a timer to prevent refreshing too fast while user is typing
+                QTimer.singleShot(500, lambda: self.refresh_data(is_manual_refresh=False))
         except ValueError:
-            # Reset to previous valid value if user enters text
-            self.records_per_page_combo.setCurrentText(str(self.records_per_page))
+            pass
 
 
 
@@ -365,94 +319,41 @@ class MixerRecordsView(QWidget):
             self._initial_load_done = True
             self.refresh_data(is_manual_refresh=False)
 
-
-    # def refresh_data(self, is_manual_refresh: bool = True):
-    #     if self.data_loader_worker and self.data_loader_worker.isRunning():
-    #         return
-    #
-    #     # Show Loading Dialog to prevent user from clicking things while loading
-    #     self.loading_dialog = LoadingDialog(self)
-    #     self.loading_dialog.set_text("Loading records...")
-    #     self.loading_dialog.show()
-    #
-    #     offset = (self.current_page - 1) * self.records_per_page
-    #
-    #     self.data_loader_worker = DataLoaderWorker(
-    #         self.Session, self.current_filters, offset, self.records_per_page
-    #     )
-    #     self.data_loader_worker.finished.connect(self.on_data_loaded)
-    #     self.data_loader_worker.error.connect(self.on_load_error)
-    #     self.data_loader_worker.finished.connect(self.loading_dialog.close)
-    #     self.data_loader_worker.start()
-
     def refresh_data(self, is_manual_refresh: bool = True):
-        # 1. Prevent overlapping loads
-        if self.data_loader_worker and self.data_loader_worker.isRunning():
-            return
+        session = self.Session()
+        try:
+            # 1. Get Count
+            self.total_records = get_mixer_record_count(session, self.current_filters)
 
-        # 2. Setup Loading Dialog
-        self.loading_dialog = LoadingDialog(self)
-        self.loading_dialog.set_text("Fetching records...")
+            # 2. Calc Pages
+            total_pages = math.ceil(self.total_records / self.records_per_page) if self.total_records > 0 else 1
+            if self.current_page > total_pages: self.current_page = total_pages
 
-        # 3. Only show the dialog if it's a manual refresh or a large change
-        # This prevents the 'blinking' for small pagination jumps
-        self.loading_dialog.show()
+            offset = (self.current_page - 1) * self.records_per_page
+            limit = self.records_per_page
 
-        offset = (self.current_page - 1) * self.records_per_page
+            # 3. Update UI
+            self.page_label.setText(f"Page {self.current_page} of {total_pages}")
 
-        self.data_loader_worker = DataLoaderWorker(
-            self.Session, self.current_filters, offset, self.records_per_page
-        )
-        self.data_loader_worker.finished.connect(self.on_data_loaded)
-        self.data_loader_worker.error.connect(self.on_load_error)
+            self.first_page_btn.setEnabled(self.current_page > 1)
+            self.prev_page_btn.setEnabled(self.current_page > 1)
+            self.next_page_btn.setEnabled(self.current_page < total_pages)
+            self.last_page_btn.setEnabled(self.current_page < total_pages)
 
-        # Ensure the dialog closes when the worker finishes
-        self.data_loader_worker.finished.connect(self.loading_dialog.close)
+            # 4. Fetch Data
+            new_data = get_mixer_report_data(session, self.current_filters, offset=offset, limit=limit)
 
-        self.data_loader_worker.start()
+            self.table.setRowCount(0)
+            self.full_data = new_data
+            self._append_to_table(new_data)
 
-    def on_data_loaded(self, total, df, stats):
-        self.total_records = total
+            # 5. Summary Box (Total matching set)
+            self._update_summary_box_full_set(session)
 
-        # 1. Update Pagination UI
-        total_pages = math.ceil(self.total_records / self.records_per_page) if self.total_records > 0 else 1
-        self.page_label.setText(f"Page {self.current_page} of {total_pages}")
-        self.first_page_btn.setEnabled(self.current_page > 1)
-        self.prev_page_btn.setEnabled(self.current_page > 1)
-        self.next_page_btn.setEnabled(self.current_page < total_pages)
-        self.last_page_btn.setEnabled(self.current_page < total_pages)
-
-        # 2. Update Table
-        self.table.setRowCount(0)
-        self.full_data = df
-        self._append_to_table(df)
-
-        # 3. Update Summary Box with the pre-calculated stats from DB
-        self._apply_summary_stats(stats)
-
-    def _apply_summary_stats(self, stats):
-        """Processes raw seconds from DB into HH:MM and Decimal for the UI."""
-
-        def format_time(total_seconds):
-            hours = int(total_seconds // 3600)
-            minutes = int((total_seconds % 3600) // 60)
-            decimal = hours + (minutes / 60)
-            return f"{hours}:{minutes:02}", f"{decimal:.2f}"
-
-        proc_str, proc_dec = format_time(stats["proc_seconds"])
-        clean_str, clean_dec = format_time(stats["clean_seconds"])
-
-        self.total_output_label.setText(f"{stats['total_output']:,.2f}")
-        self.total_cleaning_qty_label.setText(f"{stats['total_cleaning']:,.2f}")
-        self.total_proc_duration_label.setText(proc_str)
-        self.total_clean_duration_label.setText(clean_str)
-        self.proc_excel_decimal_label.setText(proc_dec)
-        self.clean_excel_decimal_label.setText(clean_dec)
-        self.visible_records_label.setText(f"{self.total_records:,}")
-
-    def on_load_error(self, message):
-        if self.loading_dialog: self.loading_dialog.close()
-        QMessageBox.critical(self, "Server Error", f"Failed to fetch data:\n{message}")
+        except Exception as e:
+            QMessageBox.critical(self, "Load Error", f"Could not load data:\n{e}")
+        finally:
+            session.close()
 
 
     def _load_all_filtered_data(self):

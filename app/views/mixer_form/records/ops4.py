@@ -2,7 +2,7 @@
 
 import pandas as pd
 from sqlalchemy.orm import Session, aliased
-from sqlalchemy import select, func, and_, cast, String, or_, text
+from sqlalchemy import select, func, and_, cast, String, or_
 from datetime import datetime, timedelta, date, time
 from typing import List
 import re  # Make sure re is imported
@@ -406,60 +406,3 @@ def get_mixer_record_count(session: Session, filters: dict) -> int:
 
 
     return session.execute(query).scalar()
-
-
-def get_mixer_summary_aggregates(session: Session, filters: dict) -> dict:
-    """
-    Calculates totals directly on the DB server.
-    Returns a dictionary of results. Extremely fast over network.
-    """
-    md = aliased(MixerDetail, name="md")
-    mh = aliased(MixerHeader, name="mh")
-    mm = aliased(MixerMachine, name="mm")
-
-    # Construct the base query with filters
-    # Note: We handle midnight crossing for durations using a CASE statement in SQL
-    proc_duration_sq = text(
-        "(CASE WHEN md.process_time_end < md.process_time_start THEN (md.process_time_end - md.process_time_start + interval '24 hours') ELSE (md.process_time_end - md.process_time_start) END)")
-    clean_duration_sq = text(
-        "(CASE WHEN md.cleaning_time_end < md.cleaning_time_start THEN (md.cleaning_time_end - md.cleaning_time_start + interval '24 hours') ELSE (md.cleaning_time_end - md.cleaning_time_start) END)")
-
-    query = select(
-        func.sum(md.output_qty).label("total_output"),
-        func.sum(md.cleaning_qty).label("total_cleaning"),
-        func.sum(proc_duration_sq).label("total_proc_interval"),
-        func.sum(clean_duration_sq).label("total_clean_interval")
-    ).join(mh, md.mixer_header_id == mh.id).join(mm, md.mc_id == mm.id).where(md.is_deleted == False)
-
-    # Apply same filters as your main query
-    conditions = []
-    if filters.get("search_term"):
-        term = f'%{filters["search_term"]}%'
-        field = filters.get("search_field", "All Columns")
-        if field == "All Columns":
-            conditions.append(or_(md.product_code.ilike(term), md.lot_no.ilike(term), mm.name.ilike(term),
-                                  cast(mh.reference_no, String).ilike(term)))
-        elif field == "Product Code":
-            conditions.append(md.product_code.ilike(term))
-        # ... add other fields ...
-
-    if "date_from" in filters and "date_to" in filters:
-        conditions.append(mh.date.between(filters["date_from"], filters["date_to"]))
-
-    if conditions:
-        query = query.where(and_(*conditions))
-
-    result = session.execute(query).first()
-
-    # Convert PostgreSQL intervals to total seconds
-    def interval_to_seconds(interval):
-        if interval is None: return 0
-        return interval.total_seconds()
-
-    return {
-        "total_output": float(result.total_output or 0),
-        "total_cleaning": float(result.total_cleaning or 0),
-        "proc_seconds": interval_to_seconds(result.total_proc_interval),
-        "clean_seconds": interval_to_seconds(result.total_clean_interval)
-    }
-

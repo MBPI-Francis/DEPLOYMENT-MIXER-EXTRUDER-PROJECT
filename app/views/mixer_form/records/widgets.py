@@ -36,16 +36,37 @@ class FilterDialog(QDialog):
         self.setObjectName("FilterDialog")
         self.setMinimumWidth(500)
 
-        # --- Define default values for comparison ---
         self.MAX_QTY = 999999.0
+
+        # --- CRITICAL STEP: Load and Convert Dates ---
+        # 1. Look for 'date_from' in current_filters. If not found, default to 1 month ago.
+        # 2. Look for 'date_to' in current_filters. If not found, default to today.
+
+        py_date_from = current_filters.get("date_from")
+        py_date_to = current_filters.get("date_to")
+
+        # Conversion: datetime.date -> QDate
+        if py_date_from:
+            q_date_from = QDate(py_date_from.year, py_date_from.month, py_date_from.day)
+        else:
+            q_date_from = QDate.currentDate().addMonths(-1)
+
+        if py_date_to:
+            q_date_to = QDate(py_date_to.year, py_date_to.month, py_date_to.day)
+        else:
+            q_date_to = QDate.currentDate()
 
         main_layout = QVBoxLayout(self)
         form_layout = QGridLayout()
-        form_layout.setSpacing(15) # A bit more spacing for a cleaner look
+        form_layout.setSpacing(15)
 
-        # --- Create all filter widgets ---
+        # --- Create widgets and APPLY the converted dates ---
         self.date_from = QDateEdit(calendarPopup=True)
-        self.date_to = QDateEdit(calendarPopup=True, date=current_filters.get("date_to", QDate.currentDate()))
+        self.date_from.setDate(q_date_from)  # This prevents the 2000-01-01 reset
+
+        self.date_to = QDateEdit(calendarPopup=True)
+        self.date_to.setDate(q_date_to)  # This keeps the "To" date saved
+
         self.ref_no = QLineEdit(str(current_filters.get("ref_no", "")))
 
         # self.mc_name = QComboBox()
@@ -154,8 +175,6 @@ class FilterDialog(QDialog):
         # Date range is always active.
         filters["date_from"] = self.date_from.date().toPyDate()
         filters["date_to"] = self.date_to.date().toPyDate()
-
-
 
         # Handle text and combo box fields
         if self.ref_no.text().strip().isdigit():
