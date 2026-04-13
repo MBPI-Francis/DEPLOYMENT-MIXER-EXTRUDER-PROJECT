@@ -1,6 +1,8 @@
+# app/features/sync_legacy_db.py
+
 import os
 from decimal import Decimal, InvalidOperation as DecimalInvalidOperation
-from typing import Set, Tuple, Any, Dict, List
+from typing import Set, Tuple, Any, Dict
 
 import dbfread
 from PyQt6.QtCore import QObject, pyqtSlot, pyqtSignal, QThread, Qt
@@ -35,16 +37,25 @@ DB_CONFIG_RAW_MATERIALS = {
 # --- Helper Functions for Safe Data Conversion ---
 class SafeFieldParser(FieldParser):
     def parseD(self, field, data):
-        try: return super().parseD(field, data)
-        except ValueError: return None
+        try:
+            return super().parseD(field, data)
+        except ValueError:
+            return None
+
 
 def safe_decimal(value: Any) -> Decimal | None:
-    try: return Decimal(value) if value is not None else None
-    except (ValueError, TypeError, DecimalInvalidOperation): return None
+    try:
+        return Decimal(value) if value is not None else None
+    except (ValueError, TypeError, DecimalInvalidOperation):
+        return None
+
 
 def safe_int(value: Any) -> int | None:
-    try: return int(value) if value is not None else None
-    except (ValueError, TypeError): return None
+    try:
+        return int(value) if value is not None else None
+    except (ValueError, TypeError):
+        return None
+
 
 def safe_bool(value: Any) -> bool | None:
     if isinstance(value, bool): return value
@@ -138,47 +149,46 @@ class SyncWorker(QObject):
             main_session = MainSession()
 
             self.progress.emit("Preparing database (clearing old records)...", 5)
-            print("--- PRE-SYNC: Truncating all target tables ---")
-
-            # This single command truncates all tables and resets their ID sequences.
-            # The CASCADE option handles foreign key relationships correctly.
-            truncate_command = text("""
-                TRUNCATE TABLE 
-                    public.tbl_formula02, public.tbl_formula01,
-                    public.tbl_prod02, public.tbl_prod01,
-                    public.tbl_incoming2,
-                    public.tbl_customers,
-                    public.tbl_raw_materials
-                RESTART IDENTITY CASCADE;
-            """)
-            main_session.execute(truncate_command)
+            # Delete in reverse order of dependency
+            main_session.query(TblIncoming2).delete()
+            main_session.query(Customer).delete()
+            main_session.query(RawMaterials).delete()
+            main_session.query(TblProd02).delete()
+            main_session.query(TblProd01).delete()
+            main_session.query(TblFormula02).delete()
+            main_session.query(TblFormula01).delete()
             main_session.commit()
-            print("All target tables have been truncated.")
 
-            # --- SYNC PHASE: FAST BULK INSERTS ---
-            self.progress.emit("Syncing records...", 15)
+            self.progress.emit("Syncing Formulas...", 15)
             f1_new, f2_new = self._sync_formulas(main_session)
 
-            self.progress.emit("Syncing records...", 30)
+            self.progress.emit("Syncing Production Records...", 30)
             p1_new = self._sync_prod01(main_session)
 
-            self.progress.emit("Syncing records...", 45)
+            self.progress.emit("Syncing Production Details...", 45)
             p2_new = self._sync_prod02(main_session)
 
-            self.progress.emit("Syncing records...", 60)
+            self.progress.emit("Syncing Raw Materials...", 60)
             rm_new = self._sync_raw_materials(main_session)
 
-            self.progress.emit("Syncing records...", 75)
+            self.progress.emit("Syncing Customers...", 75)
             cust_new = self._sync_customers(main_session)
 
-            self.progress.emit("Syncing records...", 85)
+            self.progress.emit("Syncing Incoming Records...", 85)
             inc2_new = self._sync_incoming2(main_session)
 
-            self.progress.emit("Finalizing synchronization...", 95)
+            self.progress.emit("Finalizing sync...", 95)
             main_session.commit()
 
             result_message = (
-                "Synchronization Successful!\n\n"
+                "Database Synchronization Successful!\n\n"
+                f"Imported {f1_new} Formula Headers.\n"
+                f"Imported {f2_new} Formula Details.\n"
+                f"Imported {p1_new} Production Records.\n"
+                f"Imported {p2_new} Production Details.\n"
+                f"Imported {rm_new} Raw Materials.\n"
+                f"Imported {cust_new} Customers.\n"
+                f"Imported {inc2_new} Incoming Records."
             )
             self.finished.emit(result_message)
 
@@ -193,7 +203,7 @@ class SyncWorker(QObject):
     def _sync_formulas(self, session) -> Tuple[int, int]:
         """Loads all non-deleted formula headers and details."""
         headers_to_add = []
-        headers_map_for_details: Dict[int, TblFormula01] = {}
+        headers_map_for_details = {}
 
         dbf_headers = dbfread.DBF(FORMULA01_DBF_PATH, encoding='latin1', parserclass=SafeFieldParser)._iter_records()
         for record in dbf_headers:
@@ -218,7 +228,7 @@ class SyncWorker(QObject):
             headers_map_for_details[t_uid] = new_header
 
         if headers_to_add:
-            session.bulk_save_objects(headers_to_add)
+            session.add_all(headers_to_add)
 
         details_to_add = []
         dbf_details = dbfread.DBF(FORMULA02_DBF_PATH, encoding='latin1', parserclass=SafeFieldParser)._iter_records()
@@ -247,7 +257,7 @@ class SyncWorker(QObject):
         for record in dbf_records:
             if safe_bool(record.get('T_DELETED')): continue
 
-            records_to_add.append(TblProd01(
+            new_rec = TblProd01(
                 T_PRODID=safe_decimal(record.get('T_PRODID')), T_PRODDATE=record.get('T_PRODDATE'),
                 T_CUSTOMER=record.get('T_CUSTOMER'), T_FID=safe_int(record.get('T_FID')),
                 T_INDEX=record.get('T_INDEX'), T_PRODCODE=record.get('T_PRODCODE'),
@@ -262,7 +272,8 @@ class SyncWorker(QObject):
                 T_ENCODEDB=record.get('T_ENCODEDB'), T_ENCODEDO=record.get('T_ENCODEDO'),
                 T_DELETED=False, T_JDONE=record.get('T_JDONE'), T_CDATE=record.get('T_CDATE'),
                 T_SDATE=record.get('T_SDATE'), T_FTYPE=record.get('T_FTYPE')
-            ))
+            )
+            records_to_add.append(new_rec)
 
         if records_to_add:
             session.bulk_save_objects(records_to_add)
@@ -275,7 +286,7 @@ class SyncWorker(QObject):
         for record in dbf_records:
             if safe_bool(record.get('T_DELETED')): continue
 
-            records_to_add.append(TblProd02(
+            new_rec = TblProd02(
                 T_PRODID=safe_decimal(record.get('T_PRODID')), T_LOTNUM=record.get('T_LOTNUM'),
                 T_CDATE=record.get('T_CDATE'), T_PRODDATE=record.get('T_PRODDATE'),
                 T_SEQ=safe_int(record.get('T_SEQ')), T_MATCODE=record.get('T_MATCODE'),
@@ -283,7 +294,8 @@ class SyncWorker(QObject):
                 T_PRODB=safe_decimal(record.get('T_PRODB')), T_LABB=safe_decimal(record.get('T_LABB')),
                 T_WT=safe_decimal(record.get('T_WT')), T_LOSS=safe_decimal(record.get('T_LOSS')),
                 T_CONS=safe_decimal(record.get('T_CONS')), T_DELETED=False
-            ))
+            )
+            records_to_add.append(new_rec)
 
         if records_to_add:
             session.bulk_save_objects(records_to_add)
@@ -297,13 +309,14 @@ class SyncWorker(QObject):
             source_materials = session_rm.query(RawMaterials).filter(RawMaterials.is_deleted != True).all()
             if not source_materials: return 0
 
-            records_to_add = [
-                RawMaterials(
+            records_to_add = []
+            for material in source_materials:
+                new_material = RawMaterials(
                     id=material.id, rm_code=material.rm_code,
                     rm_name=material.rm_name, description=material.description,
                     is_deleted=material.is_deleted
-                ) for material in source_materials
-            ]
+                )
+                records_to_add.append(new_material)
 
             if records_to_add:
                 main_session.bulk_save_objects(records_to_add)
@@ -318,9 +331,11 @@ class SyncWorker(QObject):
         for record in dbf_records:
             customer_name = record.get('T_CUSTOMER', '').strip()
             if not customer_name: continue
-            records_to_add.append(Customer(name=customer_name))
+            new_customer = Customer(name=customer_name)
+            records_to_add.append(new_customer)
 
         if records_to_add:
+            # Use a temporary set to filter out duplicates from within the DBF itself
             unique_records = {rec.name: rec for rec in records_to_add}.values()
             session.bulk_save_objects(unique_records)
             return len(unique_records)
@@ -333,7 +348,7 @@ class SyncWorker(QObject):
         for record in dbf_records:
             if safe_bool(record.get('T_DELETED')): continue
 
-            records_to_add.append(TblIncoming2(
+            new_rec = TblIncoming2(
                 t_ctrlnum=record.get('T_CTRLNUM', '').strip(),
                 t_seq=safe_int(record.get('T_SEQ')), t_date=record.get('T_DATE'),
                 t_matcode=record.get('T_MATCODE'), t_qty=safe_decimal(record.get('T_QTY')),
@@ -344,7 +359,8 @@ class SyncWorker(QObject):
                 t_delto=record.get('T_DELTO'), t_orderedb=record.get('T_ORDEREDB'),
                 t_prepared=record.get('T_PREPARED'), t_mattype=record.get('T_MATTYPE'),
                 t_status=record.get('T_STATUS'), t_time=record.get('T_TIME')
-            ))
+            )
+            records_to_add.append(new_rec)
 
         if records_to_add:
             session.bulk_save_objects(records_to_add)

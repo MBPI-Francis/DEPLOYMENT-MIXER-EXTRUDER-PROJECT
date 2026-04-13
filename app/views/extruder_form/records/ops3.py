@@ -413,8 +413,136 @@ class ExtruderRecordsOperations:
 
         return export_data
 
+    # def get_extruder_record_count(self, filters: dict) -> int:
+    #     session = self.Session()
+    #     try:
+    #         # We start from the Form Data
+    #         query = session.query(func.count(ExtruderFormData.id.distinct()))
+    #         # Tell filters it needs to join outputs for date filtering
+    #         query = self._apply_filters(query, filters, needs_output_join=True)
+    #         return query.scalar() or 0
+    #     finally:
+    #         session.close()
+    #
+    # def get_paginated_records(self, filters: dict, offset: int, limit: int) -> List[ExtruderFormData]:
+    #     session = self.Session()
+    #     try:
+    #         query = session.query(ExtruderFormData).options(
+    #             joinedload(ExtruderFormData.machine),
+    #             selectinload(ExtruderFormData.extruder_outputs),
+    #             selectinload(ExtruderFormData.purging_headers).selectinload(PurgingHeader.purging_details).joinedload(
+    #                 PurgingDetail.resin),
+    #             selectinload(ExtruderFormData.extruder_personnels).joinedload(ExtruderPersonnel.employee)
+    #         )
+    #         # Tell filters it needs to join outputs for date filtering
+    #         query = self._apply_filters(query, filters, needs_output_join=True)
+    #         query = query.order_by(ExtruderFormData.created_at.desc())
+    #         if limit is not None:
+    #             query = query.offset(offset).limit(limit)
+    #         return query.all()
+    #     finally:
+    #         session.close()
+
+    # def get_extruder_summary_aggregates(self, filters: dict) -> dict:
+    #     """
+    #     SQL Aggregation: Calculates the 6 summary values on the DB server.
+    #     Uses proper ORM constructs to avoid NotImplementedError.
+    #     """
+    #     session = self.Session()
+    #     try:
+    #         # 1. Logic for Processing Duration (from ExtruderOutput)
+    #         proc_dur_expr = func.sum(ExtruderOutput.datetime_end - ExtruderOutput.datetime_start)
+    #
+    #         # 2. Logic for Purging Duration (from PurgingHeader)
+    #         # Standard handling for midnight crossing with time objects
+    #         waste_interval_expr = case(
+    #             (PurgingHeader.time_end < PurgingHeader.time_start,
+    #              PurgingHeader.time_end - PurgingHeader.time_start + text("interval '24 hours'")),
+    #             else_=PurgingHeader.time_end - PurgingHeader.time_start
+    #         )
+    #         waste_dur_expr = func.sum(waste_interval_expr)
+    #
+    #         # --- QUERY 1: Output and Production Time ---
+    #         q1 = session.query(
+    #             func.sum(ExtruderOutput.qty_output).label("total_out"),
+    #             proc_dur_expr.label("proc_interval")
+    #         ).join(ExtruderFormData, ExtruderOutput.extruder_form_data_id == ExtruderFormData.id)
+    #
+    #         q1 = self._apply_filters(q1, filters, needs_output_join=False)
+    #         res1 = q1.first()
+    #
+    #         # --- QUERY 2: Waste and Waste Time ---
+    #         q2 = session.query(
+    #             func.sum(PurgingDetail.qty).label("total_waste"),
+    #             waste_dur_expr.label("waste_interval")
+    #         ).select_from(PurgingDetail).join(PurgingHeader).join(ExtruderFormData)
+    #
+    #         q2 = self._apply_filters(q2, filters, needs_output_join=True)
+    #         res2 = q2.first()
+    #
+    #         # Helper to convert interval to seconds
+    #         def to_sec(interval):
+    #             if interval is None: return 0
+    #             return interval.total_seconds() if hasattr(interval, 'total_seconds') else 0
+    #
+    #         # FIXED: Keys now match what main.py expects
+    #         return {
+    #             "total_output": float(res1.total_out or 0),
+    #             "total_waste": float(res2.total_waste or 0),
+    #             "proc_seconds": to_sec(res1.proc_interval),
+    #             "purge_seconds": to_sec(res2.waste_interval)  # Renamed from waste_seconds
+    #         }
+    #     finally:
+    #         session.close()
+    #
+    # def _apply_filters(self, query, filters, needs_output_join=True):
+    #     """
+    #     Improved Filter logic to prevent 'DuplicateAlias' error.
+    #     """
+    #     # 1. Soft Delete Check
+    #     if filters.get('show_only_deleted', False):
+    #         query = query.filter(ExtruderFormData.is_deleted == True)
+    #     else:
+    #         query = query.filter(ExtruderFormData.is_deleted == False)
+    #
+    #     # 2. Scoped Search
+    #     if term := filters.get('search_term'):
+    #         search_ilike = f"%{term}%"
+    #         scope = filters.get('search_field', 'All Columns')
+    #         if scope == "All Columns":
+    #             query = query.filter(or_(
+    #                 ExtruderFormData.lot_number.ilike(search_ilike),
+    #                 ExtruderFormData.product_code.ilike(search_ilike),
+    #                 ExtruderFormData.ref_no.cast(String).like(search_ilike)
+    #             ))
+    #         elif scope == "Product Code":
+    #             query = query.filter(ExtruderFormData.product_code.ilike(search_ilike))
+    #         elif scope == "Lot Number":
+    #             query = query.filter(ExtruderFormData.lot_number.ilike(search_ilike))
+    #         elif scope == "Ref No":
+    #             query = query.filter(ExtruderFormData.ref_no.cast(String).like(search_ilike))
+    #
+    #     # 3. Date Range Filter (Handles Duplicate Join Prevention)
+    #     if filters.get('date_from') or filters.get('date_to'):
+    #         if needs_output_join:
+    #             # Check if we are already joined to ExtruderOutput to prevent DuplicateAlias
+    #             # We do this by checking the query's underlying entities
+    #             query = query.join(ExtruderOutput)
+    #
+    #         if df := filters.get('date_from'):
+    #             query = query.filter(func.date(ExtruderOutput.datetime_start) >= df)
+    #         if dt := filters.get('date_to'):
+    #             query = query.filter(func.date(ExtruderOutput.datetime_start) <= dt)
+    #
+    #         query = query.distinct()
+    #
+    #     # 4. Advanced Machine Filter
+    #     if machine_id := filters.get('machine_id'):
+    #         query = query.filter(ExtruderFormData.machine_id == machine_id)
+    #
+    #     return query
+
     def get_extruder_record_count(self, filters: dict) -> int:
-        """Returns the total number of records matching filters (Server-side)."""
         session = self.Session()
         try:
             query = session.query(func.count(ExtruderFormData.id.distinct()))
@@ -424,7 +552,6 @@ class ExtruderRecordsOperations:
             session.close()
 
     def get_paginated_records(self, filters: dict, offset: int, limit: int) -> List[ExtruderFormData]:
-        """Fetches exactly 'limit' records starting from 'offset'."""
         session = self.Session()
         try:
             query = session.query(ExtruderFormData).options(
@@ -436,19 +563,64 @@ class ExtruderRecordsOperations:
             )
             query = self._apply_filters(query, filters)
             query = query.order_by(ExtruderFormData.created_at.desc())
-
             if limit is not None:
                 query = query.offset(offset).limit(limit)
-
             return query.all()
         finally:
             session.close()
 
+    # def get_extruder_summary_aggregates(self, filters: dict) -> dict:
+    #     """
+    #     Isolated Aggregation: Uses the exact same IDs visible in the UI table
+    #     to compute totals, ensuring 100% consistency with Excel.
+    #     """
+    #     session = self.Session()
+    #     try:
+    #         # 1. Get the list of IDs currently matching the filters
+    #         id_query = session.query(ExtruderFormData.id)
+    #         id_query = self._apply_filters(id_query, filters)
+    #         matched_ids = [r[0] for r in id_query.all()]
+    #
+    #         if not matched_ids:
+    #             return {"total_output": 0, "total_waste": 0, "proc_seconds": 0, "purge_seconds": 0}
+    #
+    #         # 2. Output and Process Time (Isolated Query)
+    #         res_out = session.query(
+    #             func.sum(ExtruderOutput.qty_output),
+    #             func.sum(ExtruderOutput.datetime_end - ExtruderOutput.datetime_start)
+    #         ).filter(ExtruderOutput.extruder_form_data_id.in_(matched_ids)).first()
+    #
+    #         # 3. Waste and Purge Duration (Isolated Query)
+    #         # Handle midnight crossing for Purge durations
+    #         purge_dur_expr = func.sum(case(
+    #             (PurgingHeader.time_end < PurgingHeader.time_start,
+    #              PurgingHeader.time_end - PurgingHeader.time_start + text("interval '24 hours'")),
+    #             else_=PurgingHeader.time_end - PurgingHeader.time_start
+    #         ))
+    #
+    #         res_purge = session.query(
+    #             func.sum(PurgingDetail.qty),
+    #             purge_dur_expr
+    #         ).select_from(PurgingDetail).join(PurgingHeader).filter(
+    #             PurgingHeader.extruder_form_data_id.in_(matched_ids)
+    #         ).first()
+    #
+    #         def to_sec(interval):
+    #             return interval.total_seconds() if interval and hasattr(interval, 'total_seconds') else 0
+    #
+    #         return {
+    #             "total_output": float(res_out[0] or 0),
+    #             "total_waste": float(res_purge[0] or 0),
+    #             "proc_seconds": to_sec(res_out[1]),
+    #             "purge_seconds": to_sec(res_purge[1])
+    #         }
+    #     finally:
+    #         session.close()
+
     def get_extruder_summary_aggregates(self, filters: dict) -> dict:
-        """Calculates 6 summary values on the DB server (Isolated queries)."""
         session = self.Session()
         try:
-            # 1. Source of Truth: Get IDs matching filters
+            # 1. Source of Truth: Get only IDs matching the current UI filters
             id_query = session.query(ExtruderFormData.id)
             id_query = self._apply_filters(id_query, filters)
             matched_ids = [r[0] for r in id_query.all()]
@@ -456,18 +628,19 @@ class ExtruderRecordsOperations:
             if not matched_ids:
                 return {"total_output": 0, "total_waste": 0, "proc_seconds": 0, "purge_seconds": 0}
 
-            # 2. Output & Process Time
+            # 2. Output & Proc Time for these specific IDs only
             res_out = session.query(
                 func.sum(ExtruderOutput.qty_output),
                 func.sum(ExtruderOutput.datetime_end - ExtruderOutput.datetime_start)
             ).filter(ExtruderOutput.extruder_form_data_id.in_(matched_ids)).first()
 
-            # 3. Waste Qty & Purge Duration (Midnight Logic)
+            # 3. Waste Qty & Purge Time for these specific IDs only
             purge_dur_expr = func.sum(case(
                 (PurgingHeader.time_end < PurgingHeader.time_start,
                  PurgingHeader.time_end - PurgingHeader.time_start + text("interval '24 hours'")),
                 else_=PurgingHeader.time_end - PurgingHeader.time_start
             ))
+
             res_purge = session.query(
                 func.sum(PurgingDetail.qty),
                 purge_dur_expr
@@ -476,7 +649,8 @@ class ExtruderRecordsOperations:
             ).first()
 
             def to_sec(interval):
-                return interval.total_seconds() if interval and hasattr(interval, 'total_seconds') else 0
+                if interval is None: return 0
+                return interval.total_seconds() if hasattr(interval, 'total_seconds') else 0
 
             return {
                 "total_output": float(res_out[0] or 0),
@@ -488,41 +662,27 @@ class ExtruderRecordsOperations:
             session.close()
 
     def _apply_filters(self, query, filters):
-        """Standard filtering logic used by all queries."""
+        """
+        Fixed Filter logic: Uses .any() instead of Joins.
+        This prevents records without logs from being excluded,
+        fixing the $750.00 discrepancy.
+        """
+        # 1. Soft Delete Check
         if filters.get('show_only_deleted', False):
             query = query.filter(ExtruderFormData.is_deleted == True)
         else:
             query = query.filter(ExtruderFormData.is_deleted == False)
 
+        # 2. Scoped Search
         if term := filters.get('search_term'):
             search_ilike = f"%{term}%"
             scope = filters.get('search_field', 'All Columns')
             if scope == "All Columns":
-                # We can only use .ilike() on String columns or casted Numeric columns.
-                # For relationships (Machine, Personnel), we use .has() or .any().
                 query = query.filter(or_(
                     ExtruderFormData.lot_number.ilike(search_ilike),
                     ExtruderFormData.product_code.ilike(search_ilike),
-                    ExtruderFormData.customer.ilike(search_ilike),  # Added customer search
-                    ExtruderFormData.ref_no.cast(String).like(search_ilike),
-                    ExtruderFormData.qty_produced.cast(String).like(search_ilike),
-                    ExtruderFormData.target_output_per_hour.cast(String).like(search_ilike),
-
-
-                    # FIX: Search inside the related Machine table
-                    ExtruderFormData.machine.has(ExtruderMachine.name.ilike(search_ilike)),
-
-                    # OPTIONAL: If you want to search by Operator name in the global search
-                    ExtruderFormData.extruder_personnels.any(
-                        ExtruderPersonnel.employee.has(
-                            or_(
-                                ProductionEmployee.first_name.ilike(search_ilike),
-                                ProductionEmployee.last_name.ilike(search_ilike)
-                            )
-                        )
-                    )
+                    ExtruderFormData.ref_no.cast(String).like(search_ilike)
                 ))
-
             elif scope == "Product Code":
                 query = query.filter(ExtruderFormData.product_code.ilike(search_ilike))
             elif scope == "Lot Number":
@@ -530,11 +690,14 @@ class ExtruderRecordsOperations:
             elif scope == "Ref No":
                 query = query.filter(ExtruderFormData.ref_no.cast(String).like(search_ilike))
 
-        # Date Range (Using EXISTS pattern to prevent record exclusion/duplication)
-        d_from, d_to = filters.get('date_from'), filters.get('date_to')
+        # 3. Date Range Filter (Using EXISTS logic to prevent dropping records)
+        d_from = filters.get('date_from')
+        d_to = filters.get('date_to')
+
         if d_from or d_to:
             conditions = []
             if d_from:
+                # Included if Header matches OR any output log matches
                 conditions.append(or_(
                     func.date(ExtruderFormData.created_at) >= d_from,
                     ExtruderFormData.extruder_outputs.any(func.date(ExtruderOutput.datetime_start) >= d_from)
@@ -544,8 +707,11 @@ class ExtruderRecordsOperations:
                     func.date(ExtruderFormData.created_at) <= d_to,
                     ExtruderFormData.extruder_outputs.any(func.date(ExtruderOutput.datetime_start) <= d_to)
                 ))
-            query = query.filter(and_(*conditions))
 
+            if conditions:
+                query = query.filter(and_(*conditions))
+
+        # 4. Advanced Machine Filter
         if machine_id := filters.get('machine_id'):
             query = query.filter(ExtruderFormData.machine_id == machine_id)
 

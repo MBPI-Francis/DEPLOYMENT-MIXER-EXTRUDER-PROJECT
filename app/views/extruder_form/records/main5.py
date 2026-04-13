@@ -222,12 +222,15 @@ class BulkExportWorker(QThread):
 
 # --- NEW: Background Worker for Performance ---
 class DataLoaderWorker(QThread):
-    finished = pyqtSignal(int, list, dict) # total_count, records, stats
+    finished = pyqtSignal(int, list, dict) # total, records, aggregates
     error = pyqtSignal(str)
 
     def __init__(self, ops, filters, offset, limit):
         super().__init__()
-        self.ops, self.filters, self.offset, self.limit = ops, filters, offset, limit
+        self.ops = ops
+        self.filters = filters
+        self.offset = offset
+        self.limit = limit
 
     def run(self):
         try:
@@ -250,22 +253,26 @@ class ExtruderRecordsView(QWidget):
 
         # --- PAGINATION STATE ---
         self.records_per_page = 100
+        self.RECORDS_PER_PAGE_OPTIONS = ["50", "100", "250", "500", "1000"]
         self.current_page = 1
         self.total_records = 0
         self.data_loader_worker = None
         self.loading_dialog = None
-        self.current_filters = {}
-        self.advanced_filters = {}
-        self.full_data = pd.DataFrame()
-        self.has_been_shown = False
+
 
         self.bulk_export_worker = None
         self.filter_dialog = FilterDialog(session_factory, self)
         self.advanced_filters = {}
         self.is_loading = False
         self.is_deleted_color = QColor("#e0e0e0")
+        self.full_data = pd.DataFrame()
         self.current_summary_stats = {}
         self.is_initial_load = True
+
+
+        # --- NEW: Flag to control one-time data loading ---
+        self.has_been_shown = False
+
 
         self._inject_export_button()
 
@@ -275,7 +282,6 @@ class ExtruderRecordsView(QWidget):
         self.layout().addWidget(self.ui.table_widget)
 
         self._setup_ui_enhancements()
-
 
         # --- Data is NO LONGER loaded in the constructor ---
         # self.load_initial_data()
@@ -295,27 +301,35 @@ class ExtruderRecordsView(QWidget):
         """
         super().showEvent(event)
         if not self.has_been_shown:
-            self.refresh_data()
+            self.load_initial_data()
             self.has_been_shown = True
 
     def _setup_ui_enhancements(self):
-        # 1. Search Scope
+        """Adds Search Scope and Pagination Bar."""
+        # 1. Search Scope Dropdown
         self.search_scope_combo = SmartComboBox()
         self.search_scope_combo.addItems(["All Columns", "Product Code", "Lot Number", "Ref No"])
         self.search_scope_combo.setFixedWidth(120)
         self.ui.filter_layout.insertWidget(0, self.search_scope_combo)
 
-        # 2. Search Button
-        self.search_btn = QPushButton(icon=qta.icon("fa5s.search"), objectName="ActionButton")
+        self.search_btn = QPushButton()  # Create button with text or empty
+        try:
+            # Set the icon separately
+            search_icon = qta.icon("fa5s.search", color="#5f6368")
+            self.search_btn.setIcon(search_icon)
+        except Exception as e:
+            print(f"Could not load qtawesome icon: {e}")
+
+        self.search_btn.setObjectName("ActionButton")
         self.ui.filter_layout.insertWidget(2, self.search_btn)
 
-        # 3. Pagination Widget (Matches Mixer Style)
+        # 2. Pagination Widgetq
         self.pagination_container = QWidget()
         self.pagination_container.setObjectName("paginationWidget")
         p_layout = QHBoxLayout(self.pagination_container)
 
         self.records_per_page_combo = SmartComboBox()
-        self.records_per_page_combo.addItems(["50", "100", "250", "500", "1000"])
+        self.records_per_page_combo.addItems(self.RECORDS_PER_PAGE_OPTIONS)
         self.records_per_page_combo.setCurrentText(str(self.records_per_page))
         self.records_per_page_combo.setEditable(True)
         self.records_per_page_combo.setValidator(QIntValidator(1, 9999))
@@ -331,13 +345,17 @@ class ExtruderRecordsView(QWidget):
         self.next_page_btn = QPushButton("Next >")
         self.last_page_btn = QPushButton("Last >>")
 
-        for btn in [self.first_page_btn, self.prev_page_btn, self.page_label, self.next_page_btn, self.last_page_btn]:
+        for btn in [self.first_page_btn, self.prev_page_btn, self.next_page_btn, self.last_page_btn]:
             p_layout.addWidget(btn)
+        p_layout.insertWidget(p_layout.indexOf(self.prev_page_btn) + 1, self.page_label)
 
-        # 4. Final Layout assembly
+        # 3. Summary Box
         self.summary_box = self._create_summary_box()
+
+        # Assemble Main Layout
         self.layout().addWidget(self.summary_box)
         self.layout().addWidget(self.pagination_container)
+
 
 
     def _inject_export_button(self):
@@ -469,7 +487,75 @@ class ExtruderRecordsView(QWidget):
         self.proc_excel_decimal_label.setText(stats['proc_decimal'])
         self.waste_excel_decimal_label.setText(stats['waste_decimal'])
 
+    # def export_list_to_excel(self):
+    #     # 1. Check if table is empty
+    #     if self.ui.table_widget.rowCount() == 0:
+    #         QMessageBox.warning(self, "No Data", "There is no data available to export.")
+    #         return
+    #
+    #     default_filename = f"Extruder_Summary_List_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    #     desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+    #     default_full_path = os.path.join(desktop_path, default_filename)
+    #
+    #     file_path, _ = QFileDialog.getSaveFileName(self, "Save List Export", default_full_path, "Excel Files (*.xlsx)")
+    #     if not file_path:
+    #         return
+    #
+    #     QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+    #     try:
+    #         # 2. Fetch Export Data using the specialized OPS method
+    #         current_filters = self.advanced_filters.copy()
+    #         current_filters['search_term'] = self.ui.search_input.text()
+    #         current_filters['date_from'] = self.ui.date_from_input.date().toPyDate()
+    #         current_filters['date_to'] = self.ui.date_to_input.date().toPyDate()
+    #         current_filters['show_only_deleted'] = self.ui.show_only_deleted_checkbox.isChecked()
+    #         if self.ui.search_input.text():
+    #             current_filters['ref_no_search'] = self.ui.search_input.text()
+    #
+    #         # get_export_data returns a list of dictionaries with keys like 'Total Output', 'Cleaning Duration', etc.
+    #         export_data = self.ops.get_export_data(current_filters)
+    #
+    #         # 3. Calculate Stats for the Footer based on the EXPORT data
+    #         # This ensures the footer matches the rows in the excel file exactly.
+    #
+    #         total_output = sum(item['Total Output'] for item in export_data)
+    #         # Note: ops.py doesn't return 'Waste QTY' in get_export_data currently,
+    #         # we might need to rely on self.current_summary_stats OR update ops.py.
+    #         # However, looking at previous turns, self.full_data stores the UI view data.
+    #         #
+    #         # OPTION A: Recalculate from export_data (Most accurate if export_data has all fields)
+    #         # The OPS get_export_data returns 'Cleaning Duration' but not explicit Waste QTY column.
+    #         #
+    #         # OPTION B: Use self.current_summary_stats (Matches the UI Summary Box).
+    #         # This is safer because the UI Summary Box logic is robust.
+    #
+    #         summary_stats = self.current_summary_stats
+    #
+    #         # 4. Export
+    #         exporter = ExtruderListExporter()
+    #         exporter.export_list(export_data, summary_stats, file_path)
+    #
+    #         QMessageBox.information(self, "Success", "List exported successfully!")
+    #         os.startfile(file_path)
+    #
+    #     except Exception as e:
+    #         ErrorDialog("Export Error", "Failed to export list.", details=traceback.format_exc(), parent=self).exec()
+    #     finally:
+    #         QApplication.restoreOverrideCursor()
 
+    # def _setup_connections(self):
+    #     self.search_timer = QTimer(self)
+    #     self.search_timer.setSingleShot(True)
+    #     self.search_timer.timeout.connect(self.refresh_data)
+    #     self.ui.search_input.textChanged.connect(lambda: self.search_timer.start(500))
+    #     self.ui.date_from_input.dateChanged.connect(self.refresh_data)
+    #     self.ui.date_to_input.dateChanged.connect(self.refresh_data)
+    #     self.ui.advanced_filter_button.clicked.connect(self._open_filter_dialog)
+    #     self.ui.clear_filters_button.clicked.connect(self._clear_all_filters)
+    #     self.ui.restore_selected_button.clicked.connect(self._restore_selected_records)
+    #     self.ui.show_only_deleted_checkbox.stateChanged.connect(self.refresh_data)
+    #     self.ui.table_widget.doubleClicked.connect(self._view_record)
+    #     self.ui.table_widget.customContextMenuRequested.connect(self._show_context_menu)
 
     def export_list_to_excel(self):
         # 1. Table check
@@ -539,30 +625,29 @@ class ExtruderRecordsView(QWidget):
             QApplication.restoreOverrideCursor()
 
     def _setup_connections(self):
-        # Search signals
+        # Search
         self.search_btn.clicked.connect(self.initiate_search)
         self.ui.search_input.returnPressed.connect(self.initiate_search)
-        self.search_scope_combo.currentIndexChanged.connect(self.initiate_search)
 
-        # Pagination signals
+        # Pagination
         self.first_page_btn.clicked.connect(lambda: self._change_page(1))
         self.prev_page_btn.clicked.connect(lambda: self._change_page(self.current_page - 1))
         self.next_page_btn.clicked.connect(lambda: self._change_page(self.current_page + 1))
         self.last_page_btn.clicked.connect(self._go_to_last_page)
+
         self.records_per_page_combo.activated.connect(self._change_page_size)
         self.records_per_page_combo.lineEdit().returnPressed.connect(self._change_page_size)
 
-        # Action signals
+        # Actions
         self.ui.advanced_filter_button.clicked.connect(self._open_filter_dialog)
         self.ui.clear_filters_button.clicked.connect(self._clear_all_filters)
-        self.ui.show_only_deleted_checkbox.stateChanged.connect(self.initiate_search)
+        self.ui.restore_selected_button.clicked.connect(self._restore_selected_records)
         self.ui.table_widget.doubleClicked.connect(self._view_record)
         self.ui.table_widget.customContextMenuRequested.connect(self._show_context_menu)
 
+
     def initiate_search(self):
-        """Reset to Page 1 and fetch data."""
         self.current_page = 1
-        self.is_initial_load = False  # Stop using startup dates
         self.refresh_data()
 
     def _change_page(self, page):
@@ -591,73 +676,78 @@ class ExtruderRecordsView(QWidget):
             self.refresh_data()
 
     def _clear_all_filters(self):
-        """Resets everything to startup state."""
+        # 1. Reset the UI widgets to their default state
         self.ui.search_input.clear()
+        self.ui.date_from_input.blockSignals(True)
+        self.ui.date_to_input.blockSignals(True)
         self.ui.date_from_input.setDate(QDate(2000, 1, 1))
         self.ui.date_to_input.setDate(QDate.currentDate())
+        self.ui.date_from_input.blockSignals(False)
+        self.ui.date_to_input.blockSignals(False)
         self.advanced_filters.clear()
-        self.is_initial_load = True # Re-enable startup date range logic
-        self.initiate_search()
+
+        # 2. Set the flag to true to force a full data reload
+        self.is_initial_load = True
+
+        # 3. Trigger the refresh
+        self.refresh_data()
+
+    # --- END FIX ---
+
+    # def refresh_data(self):
+    #     # When user manually interacts with filters, it's no longer the initial load
+    #     if self.is_initial_load:
+    #         # We keep the flag as True for the first clear, then set to false inside _load_records
+    #         pass
+    #     else:
+    #         self.is_initial_load = False
+    #
+    #     self._load_records()
+    #     self._update_ui_for_view_mode()
 
     def refresh_data(self):
-        """
-        Asynchronous data fetcher that strictly enforces Page 1 (1-100)
-        and calculates total record count.
-        """
-        if self.data_loader_worker and self.data_loader_worker.isRunning():
-            return
+        if self.data_loader_worker and self.data_loader_worker.isRunning(): return
 
         self.loading_dialog = LoadingDialog(self)
-        self.loading_dialog.set_text("Fetching records...")
+        self.loading_dialog.set_text("Fetching records from server...")
         self.loading_dialog.show()
 
-        # Prepare Filters
+        # Consolidate filters
         filters = self.advanced_filters.copy()
         filters['search_term'] = self.ui.search_input.text().strip()
         filters['search_field'] = self.search_scope_combo.currentText()
-
-        # Handle Date Logic for Initial Load
-        # If is_initial_load is True, we might want to see ALL history (2000-01-01 to Today)
-        # If False, we use whatever the user picked in the DateEdit widgets
-        if self.is_initial_load:
-            filters['date_from'] = QDate(2000, 1, 1).toPyDate()
-            filters['date_to'] = QDate.currentDate().toPyDate()
-        else:
-            filters['date_from'] = self.ui.date_from_input.date().toPyDate()
-            filters['date_to'] = self.ui.date_to_input.date().toPyDate()
-
+        filters['date_from'] = self.ui.date_from_input.date().toPyDate()
+        filters['date_to'] = self.ui.date_to_input.date().toPyDate()
         filters['show_only_deleted'] = self.ui.show_only_deleted_checkbox.isChecked()
 
-        # Calculate Offset for Pagination (Page 1 = Offset 0)
         offset = (self.current_page - 1) * self.records_per_page
 
-        self.data_loader_worker = DataLoaderWorker(
-            self.ops, filters, offset, self.records_per_page
-        )
+        self.data_loader_worker = DataLoaderWorker(self.ops, filters, offset, self.records_per_page)
         self.data_loader_worker.finished.connect(self._on_data_loaded)
         self.data_loader_worker.error.connect(self._on_load_error)
         self.data_loader_worker.finished.connect(self.loading_dialog.close)
         self.data_loader_worker.start()
 
     def _on_data_loaded(self, total, records, stats):
-        """
-        Populates UI with exactly 100 records and enables pagination navigation.
-        """
         self.total_records = total
         self.ui.table_widget.setRowCount(0)
         self.ui.table_widget.setSortingEnabled(False)
 
-        # Populate only the 100 records fetched for this page
+        export_rows = []
         for r in records:
             self._add_record_to_table(r)
+            # Pre-calculate for the hidden full_data DF (used for export)
+            # This is only 100 records now, so it's fast
+            export_rows.append(self._get_row_dict_for_dataframe(r))
 
+        self.full_data = pd.DataFrame(export_rows)
         self.ui.table_widget.setSortingEnabled(True)
 
-        # Update Pagination Display
+        # Update Pagination Label
         total_pages = math.ceil(total / self.records_per_page) if total > 0 else 1
         self.page_label.setText(f"Page {self.current_page} of {total_pages} (Total: {total:,})")
 
-        # Set button states
+        # Enabled state
         self.first_page_btn.setEnabled(self.current_page > 1)
         self.prev_page_btn.setEnabled(self.current_page > 1)
         self.next_page_btn.setEnabled(self.current_page < total_pages)
@@ -665,17 +755,17 @@ class ExtruderRecordsView(QWidget):
 
         self._apply_summary_stats(stats)
 
-        # Once the first load is successful, any future refresh uses the UI dates
-        self.is_initial_load = False
-
     def _apply_summary_stats(self, stats):
-        def fmt(s):
+        """Updates summary box labels using server-aggregated data."""
+
+        def fmt_sec(s):
             h, rem = divmod(int(s), 3600)
             m, _ = divmod(rem, 60)
-            return f"{h}:{m:02}", f"{(h + m/60):.2f}"
+            # The Excel Decimal formula: h + (m/60)
+            return f"{h}:{m:02}", f"{(h + m / 60):.2f}"
 
-        p_str, p_dec = fmt(stats["proc_seconds"])
-        w_str, w_dec = fmt(stats["purge_seconds"])
+        p_str, p_dec = fmt_sec(stats["proc_seconds"])
+        w_str, w_dec = fmt_sec(stats["purge_seconds"])  # This will now work!
 
         self.total_output_label.setText(f"{stats['total_output']:,.2f}")
         self.total_waste_qty_label.setText(f"{stats['total_waste']:,.2f}")
@@ -702,7 +792,7 @@ class ExtruderRecordsView(QWidget):
         ErrorDialog("Server Data Error", "Failed to communicate with the database.", details=err, parent=self).exec()
 
     def load_initial_data(self):
-        self.refresh_data()
+        self._load_records()
 
     def _update_ui_for_view_mode(self):
         is_deleted_view = self.ui.show_only_deleted_checkbox.isChecked()
