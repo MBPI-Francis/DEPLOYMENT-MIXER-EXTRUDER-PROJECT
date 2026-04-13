@@ -16,4 +16,5 @@ class ModifiedDateEdit(QDateEdit):
         
         if calendar:
             calendar.setCursor(Qt.CursorShape.PointingHandCursor)
-    
+
+

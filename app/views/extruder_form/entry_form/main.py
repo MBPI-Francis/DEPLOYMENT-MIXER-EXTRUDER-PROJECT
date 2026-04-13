@@ -13,10 +13,15 @@ from decimal import Decimal, InvalidOperation
 from .widgets.success_dialog import SuccessDialog
 from .widgets.error_dialog import ErrorDialog
 
-from .ui_setup import Ui_ExtruderEntryForm
+from .ui_setup import Ui_ExtruderEntryForm, NoScrollComboBox
 from .ops import ExtruderOpsController
 from .widgets.dialogs import LotNumberDialog
 from .widgets.smart_date_edit import SmartDateEdit
+
+class NoScrollTimeEdit(QTimeEdit):
+    """A QTimeEdit that ignores mouse wheel scrolling to prevent accidental changes."""
+    def wheelEvent(self, event):
+        event.ignore()
 
 
 class ExtruderEntryFormView(QWidget):
@@ -395,14 +400,14 @@ class ExtruderEntryFormView(QWidget):
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(0, 0, 0, 0)
 
-        name_combo = QComboBox()
+        name_combo = NoScrollComboBox()
         name_combo.setObjectName("ComboBox")
         name_combo.setEditable(True)
         name_combo.addItem("- Select Name -", None)
         for emp in self.employee_list:
             name_combo.addItem(f"{emp.first_name} {emp.last_name}", emp.id)
 
-        pos_combo = QComboBox()
+        pos_combo = NoScrollComboBox()
         pos_combo.setObjectName("ComboBox")
         pos_combo.setEditable(True)
         pos_combo.addItem("- Select Position -", None)
@@ -551,7 +556,7 @@ class ExtruderEntryFormView(QWidget):
         row_position = table.rowCount()
         table.insertRow(row_position)
 
-        resin_combo = QComboBox()
+        resin_combo = NoScrollComboBox()
         resin_combo.addItem("- Select -", None)
         for resin in self.resin_list:
             resin_combo.addItem(resin.abbreviation, resin.id)
@@ -578,9 +583,9 @@ class ExtruderEntryFormView(QWidget):
         self.ui.output_log_table.insertRow(row_position)
 
         date_edit = SmartDateEdit()
-        time_start_edit = QTimeEdit(QTime(0, 0))
+        time_start_edit = NoScrollTimeEdit(QTime(0, 0))
         time_start_edit.setDisplayFormat("HH:mm")
-        time_end_edit = QTimeEdit(QTime(0, 0))
+        time_end_edit = NoScrollTimeEdit(QTime(0, 0))
         time_end_edit.setDisplayFormat("HH:mm")
         time_end_edit.installEventFilter(self)
 
@@ -605,17 +610,7 @@ class ExtruderEntryFormView(QWidget):
         self.ui.output_log_table.setCurrentCell(row_position, 0)
         self.ui.output_log_table.editItem(self.ui.output_log_table.item(row_position, 0))
 
-    # def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-    #     # This event filter is now only for the Tab key functionality
-    #     if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Tab and isinstance(obj, QTimeEdit):
-    #         for row in range(self.ui.output_log_table.rowCount()):
-    #             if self.ui.output_log_table.cellWidget(row, 2) is obj:
-    #                 target_item = self.ui.output_log_table.item(row, 4)
-    #                 if target_item:
-    #                     self.ui.output_log_table.setCurrentItem(target_item)
-    #                     self.ui.output_log_table.editItem(target_item)
-    #                 return True
-    #     return super().eventFilter(obj, event)
+
 
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:

@@ -13,6 +13,20 @@ from app.views.extruder_form.entry_form.widgets.tab_aware_table import TabAwareT
 from app.widgets.smart_combo_box import SmartComboBox
 
 
+class NoScrollComboBox(QComboBox):
+    """A QComboBox that ignores mouse wheel scrolling to prevent accidental changes."""
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class QTimeEdit(QTimeEdit):
+    """A QComboBox that ignores mouse wheel scrolling to prevent accidental changes."""
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+
+
 class Ui_ExtruderEntryForm:
 
     def setup_ui(self, parent_widget: QWidget):
@@ -87,7 +101,7 @@ class Ui_ExtruderEntryForm:
         personnel_form_layout.setContentsMargins(0, 5, 0, 0)  # Add a little top margin
 
         # 2. "Prepared By" is the first row.
-        self.prepared_by_combo = QComboBox()
+        self.prepared_by_combo = NoScrollComboBox()
         self.prepared_by_combo.setObjectName("ComboBox")
         self.prepared_by_combo.setEditable(True)
         personnel_form_layout.addRow("Prepared By:", self.prepared_by_combo)
@@ -167,15 +181,15 @@ class Ui_ExtruderEntryForm:
         """
         group = QGroupBox("Machine and Configuration Settings")
         layout = QFormLayout(group)
-        self.shift_combo = QComboBox()
+        self.shift_combo = NoScrollComboBox()
         self.shift_combo.setObjectName("ComboBox")
-        self.mc_no_combo = QComboBox()
+        self.mc_no_combo = NoScrollComboBox()
         self.mc_no_combo.setObjectName("ComboBox")
         self.feed_rate_input = QLineEdit("")
         self.rpm_input = QLineEdit("")
-        self.screen_size_combo = QComboBox()
+        self.screen_size_combo = NoScrollComboBox()
         self.screen_size_combo.setObjectName("ComboBox")
-        self.screw_config_combo = QComboBox()
+        self.screw_config_combo = NoScrollComboBox()
         self.screw_config_combo.setObjectName("ComboBox")
 
         # --- THIS IS THE FIX ---
@@ -250,7 +264,7 @@ class Ui_ExtruderEntryForm:
 
         self.purging_time_used_label = QLabel("00:00")
 
-        self.purging_resin_combo = QComboBox()
+        self.purging_resin_combo = NoScrollComboBox()
         self.purging_resin_combo.setObjectName("ComboBox")
         self.purging_palletizer_input = QLineEdit("")
         self.purging_siever_input = QLineEdit("")
