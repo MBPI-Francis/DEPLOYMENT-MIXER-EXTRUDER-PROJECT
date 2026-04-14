@@ -1,5 +1,6 @@
 import traceback
 
+from app.features.maintenance_checker import check_maintenance_status
 from config.db import is_connected, engine
 from sqlalchemy.orm import sessionmaker
 from app.auth.login import LoginForm
@@ -7,6 +8,8 @@ from PyQt6.QtWidgets import QApplication, QMessageBox
 from config.pyqtConfig import print_connection_status, enforce_light_theme
 import sys
 from qt_material import apply_stylesheet # <--- Import this
+
+from maintenance_page import MaintenancePage
 
 
 def global_exception_hook(exctype, value, tb):
@@ -43,10 +46,21 @@ if __name__ == "__main__":
         # load the login application here
         session_factory = sessionmaker(engine)
 
-        login_view = LoginForm(session_factory=session_factory)
-        login_view.show()
+        # 1. Check Maintenance Status
+        is_maint, finish_time = check_maintenance_status(session_factory)
 
-        sys.exit(app.exec())
+        if is_maint:
+            # Show the separate Maintenance Page
+            maint_view = MaintenancePage(finish_time)
+            maint_view.show()
+            sys.exit(app.exec())
+        else:
+            # 2. Show Login Form if NOT under maintenance
+            login_view = LoginForm(session_factory=session_factory)
+            login_view.show()
+            sys.exit(app.exec())
     else:
+        # Handle DB connection failure
+        app = QApplication(sys.argv)
+        QMessageBox.critical(None, "Database Error", "Unable to connect to the database.")
         sys.exit(1)
-

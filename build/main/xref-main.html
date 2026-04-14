@@ -23,6 +23,7 @@ imports:
  &#8226;   <a href="#_weakrefset">_weakrefset</a>
  &#8226;   <a href="#abc">abc</a>
  &#8226;   <a href="#app.auth.login">app.auth.login</a>
+ &#8226;   <a href="#app.features.maintenance_checker">app.features.maintenance_checker</a>
  &#8226;   <a href="#codecs">codecs</a>
  &#8226;   <a href="#collections">collections</a>
  &#8226;   <a href="#collections.abc">collections.abc</a>
@@ -159,6 +160,7 @@ imports:
  &#8226;   <a href="#keyword">keyword</a>
  &#8226;   <a href="#linecache">linecache</a>
  &#8226;   <a href="#locale">locale</a>
+ &#8226;   <a href="#maintenance_page">maintenance_page</a>
  &#8226;   <a href="#ntpath">ntpath</a>
  &#8226;   <a href="#operator">operator</a>
  &#8226;   <a href="#os">os</a>
@@ -3490,6 +3492,7 @@ imported by:
  &#8226;   <a href="#app.widgets.smart_combo_box">app.widgets.smart_combo_box</a>
  &#8226;   <a href="#app.widgets.tablewidget">app.widgets.tablewidget</a>
  &#8226;   <a href="#app.widgets.workers">app.widgets.workers</a>
+ &#8226;   <a href="#maintenance_page">maintenance_page</a>
  &#8226;   <a href="#matplotlib.backends.qt_compat">matplotlib.backends.qt_compat</a>
  &#8226;   <a href="#qt_material">qt_material</a>
  &#8226;   <a href="#qtpy">qtpy</a>
@@ -3553,6 +3556,7 @@ imported by:
  &#8226;   <a href="#app.widgets.lot_combo_box">app.widgets.lot_combo_box</a>
  &#8226;   <a href="#app.widgets.smart_combo_box">app.widgets.smart_combo_box</a>
  &#8226;   <a href="#config.pyqtConfig">config.pyqtConfig</a>
+ &#8226;   <a href="#maintenance_page">maintenance_page</a>
  &#8226;   <a href="#matplotlib.backends.qt_compat">matplotlib.backends.qt_compat</a>
  &#8226;   <a href="#qt_material">qt_material</a>
  &#8226;   <a href="#qtpy.QtCore">qtpy.QtCore</a>
@@ -3711,6 +3715,7 @@ imported by:
  &#8226;   <a href="#app.widgets.tablewidget">app.widgets.tablewidget</a>
  &#8226;   <a href="#config.pyqtConfig">config.pyqtConfig</a>
  &#8226;   <a href="#main.py">main.py</a>
+ &#8226;   <a href="#maintenance_page">maintenance_page</a>
  &#8226;   <a href="#matplotlib.backends.qt_compat">matplotlib.backends.qt_compat</a>
  &#8226;   <a href="#qt_material">qt_material</a>
  &#8226;   <a href="#qtpy.QtWidgets">qtpy.QtWidgets</a>
@@ -6478,7 +6483,26 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#app.features.sync_legacy_db">app.features.sync_legacy_db</a>
+    <a href="#app.features.maintenance_checker">app.features.maintenance_checker</a>
+ &#8226;   <a href="#app.features.sync_legacy_db">app.features.sync_legacy_db</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="app.features.maintenance_checker"></a>
+  <a target="code" href="///C:/Users/Administrator/Desktop/MBPI-Projects/DEPLOYMENT-MixerExtruder-Project/app/features/maintenance_checker.py" type="text/plain"><tt>app.features.maintenance_checker</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#app.features">app.features</a>
+ &#8226;   <a href="#datetime">datetime</a>
+ &#8226;   <a href="#sqlalchemy">sqlalchemy</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#main.py">main.py</a>
 
   </div>
 
@@ -8167,12 +8191,16 @@ imports:
  &#8226;   <a href="#app.views.extruder_form.records.ops">app.views.extruder_form.records.ops</a>
  &#8226;   <a href="#app.views.extruder_form.records.ui_setup">app.views.extruder_form.records.ui_setup</a>
  &#8226;   <a href="#app.views.extruder_form.records.view_dialog">app.views.extruder_form.records.view_dialog</a>
+ &#8226;   <a href="#app.views.mixer_form.records.main">app.views.mixer_form.records.main</a>
+ &#8226;   <a href="#app.widgets.smart_combo_box">app.widgets.smart_combo_box</a>
  &#8226;   <a href="#datetime">datetime</a>
  &#8226;   <a href="#decimal">decimal</a>
+ &#8226;   <a href="#math">math</a>
  &#8226;   <a href="#openpyxl">openpyxl</a>
  &#8226;   <a href="#openpyxl.utils">openpyxl.utils</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#pandas">pandas</a>
+ &#8226;   <a href="#qtawesome">qtawesome</a>
  &#8226;   <a href="#sqlalchemy.orm">sqlalchemy.orm</a>
  &#8226;   <a href="#traceback">traceback</a>
  &#8226;   <a href="#typing">typing</a>
@@ -8795,7 +8823,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#app.views.mixer_form.records">app.views.mixer_form.records</a>
+    <a href="#app.views.extruder_form.records.main">app.views.extruder_form.records.main</a>
+ &#8226;   <a href="#app.views.mixer_form.records">app.views.mixer_form.records</a>
 
   </div>
 
@@ -9280,6 +9309,7 @@ imported by:
  &#8226;   <a href="#app.views.extruder_benchmark_report.main">app.views.extruder_benchmark_report.main</a>
  &#8226;   <a href="#app.views.extruder_form.entry_form.ui_setup">app.views.extruder_form.entry_form.ui_setup</a>
  &#8226;   <a href="#app.views.extruder_form.records.filter_dialog">app.views.extruder_form.records.filter_dialog</a>
+ &#8226;   <a href="#app.views.extruder_form.records.main">app.views.extruder_form.records.main</a>
  &#8226;   <a href="#app.views.mixer_benchmark_report.main">app.views.mixer_benchmark_report.main</a>
  &#8226;   <a href="#app.views.mixer_form.entry_form.main">app.views.mixer_form.entry_form.main</a>
  &#8226;   <a href="#app.views.mixer_form.records.main">app.views.mixer_form.records.main</a>
@@ -12963,6 +12993,7 @@ imported by:
  &#8226;   <a href="#annotated_types">annotated_types</a>
  &#8226;   <a href="#app.database.mixer_draft_ops">app.database.mixer_draft_ops</a>
  &#8226;   <a href="#app.database.mixer_machine_ops">app.database.mixer_machine_ops</a>
+ &#8226;   <a href="#app.features.maintenance_checker">app.features.maintenance_checker</a>
  &#8226;   <a href="#app.validators.mixer_form_validators">app.validators.mixer_form_validators</a>
  &#8226;   <a href="#app.views.base.status_bar">app.views.base.status_bar</a>
  &#8226;   <a href="#app.views.extruder_benchmark_report.benchmark_report.ops">app.views.extruder_benchmark_report.benchmark_report.ops</a>
@@ -27487,6 +27518,25 @@ imported by:
 </div>
 
 <div class="node">
+  <a name="maintenance_page"></a>
+  <a target="code" href="///C:/Users/Administrator/Desktop/MBPI-Projects/DEPLOYMENT-MixerExtruder-Project/maintenance_page.py" type="text/plain"><tt>maintenance_page</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#PyQt6.QtCore">PyQt6.QtCore</a>
+ &#8226;   <a href="#PyQt6.QtGui">PyQt6.QtGui</a>
+ &#8226;   <a href="#PyQt6.QtWidgets">PyQt6.QtWidgets</a>
+ &#8226;   <a href="#sys">sys</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#main.py">main.py</a>
+
+  </div>
+
+</div>
+
+<div class="node">
   <a name="markupsafe"></a>
   <a target="code" href="///C:/Users/Administrator/venv/ExtruderMixerProgram/Lib/site-packages/markupsafe/__init__.py" type="text/plain"><tt>markupsafe</tt></a>
 <span class="moduletype">Package</span>  <div class="import">
@@ -27583,6 +27633,7 @@ imported by:
  &#8226;   <a href="#_pydatetime">_pydatetime</a>
  &#8226;   <a href="#_pydecimal">_pydecimal</a>
  &#8226;   <a href="#annotated_types">annotated_types</a>
+ &#8226;   <a href="#app.views.extruder_form.records.main">app.views.extruder_form.records.main</a>
  &#8226;   <a href="#app.views.mixer_form.records.main">app.views.mixer_form.records.main</a>
  &#8226;   <a href="#asyncio.windows_events">asyncio.windows_events</a>
  &#8226;   <a href="#contourpy.chunk">contourpy.chunk</a>
@@ -31312,6 +31363,7 @@ imports:
  &#8226;   <a href="#models.ExtruderConfig">models.ExtruderConfig</a>
  &#8226;   <a href="#models.ExtruderCore">models.ExtruderCore</a>
  &#8226;   <a href="#models.ExtruderOld">models.ExtruderOld</a>
+ &#8226;   <a href="#models.Maintenance">models.Maintenance</a>
  &#8226;   <a href="#models.Mixer">models.Mixer</a>
  &#8226;   <a href="#models.ProdDatabase">models.ProdDatabase</a>
  &#8226;   <a href="#models.ProductionEmployees">models.ProductionEmployees</a>
@@ -31338,6 +31390,7 @@ imported by:
  &#8226;   <a href="#models.ExtruderConfig">models.ExtruderConfig</a>
  &#8226;   <a href="#models.ExtruderCore">models.ExtruderCore</a>
  &#8226;   <a href="#models.ExtruderOld">models.ExtruderOld</a>
+ &#8226;   <a href="#models.Maintenance">models.Maintenance</a>
  &#8226;   <a href="#models.Mixer">models.Mixer</a>
  &#8226;   <a href="#models.Mixins">models.Mixins</a>
  &#8226;   <a href="#models.ProdDatabase">models.ProdDatabase</a>
@@ -31438,6 +31491,23 @@ imported by:
     <a href="#app.views.extruder_old_records.amiel_program_records.filter_dialog">app.views.extruder_old_records.amiel_program_records.filter_dialog</a>
  &#8226;   <a href="#app.views.extruder_old_records.amiel_program_records.ops">app.views.extruder_old_records.amiel_program_records.ops</a>
  &#8226;   <a href="#models">models</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="models.Maintenance"></a>
+  <a target="code" href="///C:/Users/Administrator/Desktop/MBPI-Projects/DEPLOYMENT-MixerExtruder-Project/models/Maintenance.py" type="text/plain"><tt>models.Maintenance</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#models">models</a>
+ &#8226;   <a href="#sqlalchemy">sqlalchemy</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#models">models</a>
 
   </div>
 
@@ -64343,6 +64413,7 @@ imported by:
  &#8226;   <a href="#app.views.extruder_config.extruder_settings.handlers">app.views.extruder_config.extruder_settings.handlers</a>
  &#8226;   <a href="#app.views.extruder_config.processing_params.handlers">app.views.extruder_config.processing_params.handlers</a>
  &#8226;   <a href="#app.views.extruder_config.resin_params.handlers">app.views.extruder_config.resin_params.handlers</a>
+ &#8226;   <a href="#app.views.extruder_form.records.main">app.views.extruder_form.records.main</a>
  &#8226;   <a href="#app.views.mixer_benchmark_report.main">app.views.mixer_benchmark_report.main</a>
  &#8226;   <a href="#app.views.mixer_form.entry_form.main">app.views.mixer_form.entry_form.main</a>
  &#8226;   <a href="#app.views.mixer_form.records.main">app.views.mixer_form.records.main</a>
@@ -83429,6 +83500,7 @@ imported by:
     <a href="#app.database.legacy_ops">app.database.legacy_ops</a>
  &#8226;   <a href="#app.database.mixer_draft_ops">app.database.mixer_draft_ops</a>
  &#8226;   <a href="#app.database.mixer_machine_ops">app.database.mixer_machine_ops</a>
+ &#8226;   <a href="#app.features.maintenance_checker">app.features.maintenance_checker</a>
  &#8226;   <a href="#app.features.sync_legacy_db">app.features.sync_legacy_db</a>
  &#8226;   <a href="#app.helpers">app.helpers</a>
  &#8226;   <a href="#app.views.extruder_benchmark_report.benchmark_report.ops">app.views.extruder_benchmark_report.benchmark_report.ops</a>
@@ -83450,6 +83522,7 @@ imported by:
  &#8226;   <a href="#models.ExtruderConfig">models.ExtruderConfig</a>
  &#8226;   <a href="#models.ExtruderCore">models.ExtruderCore</a>
  &#8226;   <a href="#models.ExtruderOld">models.ExtruderOld</a>
+ &#8226;   <a href="#models.Maintenance">models.Maintenance</a>
  &#8226;   <a href="#models.Mixer">models.Mixer</a>
  &#8226;   <a href="#models.Mixins">models.Mixins</a>
  &#8226;   <a href="#models.ProdDatabase">models.ProdDatabase</a>
@@ -92144,6 +92217,7 @@ imported by:
  &#8226;   <a href="#locale">locale</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#main.py">main.py</a>
+ &#8226;   <a href="#maintenance_page">maintenance_page</a>
  &#8226;   <a href="#matplotlib">matplotlib</a>
  &#8226;   <a href="#matplotlib._api">matplotlib._api</a>
  &#8226;   <a href="#matplotlib.backend_bases">matplotlib.backend_bases</a>

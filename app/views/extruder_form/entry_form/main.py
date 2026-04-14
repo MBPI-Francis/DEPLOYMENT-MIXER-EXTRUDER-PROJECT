@@ -36,6 +36,7 @@ class ExtruderEntryFormView(QWidget):
         self.aggregated_prod_ids = set()
         self.aggregated_formula_ids = set()
         self.aggregated_order_nos = set()
+        self.aggregated_original_lots = set()
         self.production_cut_active = False
         self.employee_list = []
         self.position_list = []
@@ -424,19 +425,48 @@ class ExtruderEntryFormView(QWidget):
             # Also clear the Resin Consumption table since its group was disabled.
             self.ui.purging_details_table.setRowCount(0)
 
-
+    #
+    # def _open_lot_number_dialog(self):
+    #     try:
+    #         if self.lot_number_dialog is None or not self.lot_number_dialog.isVisible():
+    #             initial_product_code, initial_customer = None, None
+    #
+    #             if self.ui.lot_number_input.text():
+    #                 first_lot = self.ui.lot_number_input.text().split(';')[0].strip()
+    #                 lot_details = self.controller.get_details_for_lot(first_lot)
+    #                 if lot_details:
+    #                     initial_product_code = lot_details.get("product_code")
+    #                     initial_customer = lot_details.get("customer")
+    #             self.lot_number_dialog = LotNumberDialog(self.controller, self._handle_lot_selection, self, initial_product_code=initial_product_code, initial_customer=initial_customer)
+    #             self.lot_number_dialog.show()
+    #         self.lot_number_dialog.activateWindow()
+    #
+    #     except Exception as e:
+    #         # --- FIX: Use the new ErrorDialog ---
+    #         error_dialog = ErrorDialog(
+    #             title="Dialog Error",
+    #             message="An unexpected error occurred while trying to open the lot number selector.",
+    #             details=traceback.format_exc(),
+    #             parent=self
+    #         )
+    #         error_dialog.exec()
 
     def _open_lot_number_dialog(self):
         try:
             if self.lot_number_dialog is None or not self.lot_number_dialog.isVisible():
                 initial_product_code, initial_customer = None, None
-                if self.ui.lot_number_input.text():
-                    first_lot = self.ui.lot_number_input.text().split(';')[0].strip()
+
+                # --- FIX: Use our tracked original lots instead of the UI text ---
+                if self.aggregated_original_lots:
+                    first_lot = list(self.aggregated_original_lots)[0]
                     lot_details = self.controller.get_details_for_lot(first_lot)
                     if lot_details:
                         initial_product_code = lot_details.get("product_code")
                         initial_customer = lot_details.get("customer")
-                self.lot_number_dialog = LotNumberDialog(self.controller, self._handle_lot_selection, self, initial_product_code=initial_product_code, initial_customer=initial_customer)
+
+                self.lot_number_dialog = LotNumberDialog(self.controller, self._handle_lot_selection, self,
+                                                         initial_product_code=initial_product_code,
+                                                         initial_customer=initial_customer)
                 self.lot_number_dialog.show()
             self.lot_number_dialog.activateWindow()
 
@@ -450,9 +480,53 @@ class ExtruderEntryFormView(QWidget):
             )
             error_dialog.exec()
 
+
+    # def _handle_lot_selection(self, selection_data: dict):
+    #     lot_data = selection_data.get("lot_data")
+    #     prod_cut_qty = selection_data.get("prod_cut_qty")
+    #     prod_cut_lot = selection_data.get("prod_cut_lot")
+    #
+    #     if not lot_data: return
+    #     new_prod_id = str(lot_data.get("prod_id", ""))
+    #     new_formula_id = str(lot_data.get("formula_id", ""))
+    #     new_order_no = str(lot_data.get("order_no", ""))
+    #     if new_prod_id: self.aggregated_prod_ids.add(new_prod_id)
+    #     if new_formula_id: self.aggregated_formula_ids.add(new_formula_id)
+    #     if new_order_no: self.aggregated_order_nos.add(new_order_no)
+    #     current_lots_text = self.ui.lot_number_input.text()
+    #     lot_set = set(current_lots_text.split('; ')) if current_lots_text else set()
+    #     lot_set.add(lot_data.get("lot_num", ""))
+    #     final_lots = sorted([item for item in lot_set if item])
+    #     self.ui.lot_number_input.setText("; ".join(final_lots))
+    #     try:
+    #         if prod_cut_qty is not None:
+    #             self.production_cut_active = True
+    #             prod_cut_str = f"{Decimal(prod_cut_qty):.2f}"
+    #             self.ui.qty_produced_input.setText(prod_cut_str)
+    #             self.ui.qty_order_input.setText(prod_cut_str)
+    #         elif not self.production_cut_active:
+    #             total_produced = self.controller.get_total_produced_weight_for_lots(final_lots)
+    #             self.ui.qty_produced_input.setText(f"{total_produced:.2f}")
+    #
+    #     except Exception as e:
+    #         # --- FIX: Use the new ErrorDialog ---
+    #         error_dialog = ErrorDialog(
+    #             title="Calculation Error",
+    #             message="Could not set the quantity values after selecting a lot.",
+    #             details=traceback.format_exc(),
+    #             parent=self
+    #         )
+    #         error_dialog.exec()
+    #
+    #     if final_lots:
+    #         # --- FIX: Pass the entire list of lots instead of just the first one ---
+    #         self._prepopulate_static_fields(final_lots)
+
     def _handle_lot_selection(self, selection_data: dict):
         lot_data = selection_data.get("lot_data")
         prod_cut_qty = selection_data.get("prod_cut_qty")
+        prod_cut_lot = selection_data.get("prod_cut_lot")  # <--- NEW: Extract custom lot string
+
         if not lot_data: return
         new_prod_id = str(lot_data.get("prod_id", ""))
         new_formula_id = str(lot_data.get("formula_id", ""))
@@ -460,23 +534,36 @@ class ExtruderEntryFormView(QWidget):
         if new_prod_id: self.aggregated_prod_ids.add(new_prod_id)
         if new_formula_id: self.aggregated_formula_ids.add(new_formula_id)
         if new_order_no: self.aggregated_order_nos.add(new_order_no)
+
         current_lots_text = self.ui.lot_number_input.text()
         lot_set = set(current_lots_text.split('; ')) if current_lots_text else set()
-        lot_set.add(lot_data.get("lot_num", ""))
+
+        # --- FIX: Decide which lot number to display ---
+        # If user entered a custom lot for prod cut, use it. Otherwise, use the DB lot.
+        display_lot = prod_cut_lot.strip() if prod_cut_lot and prod_cut_lot.strip() else lot_data.get("lot_num", "")
+        if display_lot:
+            lot_set.add(display_lot)
+
         final_lots = sorted([item for item in lot_set if item])
         self.ui.lot_number_input.setText("; ".join(final_lots))
+
+        # --- NEW: Track the original lot number for accurate DB querying ---
+        original_lot = lot_data.get("lot_num", "")
+        if original_lot:
+            self.aggregated_original_lots.add(original_lot)
+
         try:
-            if prod_cut_qty is not None:
+            if prod_cut_qty is not None and str(prod_cut_qty).strip():
                 self.production_cut_active = True
                 prod_cut_str = f"{Decimal(prod_cut_qty):.2f}"
                 self.ui.qty_produced_input.setText(prod_cut_str)
                 self.ui.qty_order_input.setText(prod_cut_str)
             elif not self.production_cut_active:
-                total_produced = self.controller.get_total_produced_weight_for_lots(final_lots)
+                # Use the original tracked lots to fetch weights, avoiding errors
+                total_produced = self.controller.get_total_produced_weight_for_lots(list(self.aggregated_original_lots))
                 self.ui.qty_produced_input.setText(f"{total_produced:.2f}")
 
         except Exception as e:
-            # --- FIX: Use the new ErrorDialog ---
             error_dialog = ErrorDialog(
                 title="Calculation Error",
                 message="Could not set the quantity values after selecting a lot.",
@@ -485,9 +572,9 @@ class ExtruderEntryFormView(QWidget):
             )
             error_dialog.exec()
 
-        if final_lots:
-            # --- FIX: Pass the entire list of lots instead of just the first one ---
-            self._prepopulate_static_fields(final_lots)
+        # Update static fields (Customer, Product Code) using the ORIGINAL lots
+        if self.aggregated_original_lots:
+            self._prepopulate_static_fields(list(self.aggregated_original_lots))
 
     def _prepopulate_static_fields(self, lot_numbers: list[str]):
         if not lot_numbers:
@@ -759,6 +846,7 @@ class ExtruderEntryFormView(QWidget):
         self.aggregated_prod_ids.clear()
         self.aggregated_formula_ids.clear()
         self.aggregated_order_nos.clear()
+        self.aggregated_original_lots.clear()
         self.production_cut_active = False
         self.ui.lot_number_input.clear()
         self.ui.product_code_input.clear()
@@ -1137,6 +1225,7 @@ class ExtruderEntryFormView(QWidget):
         self.aggregated_prod_ids.clear()
         self.aggregated_formula_ids.clear()
         self.aggregated_order_nos.clear()
+        self.aggregated_original_lots.clear()
 
         # 2. Re-initialize the internal sets from the record's stored strings.
         if record.production_id:
@@ -1145,6 +1234,9 @@ class ExtruderEntryFormView(QWidget):
             self.aggregated_formula_ids = set(record.formula_no.split('; '))
         if record.order_no:
             self.aggregated_order_nos = set(record.order_no.split('; '))
+
+        if record.lot_number:
+            self.aggregated_original_lots = set(record.lot_number.split('; '))
         # --- END FIX ---
 
 

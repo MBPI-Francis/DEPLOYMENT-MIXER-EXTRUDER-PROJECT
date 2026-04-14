@@ -13,10 +13,15 @@ from decimal import Decimal, InvalidOperation
 from .widgets.success_dialog import SuccessDialog
 from .widgets.error_dialog import ErrorDialog
 
-from .ui_setup import Ui_ExtruderEntryForm
+from .ui_setup import Ui_ExtruderEntryForm, NoScrollComboBox
 from .ops import ExtruderOpsController
 from .widgets.dialogs import LotNumberDialog
 from .widgets.smart_date_edit import SmartDateEdit
+
+class NoScrollTimeEdit(QTimeEdit):
+    """A QTimeEdit that ignores mouse wheel scrolling to prevent accidental changes."""
+    def wheelEvent(self, event):
+        event.ignore()
 
 
 class ExtruderEntryFormView(QWidget):
@@ -31,6 +36,7 @@ class ExtruderEntryFormView(QWidget):
         self.aggregated_prod_ids = set()
         self.aggregated_formula_ids = set()
         self.aggregated_order_nos = set()
+        self.aggregated_original_lots = set()
         self.production_cut_active = False
         self.employee_list = []
         self.position_list = []
@@ -89,6 +95,7 @@ class ExtruderEntryFormView(QWidget):
         self.ui.remove_personnel_btn.clicked.connect(self._remove_personnel_row)
         # --- NEW: Connect the new checkbox's signal ---
         self.ui.edit_ref_no_checkbox.toggled.connect(self._on_edit_ref_no_toggled)
+        self.ui.edit_customer_checkbox.toggled.connect(self._on_edit_customer_toggled)
 
         self.ui.lot_number_select_btn.clicked.connect(self._open_lot_number_dialog)
         self.ui.add_resin_btn.clicked.connect(self._add_resin_row)
@@ -116,6 +123,11 @@ class ExtruderEntryFormView(QWidget):
     def _on_edit_ref_no_toggled(self, checked: bool):
         """Makes the reference number field editable based on the checkbox state."""
         self.ui.ref_no_input.setReadOnly(not checked)
+
+
+    def _on_edit_customer_toggled(self, checked: bool):
+        """Makes the reference number field editable based on the checkbox state."""
+        self.ui.customer_input.setReadOnly(not checked)
 
     def _calculate_purging_time_used(self):
         """Calculates and displays the duration between purging start and end times."""
@@ -202,54 +214,6 @@ class ExtruderEntryFormView(QWidget):
                                        details=traceback.format_exc(), parent=self)
             error_dialog.exec()
             self.ui.ref_no_input.setText("1")  # Fallback
-
-    # # --- NEW VALIDATION METHOD ---
-    # def _validate_reference_number(self) -> bool:
-    #     """
-    #     Performs all validation checks for the reference number.
-    #     Returns True if validation passes, False otherwise.
-    #     """
-    #     try:
-    #         current_ref_text = self.ui.ref_no_input.text()
-    #         if not current_ref_text.isdigit():
-    #             # This should be caught by QIntValidator, but is a good safeguard
-    #             error_dialog = ErrorDialog("Validation Error", "Reference Number must only contain numbers.",
-    #                                        parent=self)
-    #             error_dialog.exec()
-    #             return False
-    #
-    #         current_ref = int(current_ref_text)
-    #         latest_ref_in_db = self.controller.get_latest_reference_number()
-    #
-    #         # Rule 2: Check for duplicates
-    #         if current_ref <= latest_ref_in_db:
-    #             # Check if it *actually* exists, in case a number was skipped before
-    #             if self.controller.check_if_ref_no_exists(current_ref):
-    #                 error_dialog = ErrorDialog("Validation Error",
-    #                                            f"Reference Number {current_ref} has already been used. The next available number is {latest_ref_in_db + 1}.",
-    #                                            parent=self)
-    #                 error_dialog.exec()
-    #                 return False
-    #
-    #         # Rule 1: Check for skipped numbers
-    #         if current_ref > latest_ref_in_db + 1:
-    #             skipped_count = current_ref - (latest_ref_in_db + 1)
-    #             skipped_str = f"{skipped_count} numbers" if skipped_count > 1 else "1 number"
-    #
-    #             reply = QMessageBox.question(self, "Confirm Skip",
-    #                                          f"You have skipped {skipped_str} (from {latest_ref_in_db + 1}).\n\nDo you want to continue with Reference Number {current_ref}?",
-    #                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
-    #                                          QMessageBox.StandardButton.Cancel)
-    #             if reply == QMessageBox.StandardButton.Cancel:
-    #                 return False  # User chose not to continue
-    #
-    #         return True  # All checks passed
-    #     except Exception as e:
-    #         error_dialog = ErrorDialog("Validation Error", "Could not validate the reference number.",
-    #                                    details=traceback.format_exc(), parent=self)
-    #         error_dialog.exec()
-    #         return False
-    #
 
     def _validate_reference_number(self) -> bool:
         """
@@ -369,8 +333,6 @@ class ExtruderEntryFormView(QWidget):
                     self._remove_personnel_row()
 
 
-
-
     def _on_product_code_search_requested(self, search_term: str):
         try:
             # Fetch search results from the database
@@ -395,14 +357,14 @@ class ExtruderEntryFormView(QWidget):
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(0, 0, 0, 0)
 
-        name_combo = QComboBox()
+        name_combo = NoScrollComboBox()
         name_combo.setObjectName("ComboBox")
         name_combo.setEditable(True)
         name_combo.addItem("- Select Name -", None)
         for emp in self.employee_list:
             name_combo.addItem(f"{emp.first_name} {emp.last_name}", emp.id)
 
-        pos_combo = QComboBox()
+        pos_combo = NoScrollComboBox()
         pos_combo.setObjectName("ComboBox")
         pos_combo.setEditable(True)
         pos_combo.addItem("- Select Position -", None)
@@ -439,7 +401,6 @@ class ExtruderEntryFormView(QWidget):
 
         # 1. Toggle only the specific, process-related fields.
         self.ui.resin_group.setEnabled(is_process_enabled)
-        self.ui.purging_product_code_combo.setEnabled(is_process_enabled)
         self.ui.purging_start_time.setEnabled(is_process_enabled)
         self.ui.purging_end_time.setEnabled(is_process_enabled)
 
@@ -458,26 +419,54 @@ class ExtruderEntryFormView(QWidget):
         else:
             # This runs when the user CHECKS "No Purging".
             # Clear only the fields that were just disabled.
-            self.ui.purging_product_code_combo.clear()
             self.ui.purging_start_time.setTime(QTime(0, 0))
             self.ui.purging_end_time.setTime(QTime(0, 0))
 
             # Also clear the Resin Consumption table since its group was disabled.
             self.ui.purging_details_table.setRowCount(0)
 
-
+    #
+    # def _open_lot_number_dialog(self):
+    #     try:
+    #         if self.lot_number_dialog is None or not self.lot_number_dialog.isVisible():
+    #             initial_product_code, initial_customer = None, None
+    #
+    #             if self.ui.lot_number_input.text():
+    #                 first_lot = self.ui.lot_number_input.text().split(';')[0].strip()
+    #                 lot_details = self.controller.get_details_for_lot(first_lot)
+    #                 if lot_details:
+    #                     initial_product_code = lot_details.get("product_code")
+    #                     initial_customer = lot_details.get("customer")
+    #             self.lot_number_dialog = LotNumberDialog(self.controller, self._handle_lot_selection, self, initial_product_code=initial_product_code, initial_customer=initial_customer)
+    #             self.lot_number_dialog.show()
+    #         self.lot_number_dialog.activateWindow()
+    #
+    #     except Exception as e:
+    #         # --- FIX: Use the new ErrorDialog ---
+    #         error_dialog = ErrorDialog(
+    #             title="Dialog Error",
+    #             message="An unexpected error occurred while trying to open the lot number selector.",
+    #             details=traceback.format_exc(),
+    #             parent=self
+    #         )
+    #         error_dialog.exec()
 
     def _open_lot_number_dialog(self):
         try:
             if self.lot_number_dialog is None or not self.lot_number_dialog.isVisible():
                 initial_product_code, initial_customer = None, None
-                if self.ui.lot_number_input.text():
-                    first_lot = self.ui.lot_number_input.text().split(';')[0].strip()
+
+                # --- FIX: Use our tracked original lots instead of the UI text ---
+                if self.aggregated_original_lots:
+                    first_lot = list(self.aggregated_original_lots)[0]
                     lot_details = self.controller.get_details_for_lot(first_lot)
                     if lot_details:
                         initial_product_code = lot_details.get("product_code")
                         initial_customer = lot_details.get("customer")
-                self.lot_number_dialog = LotNumberDialog(self.controller, self._handle_lot_selection, self, initial_product_code=initial_product_code, initial_customer=initial_customer)
+
+                self.lot_number_dialog = LotNumberDialog(self.controller, self._handle_lot_selection, self,
+                                                         initial_product_code=initial_product_code,
+                                                         initial_customer=initial_customer)
                 self.lot_number_dialog.show()
             self.lot_number_dialog.activateWindow()
 
@@ -491,9 +480,53 @@ class ExtruderEntryFormView(QWidget):
             )
             error_dialog.exec()
 
+
+    # def _handle_lot_selection(self, selection_data: dict):
+    #     lot_data = selection_data.get("lot_data")
+    #     prod_cut_qty = selection_data.get("prod_cut_qty")
+    #     prod_cut_lot = selection_data.get("prod_cut_lot")
+    #
+    #     if not lot_data: return
+    #     new_prod_id = str(lot_data.get("prod_id", ""))
+    #     new_formula_id = str(lot_data.get("formula_id", ""))
+    #     new_order_no = str(lot_data.get("order_no", ""))
+    #     if new_prod_id: self.aggregated_prod_ids.add(new_prod_id)
+    #     if new_formula_id: self.aggregated_formula_ids.add(new_formula_id)
+    #     if new_order_no: self.aggregated_order_nos.add(new_order_no)
+    #     current_lots_text = self.ui.lot_number_input.text()
+    #     lot_set = set(current_lots_text.split('; ')) if current_lots_text else set()
+    #     lot_set.add(lot_data.get("lot_num", ""))
+    #     final_lots = sorted([item for item in lot_set if item])
+    #     self.ui.lot_number_input.setText("; ".join(final_lots))
+    #     try:
+    #         if prod_cut_qty is not None:
+    #             self.production_cut_active = True
+    #             prod_cut_str = f"{Decimal(prod_cut_qty):.2f}"
+    #             self.ui.qty_produced_input.setText(prod_cut_str)
+    #             self.ui.qty_order_input.setText(prod_cut_str)
+    #         elif not self.production_cut_active:
+    #             total_produced = self.controller.get_total_produced_weight_for_lots(final_lots)
+    #             self.ui.qty_produced_input.setText(f"{total_produced:.2f}")
+    #
+    #     except Exception as e:
+    #         # --- FIX: Use the new ErrorDialog ---
+    #         error_dialog = ErrorDialog(
+    #             title="Calculation Error",
+    #             message="Could not set the quantity values after selecting a lot.",
+    #             details=traceback.format_exc(),
+    #             parent=self
+    #         )
+    #         error_dialog.exec()
+    #
+    #     if final_lots:
+    #         # --- FIX: Pass the entire list of lots instead of just the first one ---
+    #         self._prepopulate_static_fields(final_lots)
+
     def _handle_lot_selection(self, selection_data: dict):
         lot_data = selection_data.get("lot_data")
         prod_cut_qty = selection_data.get("prod_cut_qty")
+        prod_cut_lot = selection_data.get("prod_cut_lot")  # <--- NEW: Extract custom lot string
+
         if not lot_data: return
         new_prod_id = str(lot_data.get("prod_id", ""))
         new_formula_id = str(lot_data.get("formula_id", ""))
@@ -501,23 +534,36 @@ class ExtruderEntryFormView(QWidget):
         if new_prod_id: self.aggregated_prod_ids.add(new_prod_id)
         if new_formula_id: self.aggregated_formula_ids.add(new_formula_id)
         if new_order_no: self.aggregated_order_nos.add(new_order_no)
+
         current_lots_text = self.ui.lot_number_input.text()
         lot_set = set(current_lots_text.split('; ')) if current_lots_text else set()
-        lot_set.add(lot_data.get("lot_num", ""))
+
+        # --- FIX: Decide which lot number to display ---
+        # If user entered a custom lot for prod cut, use it. Otherwise, use the DB lot.
+        display_lot = prod_cut_lot.strip() if prod_cut_lot and prod_cut_lot.strip() else lot_data.get("lot_num", "")
+        if display_lot:
+            lot_set.add(display_lot)
+
         final_lots = sorted([item for item in lot_set if item])
         self.ui.lot_number_input.setText("; ".join(final_lots))
+
+        # --- NEW: Track the original lot number for accurate DB querying ---
+        original_lot = lot_data.get("lot_num", "")
+        if original_lot:
+            self.aggregated_original_lots.add(original_lot)
+
         try:
-            if prod_cut_qty is not None:
+            if prod_cut_qty is not None and str(prod_cut_qty).strip():
                 self.production_cut_active = True
                 prod_cut_str = f"{Decimal(prod_cut_qty):.2f}"
                 self.ui.qty_produced_input.setText(prod_cut_str)
                 self.ui.qty_order_input.setText(prod_cut_str)
             elif not self.production_cut_active:
-                total_produced = self.controller.get_total_produced_weight_for_lots(final_lots)
+                # Use the original tracked lots to fetch weights, avoiding errors
+                total_produced = self.controller.get_total_produced_weight_for_lots(list(self.aggregated_original_lots))
                 self.ui.qty_produced_input.setText(f"{total_produced:.2f}")
 
         except Exception as e:
-            # --- FIX: Use the new ErrorDialog ---
             error_dialog = ErrorDialog(
                 title="Calculation Error",
                 message="Could not set the quantity values after selecting a lot.",
@@ -526,23 +572,56 @@ class ExtruderEntryFormView(QWidget):
             )
             error_dialog.exec()
 
-        if len(final_lots) == 1:
-            self._prepopulate_static_fields(final_lots[0])
+        # Update static fields (Customer, Product Code) using the ORIGINAL lots
+        if self.aggregated_original_lots:
+            self._prepopulate_static_fields(list(self.aggregated_original_lots))
 
-    def _prepopulate_static_fields(self, lot_number: str):
-        details = self.controller.get_details_for_lot(lot_number)
-        if details:
-            self.ui.product_code_input.setText(details.get("product_code", ""))
-            self.ui.customer_input.setText(details.get("customer", ""))
+    def _prepopulate_static_fields(self, lot_numbers: list[str]):
+        if not lot_numbers:
+            return
+
+        customers_map = {}
+        first_lot_details = None
+
+        # 1. Fetch details for all selected lots
+        for i, lot in enumerate(lot_numbers):
+            details = self.controller.get_details_for_lot(lot)
+            if details:
+                # Keep the first lot's details for product code and order qty
+                if i == 0:
+                    first_lot_details = details
+
+                # Collect unique customer names (ignoring case differences)
+                customer_name = details.get("customer")
+                if customer_name:
+                    cust_clean = customer_name.strip()
+                    # Store uppercase as key to prevent 'Customer A' and 'CUSTOMER A' from being seen as different
+                    customers_map[cust_clean.upper()] = cust_clean
+
+        # --- THIS IS THE FIX: Apply the Customer Logic ---
+        if len(customers_map) > 1:
+            self.ui.customer_input.setText("In House")
+        elif len(customers_map) == 1:
+            # If all lots have the same customer, use that customer name
+            self.ui.customer_input.setText(list(customers_map.values())[0])
+        else:
+            self.ui.customer_input.setText("")
+        # --- END FIX ---
+
+        # 2. Keep the existing logic for Product Code and Order Qty based on the primary lot
+        if first_lot_details:
+            self.ui.product_code_input.setText(first_lot_details.get("product_code", ""))
+
             if not self.production_cut_active:
-                order_no = details.get("order_no")
+                order_no = first_lot_details.get("order_no")
                 if order_no:
                     order_qty = self.controller.get_order_qty_by_order_number(order_no)
                     if order_qty is not None:
                         self.ui.qty_order_input.setText(f"{order_qty:.2f}")
                     else:
                         self.ui.qty_order_input.setText("0.00")
-            self._update_production_summary()
+
+        self._update_production_summary()
 
     def _add_resin_row(self):
         """Adds a new row to the Resin Consumption (Purging Details) table."""
@@ -551,7 +630,7 @@ class ExtruderEntryFormView(QWidget):
         row_position = table.rowCount()
         table.insertRow(row_position)
 
-        resin_combo = QComboBox()
+        resin_combo = NoScrollComboBox()
         resin_combo.addItem("- Select -", None)
         for resin in self.resin_list:
             resin_combo.addItem(resin.abbreviation, resin.id)
@@ -578,9 +657,9 @@ class ExtruderEntryFormView(QWidget):
         self.ui.output_log_table.insertRow(row_position)
 
         date_edit = SmartDateEdit()
-        time_start_edit = QTimeEdit(QTime(0, 0))
+        time_start_edit = NoScrollTimeEdit(QTime(0, 0))
         time_start_edit.setDisplayFormat("HH:mm")
-        time_end_edit = QTimeEdit(QTime(0, 0))
+        time_end_edit = NoScrollTimeEdit(QTime(0, 0))
         time_end_edit.setDisplayFormat("HH:mm")
         time_end_edit.installEventFilter(self)
 
@@ -605,18 +684,6 @@ class ExtruderEntryFormView(QWidget):
         self.ui.output_log_table.setCurrentCell(row_position, 0)
         self.ui.output_log_table.editItem(self.ui.output_log_table.item(row_position, 0))
 
-    # def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-    #     # This event filter is now only for the Tab key functionality
-    #     if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Tab and isinstance(obj, QTimeEdit):
-    #         for row in range(self.ui.output_log_table.rowCount()):
-    #             if self.ui.output_log_table.cellWidget(row, 2) is obj:
-    #                 target_item = self.ui.output_log_table.item(row, 4)
-    #                 if target_item:
-    #                     self.ui.output_log_table.setCurrentItem(target_item)
-    #                     self.ui.output_log_table.editItem(target_item)
-    #                 return True
-    #     return super().eventFilter(obj, event)
-
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         """
@@ -637,8 +704,6 @@ class ExtruderEntryFormView(QWidget):
 
         # For all other events, let the default handler process them
         return super().eventFilter(obj, event)
-
-
 
     def _calculate_output_log_time_used(self, row: int):
         """
@@ -781,6 +846,7 @@ class ExtruderEntryFormView(QWidget):
         self.aggregated_prod_ids.clear()
         self.aggregated_formula_ids.clear()
         self.aggregated_order_nos.clear()
+        self.aggregated_original_lots.clear()
         self.production_cut_active = False
         self.ui.lot_number_input.clear()
         self.ui.product_code_input.clear()
@@ -834,6 +900,7 @@ class ExtruderEntryFormView(QWidget):
 
 
         self.ui.edit_ref_no_checkbox.setChecked(False)
+        self.ui.edit_customer_checkbox.setChecked(False)
         self._set_next_reference_number()
         self.original_ref_no = None # <-- ADD THIS LINE to reset the state
 
@@ -947,7 +1014,7 @@ class ExtruderEntryFormView(QWidget):
                 # If "No Purging" is CHECKED, create the dictionary but only
                 # populate the three required fields, leaving the others null.
                 data["purging_header"] = {
-                    "product_code_name": None,
+                    "product_code_name": self.ui.purging_product_code_combo.currentText(),
                     "start_time": None,
                     "end_time": None,
                     "resin_id": self.ui.purging_resin_combo.currentData(),
@@ -966,11 +1033,6 @@ class ExtruderEntryFormView(QWidget):
                                        details=traceback.format_exc(), parent=self)
             error_dialog.exec();
             return None
-
-
-
-
-
 
 
     def _validate_required_fields(self) -> bool:
@@ -1062,6 +1124,11 @@ class ExtruderEntryFormView(QWidget):
                         error_groups["Purging & Resin"].append(
                             f"Resin Consumption Row {row + 1}: Qty (Kg.) must be greater than zero.")
 
+        if self.ui.no_purging_checkbox.isChecked():
+            if not self.ui.purging_product_code_combo.currentText().strip():
+                error_groups["Purging & Resin"].append("Product Code is required.")
+
+
         # Extruder Output Log
         if self.ui.output_log_table.rowCount() == 0:
             error_groups["Extruder Output Log"].append("At least one entry is required.")
@@ -1148,6 +1215,9 @@ class ExtruderEntryFormView(QWidget):
         self.original_ref_no = record.ref_no # <-- ADD THIS LINE
         # --- FIX: Ensure checkbox is unchecked when populating an existing record ---
         self.ui.edit_ref_no_checkbox.setChecked(False)
+        self.ui.edit_customer_checkbox.setChecked(False)
+
+
         self.ui.ref_no_input.setText(str(record.ref_no))
 
         # --- THIS IS THE DEFINITIVE FIX ---
@@ -1155,6 +1225,7 @@ class ExtruderEntryFormView(QWidget):
         self.aggregated_prod_ids.clear()
         self.aggregated_formula_ids.clear()
         self.aggregated_order_nos.clear()
+        self.aggregated_original_lots.clear()
 
         # 2. Re-initialize the internal sets from the record's stored strings.
         if record.production_id:
@@ -1163,6 +1234,9 @@ class ExtruderEntryFormView(QWidget):
             self.aggregated_formula_ids = set(record.formula_no.split('; '))
         if record.order_no:
             self.aggregated_order_nos = set(record.order_no.split('; '))
+
+        if record.lot_number:
+            self.aggregated_original_lots = set(record.lot_number.split('; '))
         # --- END FIX ---
 
 
@@ -1260,7 +1334,7 @@ class ExtruderEntryFormView(QWidget):
         # if the core fields of the header are all null/empty.
         is_no_purging = (
                 header is None or
-                (header.product_code is None and header.time_start is None and header.time_end is None)
+                (header.time_start is None and header.time_end is None)
         )
 
         if is_no_purging:
@@ -1268,6 +1342,7 @@ class ExtruderEntryFormView(QWidget):
             self.ui.no_purging_checkbox.setChecked(True)
             # We still need to populate the fields that are always required
             if header:  # Case where header exists but is empty
+                self.ui.purging_product_code_combo.setCurrentText(header.product_code or '')
                 self.ui.purging_resin_combo.setCurrentText(getattr(header.resin_used, 'abbreviation', ''))
                 self.ui.purging_palletizer_input.setText(str(header.palletizer_used or '0'))
                 self.ui.purging_siever_input.setText(str(header.siever_used or '0'))

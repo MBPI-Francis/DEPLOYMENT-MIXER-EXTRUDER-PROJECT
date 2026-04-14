@@ -533,3 +533,40 @@ QMenu::item:selected {
 QMenu::separator {
     height: 1px; background: #e9ecef; margin: 5px 0px;
 }
+
+
+QComboBox{
+    padding: 6px;
+}
+
+/* ==========================================
+   PAGINATION WIDGET
+========================================== */
+QWidget#paginationWidget {
+    background: transparent;
+}
+
+QWidget#paginationWidget QPushButton {
+    padding: 4px 10px;
+    font-size: 12px;
+    border: 1px solid #cbd5e1;
+    background-color: white;
+    border-radius: 4px;
+}
+
+QWidget#paginationWidget QPushButton:hover {
+    background-color: #f8fafc;
+}
+
+QWidget#paginationWidget QLabel {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+/* Optional: Style the combo box inside the widget specifically */
+QWidget#paginationWidget QComboBox {
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px;
+}

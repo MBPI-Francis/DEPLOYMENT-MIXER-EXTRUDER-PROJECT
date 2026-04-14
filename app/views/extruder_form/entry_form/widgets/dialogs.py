@@ -114,10 +114,17 @@ class LotNumberDialog(QDialog):
         prod_cut_group = QGroupBox("Production Cut (Optional)")
         prod_cut_layout = QFormLayout(prod_cut_group)
         self.prod_cut_checkbox = QCheckBox("Apply Production Cut")
+
+        self.prod_cut_lot_input = QLineEdit()
+        self.prod_cut_lot_input.setPlaceholderText("Enter Lot number")
+        self.prod_cut_lot_input.setEnabled(False)
+
         self.prod_cut_qty_input = QNumericLineEdit()
         self.prod_cut_qty_input.setPlaceholderText("Enter Qty in kg")
         self.prod_cut_qty_input.setEnabled(False)
+
         prod_cut_layout.addRow(self.prod_cut_checkbox)
+        prod_cut_layout.addRow("Lot Number:", self.prod_cut_lot_input)
         prod_cut_layout.addRow("Production Cut Qty:", self.prod_cut_qty_input)
         layout.addWidget(prod_cut_group)
 
@@ -155,6 +162,7 @@ class LotNumberDialog(QDialog):
         self.lot_list_widget.itemSelectionChanged.connect(self._on_lot_selection_changed)
         self.lot_list_widget.itemDoubleClicked.connect(lambda: self.accept())
         self.prod_cut_checkbox.toggled.connect(self.prod_cut_qty_input.setEnabled)
+        self.prod_cut_checkbox.toggled.connect(self.prod_cut_lot_input.setEnabled)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)  # Close button calls reject()
         self.reset_btn.clicked.connect(self._reset_selections)
@@ -169,11 +177,44 @@ class LotNumberDialog(QDialog):
             QMessageBox.warning(self, "No Selection", "Please select a lot number to apply.")
             return
 
+        # if self.prod_cut_checkbox.isChecked():
+        #     prod_cut_qty_value = self.prod_cut_qty_input.get_value()
+        #     prod_cut_lot_value = self.prod_cut_lot_input.get_value()
+        #
+        #     if prod_cut_qty_value <= 0:
+        #         QMessageBox.warning(self, "Validation Error", "Production Cut requires a quantity greater than zero.")
+        #         return
+
         if self.prod_cut_checkbox.isChecked():
-            prod_cut_value = self.prod_cut_qty_input.get_value()
-            if prod_cut_value <= 0:
-                QMessageBox.warning(self, "Validation Error", "Production Cut requires a quantity greater than zero.")
+            # Note: If prod_cut_lot_input is a standard QLineEdit, it uses .text().
+            # If you made a custom class with .get_value(), you can swap this back.
+            prod_cut_lot_value = self.prod_cut_lot_input.text().strip()
+            prod_cut_qty_value = self.prod_cut_qty_input.get_value()
+
+            # 1. Validate the Lot Number
+            if not prod_cut_lot_value:  # This gracefully catches None, "", and "   "
+                QMessageBox.warning(
+                    self,
+                    "Validation Error",
+                    "Production Cut requires a Lot Number."
+                )
+                self.prod_cut_lot_input.setFocus()  # Puts the cursor in the empty box
                 return
+
+            # 2. Validate the Quantity
+            if prod_cut_qty_value is None or prod_cut_qty_value <= 0:
+                QMessageBox.warning(
+                    self,
+                    "Validation Error",
+                    "Production Cut requires a quantity greater than zero."
+                )
+                self.prod_cut_qty_input.setFocus()  # Puts the cursor in the invalid box
+                return
+
+
+
+
+
 
             # Removed this 11/12/2025. Due to Production staff can't enter a production cut
             # try:
@@ -189,10 +230,14 @@ class LotNumberDialog(QDialog):
 
         current_lot_data = selected_items[0].data(Qt.ItemDataRole.UserRole)
         prod_cut_qty = self.prod_cut_qty_input.get_value() if self.prod_cut_checkbox.isChecked() else None
+        prod_cut_lot = self.prod_cut_lot_input.text().strip() if self.prod_cut_checkbox.isChecked() else None
+        print(prod_cut_lot)
 
         self.success_callback({
             "lot_data": current_lot_data,
-            "prod_cut_qty": prod_cut_qty
+            "prod_cut_qty": prod_cut_qty,
+            "prod_cut_lot": prod_cut_lot,
+
         })
 
         # --- FIX FOR BUG 2: Conditional closing logic ---
@@ -308,6 +353,8 @@ class LotNumberDialog(QDialog):
         # Reset prod cut feature
         self.prod_cut_checkbox.setChecked(False)
         self.prod_cut_qty_input.clear()
+        self.prod_cut_lot_input.clear()
+
 
     def _update_filter_status_display(self):
         if self.initial_product_code_lock and self.initial_customer_lock:
@@ -321,6 +368,7 @@ class LotNumberDialog(QDialog):
     @pyqtSlot()
     def _trigger_search(self):
         self.current_page = 1
+
         self.can_load_more = True
         self._load_lots()
 

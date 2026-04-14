@@ -1,7 +1,7 @@
 # app/views/extruder_form/records/ops.py
 
 from sqlalchemy.orm import sessionmaker, Session, joinedload, selectinload
-from sqlalchemy import func, text, String, or_
+from sqlalchemy import func, text, String, or_, case, and_
 from typing import Type, List, Tuple, Dict, cast
 import decimal
 
@@ -412,3 +412,141 @@ class ExtruderRecordsOperations:
             export_data.append(row)
 
         return export_data
+
+    def get_extruder_record_count(self, filters: dict) -> int:
+        """Returns the total number of records matching filters (Server-side)."""
+        session = self.Session()
+        try:
+            query = session.query(func.count(ExtruderFormData.id.distinct()))
+            query = self._apply_filters(query, filters)
+            return query.scalar() or 0
+        finally:
+            session.close()
+
+    def get_paginated_records(self, filters: dict, offset: int, limit: int) -> List[ExtruderFormData]:
+        """Fetches exactly 'limit' records starting from 'offset'."""
+        session = self.Session()
+        try:
+            query = session.query(ExtruderFormData).options(
+                joinedload(ExtruderFormData.machine),
+                selectinload(ExtruderFormData.extruder_outputs),
+                selectinload(ExtruderFormData.purging_headers).selectinload(PurgingHeader.purging_details).joinedload(
+                    PurgingDetail.resin),
+                selectinload(ExtruderFormData.extruder_personnels).joinedload(ExtruderPersonnel.employee)
+            )
+            query = self._apply_filters(query, filters)
+            query = query.order_by(ExtruderFormData.created_at.desc())
+
+            if limit is not None:
+                query = query.offset(offset).limit(limit)
+
+            return query.all()
+        finally:
+            session.close()
+
+    def get_extruder_summary_aggregates(self, filters: dict) -> dict:
+        """Calculates 6 summary values on the DB server (Isolated queries)."""
+        session = self.Session()
+        try:
+            # 1. Source of Truth: Get IDs matching filters
+            id_query = session.query(ExtruderFormData.id)
+            id_query = self._apply_filters(id_query, filters)
+            matched_ids = [r[0] for r in id_query.all()]
+
+            if not matched_ids:
+                return {"total_output": 0, "total_waste": 0, "proc_seconds": 0, "purge_seconds": 0}
+
+            # 2. Output & Process Time
+            res_out = session.query(
+                func.sum(ExtruderOutput.qty_output),
+                func.sum(ExtruderOutput.datetime_end - ExtruderOutput.datetime_start)
+            ).filter(ExtruderOutput.extruder_form_data_id.in_(matched_ids)).first()
+
+            # 3. Waste Qty & Purge Duration (Midnight Logic)
+            purge_dur_expr = func.sum(case(
+                (PurgingHeader.time_end < PurgingHeader.time_start,
+                 PurgingHeader.time_end - PurgingHeader.time_start + text("interval '24 hours'")),
+                else_=PurgingHeader.time_end - PurgingHeader.time_start
+            ))
+            res_purge = session.query(
+                func.sum(PurgingDetail.qty),
+                purge_dur_expr
+            ).select_from(PurgingDetail).join(PurgingHeader).filter(
+                PurgingHeader.extruder_form_data_id.in_(matched_ids)
+            ).first()
+
+            def to_sec(interval):
+                return interval.total_seconds() if interval and hasattr(interval, 'total_seconds') else 0
+
+            return {
+                "total_output": float(res_out[0] or 0),
+                "total_waste": float(res_purge[0] or 0),
+                "proc_seconds": to_sec(res_out[1]),
+                "purge_seconds": to_sec(res_purge[1])
+            }
+        finally:
+            session.close()
+
+    def _apply_filters(self, query, filters):
+        """Standard filtering logic used by all queries."""
+        if filters.get('show_only_deleted', False):
+            query = query.filter(ExtruderFormData.is_deleted == True)
+        else:
+            query = query.filter(ExtruderFormData.is_deleted == False)
+
+        if term := filters.get('search_term'):
+            search_ilike = f"%{term}%"
+            scope = filters.get('search_field', 'All Columns')
+            if scope == "All Columns":
+                # We can only use .ilike() on String columns or casted Numeric columns.
+                # For relationships (Machine, Personnel), we use .has() or .any().
+                query = query.filter(or_(
+                    ExtruderFormData.lot_number.ilike(search_ilike),
+                    ExtruderFormData.product_code.ilike(search_ilike),
+                    ExtruderFormData.customer.ilike(search_ilike),  # Added customer search
+                    ExtruderFormData.ref_no.cast(String).like(search_ilike),
+                    ExtruderFormData.qty_produced.cast(String).like(search_ilike),
+                    ExtruderFormData.target_output_per_hour.cast(String).like(search_ilike),
+
+
+                    # FIX: Search inside the related Machine table
+                    ExtruderFormData.machine.has(ExtruderMachine.name.ilike(search_ilike)),
+
+                    # OPTIONAL: If you want to search by Operator name in the global search
+                    ExtruderFormData.extruder_personnels.any(
+                        ExtruderPersonnel.employee.has(
+                            or_(
+                                ProductionEmployee.first_name.ilike(search_ilike),
+                                ProductionEmployee.last_name.ilike(search_ilike)
+                            )
+                        )
+                    )
+                ))
+
+            elif scope == "Product Code":
+                query = query.filter(ExtruderFormData.product_code.ilike(search_ilike))
+            elif scope == "Lot Number":
+                query = query.filter(ExtruderFormData.lot_number.ilike(search_ilike))
+            elif scope == "Ref No":
+                query = query.filter(ExtruderFormData.ref_no.cast(String).like(search_ilike))
+
+        # Date Range (Using EXISTS pattern to prevent record exclusion/duplication)
+        d_from, d_to = filters.get('date_from'), filters.get('date_to')
+        if d_from or d_to:
+            conditions = []
+            if d_from:
+                conditions.append(or_(
+                    func.date(ExtruderFormData.created_at) >= d_from,
+                    ExtruderFormData.extruder_outputs.any(func.date(ExtruderOutput.datetime_start) >= d_from)
+                ))
+            if d_to:
+                conditions.append(or_(
+                    func.date(ExtruderFormData.created_at) <= d_to,
+                    ExtruderFormData.extruder_outputs.any(func.date(ExtruderOutput.datetime_start) <= d_to)
+                ))
+            query = query.filter(and_(*conditions))
+
+        if machine_id := filters.get('machine_id'):
+            query = query.filter(ExtruderFormData.machine_id == machine_id)
+
+        return query

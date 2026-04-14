@@ -6,6 +6,7 @@ from PyQt6.QtGui import QKeyEvent, QFocusEvent
 from datetime import datetime
 
 
+
 class SmartDateEdit(QDateEdit):
     """
     A QDateEdit subclass with intelligent, as-you-type date formatting
@@ -25,6 +26,9 @@ class SmartDateEdit(QDateEdit):
 
         # When the date is changed (e.g., by the calendar), sync our buffer
         self.dateChanged.connect(self._update_buffer_from_date)
+
+    def wheelEvent(self, event):
+        event.ignore()
 
     def keyPressEvent(self, event: QKeyEvent):
         """Overrides key press to capture input and apply live formatting."""

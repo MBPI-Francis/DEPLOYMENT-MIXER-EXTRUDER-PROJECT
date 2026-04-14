@@ -16,7 +16,7 @@ IMPORTANT: Do NOT post this list to the issue-tracker. Use it as a basis for
 
 missing module named grp - imported by shutil (delayed, optional), tarfile (optional), pathlib (delayed, optional), subprocess (delayed, conditional, optional), setuptools._vendor.backports.tarfile (optional), setuptools._distutils.archive_util (optional)
 missing module named pwd - imported by posixpath (delayed, conditional, optional), shutil (delayed, optional), tarfile (optional), pathlib (delayed, optional), subprocess (delayed, conditional, optional), setuptools._distutils.util (delayed, conditional, optional), netrc (delayed, conditional), getpass (delayed), setuptools._vendor.backports.tarfile (optional), setuptools._distutils.archive_util (optional), http.server (delayed, optional)
-missing module named posix - imported by os (conditional, optional), posixpath (optional), shutil (conditional), importlib._bootstrap_external (conditional)
+missing module named posix - imported by os (conditional, optional), shutil (conditional), importlib._bootstrap_external (conditional), posixpath (optional)
 missing module named resource - imported by posix (top-level)
 missing module named _frozen_importlib_external - imported by importlib._bootstrap (delayed), importlib (optional), importlib.abc (optional), zipimport (top-level)
 excluded module named _frozen_importlib - imported by importlib (optional), importlib.abc (optional), zipimport (top-level)
@@ -287,7 +287,7 @@ missing module named dask - imported by scipy._lib.array_api_compat.common._help
 missing module named scipy._lib.array_api_compat.common.array_namespace - imported by scipy._lib.array_api_compat.common (top-level), scipy._lib.array_api_compat.dask.array._aliases (top-level)
 missing module named 'cupy.cuda' - imported by scipy._lib.array_api_compat.cupy._typing (top-level)
 missing module named Cython - imported by scipy._lib._testutils (optional)
-missing module named cython - imported by scipy._lib._testutils (optional), fontTools.varLib.iup (optional), fontTools.misc.bezierTools (optional), pydantic.v1.version (optional)
+missing module named cython - imported by scipy._lib._testutils (optional), pydantic.v1.version (optional), fontTools.varLib.iup (optional), fontTools.misc.bezierTools (optional)
 missing module named sphinx - imported by scipy._lib._docscrape (delayed, conditional)
 missing module named array_api_compat - imported by scipy._lib.array_api_extra._lib._utils._compat (optional)
 missing module named 'dask.typing' - imported by scipy._lib.array_api_extra.testing (conditional)
