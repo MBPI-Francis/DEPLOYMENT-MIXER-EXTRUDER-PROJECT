@@ -312,7 +312,7 @@ class LotNumberDialog(QDialog):
     def _update_filter_status_display(self):
         if self.initial_product_code_lock and self.initial_customer_lock:
             self.filter_status_label.setText(
-                f"Filtering by Code: '{self.initial_product_code_lock}' and Customer: '{self.initial_customer_lock}'."
+                f"Filtering by Code: '{self.initial_product_code_lock}'."
             )
             self.filter_status_label.show()
         else:

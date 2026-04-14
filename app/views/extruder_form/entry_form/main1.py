@@ -94,7 +94,6 @@ class ExtruderEntryFormView(QWidget):
         self.ui.remove_personnel_btn.clicked.connect(self._remove_personnel_row)
         # --- NEW: Connect the new checkbox's signal ---
         self.ui.edit_ref_no_checkbox.toggled.connect(self._on_edit_ref_no_toggled)
-        self.ui.edit_customer_checkbox.toggled.connect(self._on_edit_customer_toggled)
 
         self.ui.lot_number_select_btn.clicked.connect(self._open_lot_number_dialog)
         self.ui.add_resin_btn.clicked.connect(self._add_resin_row)
@@ -122,11 +121,6 @@ class ExtruderEntryFormView(QWidget):
     def _on_edit_ref_no_toggled(self, checked: bool):
         """Makes the reference number field editable based on the checkbox state."""
         self.ui.ref_no_input.setReadOnly(not checked)
-
-
-    def _on_edit_customer_toggled(self, checked: bool):
-        """Makes the reference number field editable based on the checkbox state."""
-        self.ui.customer_input.setReadOnly(not checked)
 
     def _calculate_purging_time_used(self):
         """Calculates and displays the duration between purging start and end times."""
@@ -485,56 +479,23 @@ class ExtruderEntryFormView(QWidget):
             )
             error_dialog.exec()
 
-        if final_lots:
-            # --- FIX: Pass the entire list of lots instead of just the first one ---
-            self._prepopulate_static_fields(final_lots)
+        if len(final_lots) == 1:
+            self._prepopulate_static_fields(final_lots[0])
 
-    def _prepopulate_static_fields(self, lot_numbers: list[str]):
-        if not lot_numbers:
-            return
-
-        customers_map = {}
-        first_lot_details = None
-
-        # 1. Fetch details for all selected lots
-        for i, lot in enumerate(lot_numbers):
-            details = self.controller.get_details_for_lot(lot)
-            if details:
-                # Keep the first lot's details for product code and order qty
-                if i == 0:
-                    first_lot_details = details
-
-                # Collect unique customer names (ignoring case differences)
-                customer_name = details.get("customer")
-                if customer_name:
-                    cust_clean = customer_name.strip()
-                    # Store uppercase as key to prevent 'Customer A' and 'CUSTOMER A' from being seen as different
-                    customers_map[cust_clean.upper()] = cust_clean
-
-        # --- THIS IS THE FIX: Apply the Customer Logic ---
-        if len(customers_map) > 1:
-            self.ui.customer_input.setText("In House")
-        elif len(customers_map) == 1:
-            # If all lots have the same customer, use that customer name
-            self.ui.customer_input.setText(list(customers_map.values())[0])
-        else:
-            self.ui.customer_input.setText("")
-        # --- END FIX ---
-
-        # 2. Keep the existing logic for Product Code and Order Qty based on the primary lot
-        if first_lot_details:
-            self.ui.product_code_input.setText(first_lot_details.get("product_code", ""))
-
+    def _prepopulate_static_fields(self, lot_number: str):
+        details = self.controller.get_details_for_lot(lot_number)
+        if details:
+            self.ui.product_code_input.setText(details.get("product_code", ""))
+            self.ui.customer_input.setText(details.get("customer", ""))
             if not self.production_cut_active:
-                order_no = first_lot_details.get("order_no")
+                order_no = details.get("order_no")
                 if order_no:
                     order_qty = self.controller.get_order_qty_by_order_number(order_no)
                     if order_qty is not None:
                         self.ui.qty_order_input.setText(f"{order_qty:.2f}")
                     else:
                         self.ui.qty_order_input.setText("0.00")
-
-        self._update_production_summary()
+            self._update_production_summary()
 
     def _add_resin_row(self):
         """Adds a new row to the Resin Consumption (Purging Details) table."""
@@ -812,7 +773,6 @@ class ExtruderEntryFormView(QWidget):
 
 
         self.ui.edit_ref_no_checkbox.setChecked(False)
-        self.ui.edit_customer_checkbox.setChecked(False)
         self._set_next_reference_number()
         self.original_ref_no = None # <-- ADD THIS LINE to reset the state
 
@@ -1127,9 +1087,6 @@ class ExtruderEntryFormView(QWidget):
         self.original_ref_no = record.ref_no # <-- ADD THIS LINE
         # --- FIX: Ensure checkbox is unchecked when populating an existing record ---
         self.ui.edit_ref_no_checkbox.setChecked(False)
-        self.ui.edit_customer_checkbox.setChecked(False)
-
-
         self.ui.ref_no_input.setText(str(record.ref_no))
 
         # --- THIS IS THE DEFINITIVE FIX ---

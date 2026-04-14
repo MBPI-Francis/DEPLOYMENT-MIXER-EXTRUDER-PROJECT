@@ -162,13 +162,27 @@ class Ui_ExtruderEntryForm:
         form_layout.addRow("Input Lot Number(s):", lot_layout)
         self.product_code_input = QLineEdit()
         self.product_code_input.setReadOnly(True)
-        self.customer_input = QLineEdit()
-        self.customer_input.setReadOnly(True)
         self.qty_order_input = QLineEdit()
         self.qty_produced_input = QLineEdit()
         self.target_output_hr_input = QLineEdit()
+
+
+
+
+        customer_layout = QHBoxLayout()
+        self.customer_input = QLineEdit()
+        self.customer_input.setReadOnly(True)  # Start as not editable
+
+        self.edit_customer_checkbox = QCheckBox("Edit")  # The new checkbox
+
+        customer_layout.addWidget(self.customer_input)
+        customer_layout.addWidget(self.edit_customer_checkbox)
+
+
         form_layout.addRow("Production Code:", self.product_code_input)
-        form_layout.addRow("Customer:", self.customer_input)
+        form_layout.addRow("Customer:", customer_layout)
+
+
         form_layout.addRow("QTY. Order (kg):", self.qty_order_input)
         form_layout.addRow("Qty. Produced (kg):", self.qty_produced_input)
         form_layout.addRow("Target Output per Hour (Kg/Hr):", self.target_output_hr_input)

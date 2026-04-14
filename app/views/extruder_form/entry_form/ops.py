@@ -214,7 +214,7 @@ class ExtruderOpsController:
                 )
                 query = query.filter(search_filter)
             if product_code: query = query.filter(TblProd01.T_PRODCODE == product_code)
-            if customer: query = query.filter(TblProd01.T_CUSTOMER == customer)
+            # if customer: query = query.filter(TblProd01.T_CUSTOMER == customer)
             # results = query.order_by(TblProd01.T_PRODDATE.desc()).offset((page - 1) * page_size).limit(page_size).all()
             results = query.filter(
                 (TblProd01.T_DELETED.is_(False)) | (TblProd01.T_DELETED.is_(None))
@@ -501,33 +501,56 @@ class ExtruderOpsController:
             max_ref = session.query(func.max(ExtruderFormData.ref_no)).scalar()
             return max_ref or 0 # Return 0 if the table is empty
 
-    # def check_if_ref_no_exists(self, ref_no: int) -> bool:
-    #     """Checks if a given ref_no already exists in the database."""
+
+
+    # def check_if_ref_no_exists(self, ref_no: int, exclude_id: int = None) -> bool:
+    #     """
+    #     Checks if a reference number already exists in the database.
+    #
+    #     Args:
+    #         ref_no: The reference number to check for.
+    #         exclude_id: An optional record ID to exclude from the search. This is
+    #                     used during an update to prevent a record from finding itself.
+    #     Returns:
+    #         True if the ref_no exists on another record, False otherwise.
+    #     """
     #     with self.Session() as session:
-    #         # session.get() is the fastest way to look up by primary key,
-    #         # but since ref_no is not the PK, we use a simple query.
-    #         exists = session.query(ExtruderFormData.id).filter(ExtruderFormData.ref_no == ref_no).first()
-    #         return exists is not None
+    #         query = session.query(ExtruderFormData).filter(ExtruderFormData.ref_no == ref_no)
+    #
+    #         # --- THIS IS THE FIX ---
+    #         # If an ID to exclude is provided, add another filter condition.
+    #         if exclude_id is not None:
+    #             query = query.filter(ExtruderFormData.id != exclude_id)
+    #         # --- END FIX ---
+    #
+    #         # Use exists() for an efficient check without retrieving the full object
+    #         return session.query(query.exists()).scalar()
 
     def check_if_ref_no_exists(self, ref_no: int, exclude_id: int = None) -> bool:
         """
-        Checks if a reference number already exists in the database.
+        Checks if a reference number already exists as an ACTIVE record in the database.
+        Soft-deleted records (is_deleted = True) are ignored, allowing their ref_no to be reused.
 
         Args:
             ref_no: The reference number to check for.
             exclude_id: An optional record ID to exclude from the search. This is
                         used during an update to prevent a record from finding itself.
         Returns:
-            True if the ref_no exists on another record, False otherwise.
+            True if the ref_no exists on another ACTIVE record, False otherwise.
         """
         with self.Session() as session:
-            query = session.query(ExtruderFormData).filter(ExtruderFormData.ref_no == ref_no)
-
             # --- THIS IS THE FIX ---
+            # We filter by ref_no AND ensure the record is NOT deleted.
+            # Assuming your AuditMixin uses 'is_deleted' as the column name.
+            query = session.query(ExtruderFormData).filter(
+                ExtruderFormData.ref_no == ref_no,
+                (ExtruderFormData.is_deleted.is_(False)) | (ExtruderFormData.is_deleted.is_(None))
+            )
+            # --- END FIX ---
+
             # If an ID to exclude is provided, add another filter condition.
             if exclude_id is not None:
                 query = query.filter(ExtruderFormData.id != exclude_id)
-            # --- END FIX ---
 
             # Use exists() for an efficient check without retrieving the full object
             return session.query(query.exists()).scalar()
