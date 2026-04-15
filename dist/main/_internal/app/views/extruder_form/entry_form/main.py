@@ -1,5 +1,6 @@
 # app/views/extruder_form/entry_form/main.py
 import os
+import re
 import traceback
 from datetime import datetime, timedelta
 
@@ -88,6 +89,7 @@ class ExtruderEntryFormView(QWidget):
 
     def _connect_signals(self):
         self.ui.no_purging_checkbox.toggled.connect(self._on_no_purging_toggled)
+        self.ui.cma_checkbox.toggled.connect(self._on_cma_toggled)
         self.ui.purging_start_time.timeChanged.connect(self._calculate_purging_time_used)
         self.ui.purging_end_time.timeChanged.connect(self._calculate_purging_time_used)
 
@@ -391,24 +393,54 @@ class ExtruderEntryFormView(QWidget):
                 widget_to_remove.deleteLater()
 
 
+    # def _on_no_purging_toggled(self, checked: bool):
+    #     """
+    #     Enables or disables ONLY the purging process-specific fields.
+    #     Resin, Pelletizer, Siever, and the Resin Consumption table remain enabled.
+    #     """
+    #     # 'checked' means "No Purging" is active, so the fields should be DISABLED.
+    #     is_process_enabled = not checked
+    #
+    #     # 1. Toggle only the specific, process-related fields.
+    #     self.ui.resin_group.setEnabled(is_process_enabled)
+    #     self.ui.purging_start_time.setEnabled(is_process_enabled)
+    #     self.ui.purging_end_time.setEnabled(is_process_enabled)
+    #
+    #     # The 'resin_group' (Resin Consumption table) is NO LONGER disabled here.
+    #
+    #     if is_process_enabled:
+    #         # This runs when the user UNCHECKS "No Purging".
+    #         # Reload the product codes for the now-enabled combo box.
+    #         try:
+    #             initial_codes = self.controller.get_distinct_product_codes_paginated(page=1, page_size=1000, limit=1000)
+    #             self.ui.purging_product_code_combo.populate_initial(initial_codes)
+    #         except Exception as e:
+    #             error_dialog = ErrorDialog("Load Error", "Could not reload product codes.",
+    #                                        details=traceback.format_exc(), parent=self)
+    #             error_dialog.exec()
+    #     else:
+    #         # This runs when the user CHECKS "No Purging".
+    #         # Clear only the fields that were just disabled.
+    #         self.ui.purging_start_time.setTime(QTime(0, 0))
+    #         self.ui.purging_end_time.setTime(QTime(0, 0))
+    #
+    #         # Also clear the Resin Consumption table since its group was disabled.
+    #         self.ui.purging_details_table.setRowCount(0)
+
     def _on_no_purging_toggled(self, checked: bool):
-        """
-        Enables or disables ONLY the purging process-specific fields.
-        Resin, Pelletizer, Siever, and the Resin Consumption table remain enabled.
-        """
-        # 'checked' means "No Purging" is active, so the fields should be DISABLED.
         is_process_enabled = not checked
+        cma_checked = self.ui.cma_checkbox.isChecked()
 
-        # 1. Toggle only the specific, process-related fields.
+        # 1. Toggle the Resin Consumption Table
         self.ui.resin_group.setEnabled(is_process_enabled)
-        self.ui.purging_start_time.setEnabled(is_process_enabled)
-        self.ui.purging_end_time.setEnabled(is_process_enabled)
 
-        # The 'resin_group' (Resin Consumption table) is NO LONGER disabled here.
+        # 2. Toggle Start and End Time (Enabled if normal purging OR if CMA is checked)
+        times_enabled = is_process_enabled or cma_checked
+        self.ui.purging_start_time.setEnabled(times_enabled)
+        self.ui.purging_end_time.setEnabled(times_enabled)
 
         if is_process_enabled:
-            # This runs when the user UNCHECKS "No Purging".
-            # Reload the product codes for the now-enabled combo box.
+            # Reload product codes when unchecking No Purging
             try:
                 initial_codes = self.controller.get_distinct_product_codes_paginated(page=1, page_size=1000, limit=1000)
                 self.ui.purging_product_code_combo.populate_initial(initial_codes)
@@ -417,39 +449,26 @@ class ExtruderEntryFormView(QWidget):
                                            details=traceback.format_exc(), parent=self)
                 error_dialog.exec()
         else:
-            # This runs when the user CHECKS "No Purging".
-            # Clear only the fields that were just disabled.
-            self.ui.purging_start_time.setTime(QTime(0, 0))
-            self.ui.purging_end_time.setTime(QTime(0, 0))
-
-            # Also clear the Resin Consumption table since its group was disabled.
+            # If No Purging is checked, wipe the times ONLY if CMA is not checked
+            if not cma_checked:
+                self.ui.purging_start_time.setTime(QTime(0, 0))
+                self.ui.purging_end_time.setTime(QTime(0, 0))
             self.ui.purging_details_table.setRowCount(0)
 
-    #
-    # def _open_lot_number_dialog(self):
-    #     try:
-    #         if self.lot_number_dialog is None or not self.lot_number_dialog.isVisible():
-    #             initial_product_code, initial_customer = None, None
-    #
-    #             if self.ui.lot_number_input.text():
-    #                 first_lot = self.ui.lot_number_input.text().split(';')[0].strip()
-    #                 lot_details = self.controller.get_details_for_lot(first_lot)
-    #                 if lot_details:
-    #                     initial_product_code = lot_details.get("product_code")
-    #                     initial_customer = lot_details.get("customer")
-    #             self.lot_number_dialog = LotNumberDialog(self.controller, self._handle_lot_selection, self, initial_product_code=initial_product_code, initial_customer=initial_customer)
-    #             self.lot_number_dialog.show()
-    #         self.lot_number_dialog.activateWindow()
-    #
-    #     except Exception as e:
-    #         # --- FIX: Use the new ErrorDialog ---
-    #         error_dialog = ErrorDialog(
-    #             title="Dialog Error",
-    #             message="An unexpected error occurred while trying to open the lot number selector.",
-    #             details=traceback.format_exc(),
-    #             parent=self
-    #         )
-    #         error_dialog.exec()
+    def _on_cma_toggled(self, checked: bool):
+        """Handler for when the CMA checkbox is toggled."""
+        no_purging = self.ui.no_purging_checkbox.isChecked()
+
+        # If No Purging is checked, the CMA checkbox controls the time fields
+        if no_purging:
+            self.ui.purging_start_time.setEnabled(checked)
+            self.ui.purging_end_time.setEnabled(checked)
+
+            # If the user unchecks CMA, immediately reset the times
+            if not checked:
+                self.ui.purging_start_time.setTime(QTime(0, 0))
+                self.ui.purging_end_time.setTime(QTime(0, 0))
+
 
     def _open_lot_number_dialog(self):
         try:
@@ -921,16 +940,16 @@ class ExtruderEntryFormView(QWidget):
 
             output_log_list = []
             for r in range(self.ui.output_log_table.rowCount()):
-                date_widget = self.ui.output_log_table.cellWidget(r, 0);
+                date_widget = self.ui.output_log_table.cellWidget(r, 0)
                 start_time_widget = self.ui.output_log_table.cellWidget(r, 1)
-                end_time_widget = self.ui.output_log_table.cellWidget(r, 2);
+                end_time_widget = self.ui.output_log_table.cellWidget(r, 2)
                 output_item = self.ui.output_log_table.item(r, 4)
                 if not all([date_widget, start_time_widget, end_time_widget,
                             output_item]) or date_widget.date().isNull(): continue
-                start_date = date_widget.date().toPyDate();
-                start_time = start_time_widget.time().toPyTime();
+                start_date = date_widget.date().toPyDate()
+                start_time = start_time_widget.time().toPyTime()
                 end_time = end_time_widget.time().toPyTime()
-                datetime_start = datetime.combine(start_date, start_time);
+                datetime_start = datetime.combine(start_date, start_time)
                 end_date = start_date
                 if end_time <= start_time: end_date += timedelta(days=1)
                 datetime_end = datetime.combine(end_date, end_time)
@@ -1015,8 +1034,9 @@ class ExtruderEntryFormView(QWidget):
                 # populate the three required fields, leaving the others null.
                 data["purging_header"] = {
                     "product_code_name": self.ui.purging_product_code_combo.currentText(),
-                    "start_time": None,
-                    "end_time": None,
+                    # --- NEW FIX: Capture the time if the CMA box is checked ---
+                    "start_time": self.ui.purging_start_time.time().toPyTime() if self.ui.cma_checkbox.isChecked() else None,
+                    "end_time": self.ui.purging_end_time.time().toPyTime() if self.ui.cma_checkbox.isChecked() else None,
                     "resin_id": self.ui.purging_resin_combo.currentData(),
                     "palletizer": self.ui.purging_palletizer_input.text(),
                     "siever": self.ui.purging_siever_input.text(),
@@ -1103,14 +1123,37 @@ class ExtruderEntryFormView(QWidget):
             error_groups["Purging & Resin"].append("Siever used must be greater than zero.")
 
 
-        # Purging & Resin (Unified and Conditional)
-        if not self.ui.no_purging_checkbox.isChecked():
-            if not self.ui.purging_product_code_combo.currentText().strip():
-                error_groups["Purging & Resin"].append("Product Code is required.")
+        # --- THIS IS THE NEW FIX: Unified and Strict Product Code Validation ---
+        product_code_text = self.ui.purging_product_code_combo.currentText().strip().upper()
 
+        if not product_code_text:
+            error_groups["Purging & Resin"].append("Product Code is required.")
+        else:
+            if product_code_text.startswith("CMA"):
+                # Regex Rule: Must perfectly match 'CMA-' followed by 1 or more digits
+                if not re.fullmatch(r"^CMA-\d+$", product_code_text):
+                    error_groups["Purging & Resin"].append(
+                        f"Invalid Product Code format ('{product_code_text}'). CMA codes must be 'CMA-' followed by numbers (e.g., CMA-1234)."
+                    )
+            else:
+                # For all other non-CMA codes, ensure they actually exist in the SmartComboBox options
+                if not self.ui.purging_product_code_combo.is_valid():
+                    error_groups["Purging & Resin"].append(
+                        f"Product Code '{product_code_text}' is not a valid option in the system."
+                    )
+        # --- END NEW FIX ---
+
+
+        no_purging = self.ui.no_purging_checkbox.isChecked()
+        cma_checked = self.ui.cma_checkbox.isChecked()
+
+        # 1. Time Validation: Required if normal purging OR (No Purging + CMA)
+        if not no_purging or (no_purging and cma_checked):
             if self.ui.purging_start_time.time() == QTime(0, 0) and self.ui.purging_end_time.time() == QTime(0, 0):
                 error_groups["Purging & Resin"].append("Purging Start and End Times cannot both be 00:00.")
 
+        # 2. Resin Table Validation: ONLY required if normal purging
+        if not no_purging:
             if self.ui.purging_details_table.rowCount() == 0:
                 error_groups["Purging & Resin"].append("At least one Resin Consumption entry is required.")
             else:
@@ -1124,9 +1167,6 @@ class ExtruderEntryFormView(QWidget):
                         error_groups["Purging & Resin"].append(
                             f"Resin Consumption Row {row + 1}: Qty (Kg.) must be greater than zero.")
 
-        if self.ui.no_purging_checkbox.isChecked():
-            if not self.ui.purging_product_code_combo.currentText().strip():
-                error_groups["Purging & Resin"].append("Product Code is required.")
 
 
         # Extruder Output Log
@@ -1343,6 +1383,15 @@ class ExtruderEntryFormView(QWidget):
             # We still need to populate the fields that are always required
             if header:  # Case where header exists but is empty
                 self.ui.purging_product_code_combo.setCurrentText(header.product_code or '')
+
+                # --- NEW FIX: Check CMA box and populate times if applicable ---
+                if header.product_code and header.product_code.upper().startswith("CMA"):
+                    self.ui.cma_checkbox.setChecked(True)
+                    self.ui.purging_start_time.setTime(header.time_start if header.time_start else QTime(0, 0))
+                    self.ui.purging_end_time.setTime(header.time_end if header.time_end else QTime(0, 0))
+                else:
+                    self.ui.cma_checkbox.setChecked(False)
+
                 self.ui.purging_resin_combo.setCurrentText(getattr(header.resin_used, 'abbreviation', ''))
                 self.ui.purging_palletizer_input.setText(str(header.palletizer_used or '0'))
                 self.ui.purging_siever_input.setText(str(header.siever_used or '0'))
@@ -1350,6 +1399,12 @@ class ExtruderEntryFormView(QWidget):
         else:
             # If purging was done, uncheck the box and populate all fields.
             self.ui.no_purging_checkbox.setChecked(False)
+
+            # Auto-check CMA box if the product code is CMA
+            if header and header.product_code and header.product_code.upper().startswith("CMA"):
+                self.ui.cma_checkbox.setChecked(True)
+            else:
+                self.ui.cma_checkbox.setChecked(False)
 
             self.ui.purging_product_code_combo.setCurrentText(header.product_code)
             self.ui.purging_start_time.setTime(header.time_start if header.time_start else QTime(0, 0))

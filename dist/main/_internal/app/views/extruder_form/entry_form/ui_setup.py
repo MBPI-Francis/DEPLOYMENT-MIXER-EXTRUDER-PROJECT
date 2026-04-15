@@ -265,6 +265,17 @@ class Ui_ExtruderEntryForm:
         self.purging_product_code_combo.setObjectName("ComboBox")
         self.purging_product_code_combo.setPlaceholderText("Type to search Product Codes...")
 
+        self.purging_product_code_combo.set_allowed_prefixes(["CMA"])
+
+        self.cma_checkbox = QCheckBox("CMA")
+
+
+        product_code_layout = QHBoxLayout()
+        product_code_layout.setContentsMargins(0, 0, 0, 0) # Remove margins so it fits cleanly
+        product_code_layout.addWidget(self.purging_product_code_combo)
+        product_code_layout.addWidget(self.cma_checkbox)
+
+
         self.purging_start_time = QTimeEdit()
         self.purging_start_time.setObjectName("TimeEdit")
         self.purging_end_time = QTimeEdit()
@@ -294,7 +305,7 @@ class Ui_ExtruderEntryForm:
         self.purging_siever_input.setValidator(int_validator)
         # --- END FIX ---
 
-        layout.addRow("Product Code:", self.purging_product_code_combo)
+        layout.addRow("Product Code:", product_code_layout)
         layout.addRow("Start Time:", self.purging_start_time)
         layout.addRow("End Time:", self.purging_end_time)
         layout.addRow("Time Used (HH:mm):", self.purging_time_used_label)
