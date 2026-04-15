@@ -107,6 +107,17 @@ class SmartComboBox(QComboBox):
         self._last_searched_term = ""
         self._is_mandatory = False
 
+        # --- NEW: Store allowed exceptions ---
+        self._allowed_prefixes = []
+
+
+    # --- NEW METHOD ---
+    def set_allowed_prefixes(self, prefixes: List[str]):
+        """Sets prefixes that will always bypass validation (e.g.['CMA'])."""
+        self._allowed_prefixes = [p.upper() for p in prefixes]
+        self._validate_input()
+
+
     def set_mandatory(self, mandatory: bool):
         self._is_mandatory = mandatory
         self._validate_input()
@@ -117,7 +128,16 @@ class SmartComboBox(QComboBox):
             return False
         if not text.strip():
             return True
-        return text.upper() in self._initial_list_upper_set
+
+        text_upper = text.upper()
+
+        # --- THIS IS THE FIX 2: Allow specific prefixes to bypass strict validation ---
+        if any(text_upper.startswith(prefix) for prefix in self._allowed_prefixes):
+            return True
+        # --- END FIX 2 ---
+
+        return text_upper in self._initial_list_upper_set
+
 
     def _validate_input(self):
         """Checks the current text and applies styling via dynamic properties."""

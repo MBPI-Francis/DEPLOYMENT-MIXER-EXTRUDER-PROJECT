@@ -112,12 +112,6 @@ class ExtruderOpsController:
                 TblProd01.T_PRODCODE != ''
             )
 
-            # --- THIS IS THE FIX 1: Filter out the "XX-" pattern ---
-            # Exclude codes that start with exactly 2 letters followed by a hyphen
-            exclude_pattern = TblProd01.T_PRODCODE.op("~")("^[A-Za-z]{2}-")
-            query = query.filter(not_(exclude_pattern))
-            # --- END FIX 1 ---
-
             if search_term:
                 query = query.filter(TblProd01.T_PRODCODE.ilike(f"%{search_term}%"))
 
