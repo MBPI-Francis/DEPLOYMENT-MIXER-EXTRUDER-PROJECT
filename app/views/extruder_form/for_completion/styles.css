@@ -1,0 +1,460 @@
+/* style.css */
+/* A modern, professional, and simplified stylesheet for the application. */
+
+
+/* === GENERAL LAYOUT & CONTAINER STYLES === */
+
+/* --- Main Window & Dialog Foundation --- */
+QMainWindow, QDialog, #ExtruderRecordsView, #ExtruderEntryFormView {
+    background-color: #ffffff; /* A very light, clean gray background */
+    font-family: 'Segoe UI', Arial, sans-serif;
+    padding: 10px;
+}
+#ExtruderRecordsView, #ExtruderEntryFormView {
+    padding: 15px;
+}
+
+
+
+/* --- Panels (QGroupBox) --- */
+QGroupBox#ViewGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding: 10px;
+}
+QGroupBox#ViewGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 3px;
+    background-color: #ffffff;
+    color: #495057;
+    font-size: 16px;
+    font-weight: bold;
+
+}
+
+
+/* Add this to your style.css file */
+
+/* --- Main Dialog Styling --- */
+QDialog#ViewDialog,
+ QDialog#EditDialog{
+    background-color: #ffffff; /* White background for the dialog frame */
+}
+
+/* Make the scroll area itself transparent so the dialog background shows through */
+QScrollArea#scroll_area {
+    border: none;
+    background-color: transparent;
+}
+
+/* Set the background of the widget INSIDE the scroll area to white */
+QWidget#scroll_content_widget {
+    background-color: #ffffff;
+}
+
+
+
+/* === SCROLLBARS & MENUS (Unchanged) === */
+QScrollBar:vertical {
+    border: none; background: #f1f3f5; width: 8px; margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background: #adb5bd; min-height: 20px; border-radius: 4px;
+}
+QScrollBar::handle:vertical:hover { background: #868e96; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0; background: none;
+}
+QMenu {
+    background-color: #ffffff; border: 1px solid #ced4da;
+    border-radius: 6px; padding: 5px; color: #212529;
+}
+QMenu::item {
+    padding: 8px 25px; border-radius: 4px;
+}
+QMenu::item:selected {
+    background-color: #007bff; color: white;
+}
+QMenu::separator {
+    height: 1px; background: #e9ecef; margin: 5px 0px;
+}
+
+
+/* app/views/mixer_old_records/records/styles.css */
+/* FINAL OPTIMIZED VERSION: Correctly uses Qt Resource paths for icons. */
+
+/* === GLOBAL WIDGET STYLES === */
+/* This single rule defines the base look for ALL standard input widgets. */
+QLineEdit,
+QDateEdit,
+QTimeEdit,
+QDoubleSpinBox {
+    background-color: #ffffff;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 10pt;
+}
+
+
+/* This single rule defines the hover and focus behavior for ALL standard input widgets. */
+QLineEdit:hover,
+QComboBox:hover,
+QDateEdit:hover,
+QTimeEdit:hover,
+QDoubleSpinBox:hover,
+QLineEdit:focus,
+QComboBox:focus,
+QDateEdit:focus,
+QTimeEdit:focus,
+QDoubleSpinBox:focus {
+    border-color: #80bdff;
+}
+
+/* Style for larger text entry fields */
+QTextEdit {
+    background-color: #ffffff;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 6px;
+    font-size: 10pt;
+    min-height: 80px;
+}
+QTextEdit:focus {
+    border-color: #80bdff;
+}
+
+
+/* --- Main View Container --- */
+
+
+/* === DATA TABLE === */
+QTableWidget {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    gridline-color: #e9ecef;
+    font-size: 10pt;
+}
+
+QHeaderView::section {
+    background-color: #f8f9fa;
+    color: #495057;
+    padding: 8px;
+    border: none;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: bold;
+}
+
+QTableWidget::item {
+    padding: 8px;
+}
+
+QTableWidget::item:selected {
+    background-color: #cfe2ff;
+    color: #000;
+}
+
+
+/* === DIALOGS === */
+QDialog {
+    background-color: #ffffff;
+}
+QDialog#FilterDialog {
+    background-color: #ffffff;
+}
+
+
+/* === BUTTON STYLES === */
+#ActionButton {
+    font-size: 10pt;
+    font-weight: bold;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid #ced4da;
+    background-color: #ffffff;
+    color: #495057;
+}
+#ActionButton:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+QPushButton#PrimaryDialogButton,
+QPushButton#EditDialogSaveButton {
+    background-color: #007bff;
+    color: white;
+    font-size: 10pt;
+    font-weight: bold;
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: none;
+    min-width: 90px;
+}
+QPushButton#PrimaryDialogButton:hover,
+QPushButton#EditDialogSaveButton:hover {
+    background-color: #0069d9;
+}
+QPushButton#PrimaryDialogButton:disabled {
+    background-color: #a0cfff;
+}
+
+#EditDialogCancelButton {
+    background-color: #6c757d;
+    color: white;
+    font-weight: bold;
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: none;
+    min-width: 90px;
+}
+#EditDialogCancelButton:hover {
+    background-color: #5a6268;
+}
+
+
+/* === SPECIALIZED WIDGET STYLES === */
+
+/* --- Styles for QTimeEdit and QDoubleSpinBox Arrows --- */
+QTimeEdit::up-button,
+QTimeEdit::down-button,
+QDoubleSpinBox::up-button,
+QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    width: 20px;
+    border: 1px solid #ced4da;
+    background-color: #f8f9fa;
+}
+
+QTimeEdit::up-button:hover,
+QTimeEdit::down-button:hover,
+QDoubleSpinBox::up-button:hover,
+QDoubleSpinBox::down-button:hover
+{
+    background-color: #e9ecef;
+}
+
+QTimeEdit::up-button {
+    subcontrol-position: top right;
+    border-top-right-radius: 4px;
+}
+QTimeEdit::down-button {
+    subcontrol-position: bottom right;
+    border-bottom-right-radius: 4px;
+}
+
+QDoubleSpinBox::up-button {
+    subcontrol-position: top right;
+    border-top-right-radius: 4px;
+}
+QDoubleSpinBox::down-button {
+    subcontrol-position: bottom right;
+    border-bottom-right-radius: 4px;
+}
+
+/* --- RESTORED: Icon paths using the Qt Resource System --- */
+QTimeEdit::up-arrow,
+QDoubleSpinBox::up-arrow
+{
+    image: url(app/widgets/widget_icons/chevron-up.svg);
+    width: 10px;
+    height: 10px;
+}
+
+QTimeEdit::down-arrow,
+QDoubleSpinBox::down-arrow
+{
+    image: url(app/widgets/widget_icons/chevron-down.svg);
+    width: 10px;
+    height: 10px;
+}
+
+/* --- QDateEdit Calendar Dropdown --- */
+QDateEdit::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 25px;
+    border-left: 1px solid #ced4da;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+    background-color: #f8f9fa;
+}
+QDateEdit::drop-down:hover {
+    background-color: #e9ecef;
+}
+QDateEdit::down-arrow {
+    image: url(app/widgets/widget_icons/chevron-down.svg); /* Also use the resource path here */
+    width: 12px;
+    height: 12px;
+}
+
+/* --- Notification Banner --- */
+QLabel#NotificationLabel {
+    background-color: #28a745;
+    color: white;
+    font-weight: bold;
+    font-size: 10pt;
+    padding: 8px;
+}
+
+/* === MODERN SCROLLBAR (TABLE-SPECIFIC) === */
+
+/* --- Vertical Scrollbar (Your Existing Style) --- */
+QTableWidget QScrollBar:vertical {
+    border: none;
+    background: #f1f3f5; /* Track color */
+    width: 8px;          /* Width of the vertical scrollbar */
+    margin: 0px 0px 0px 0px;
+}
+
+QTableWidget QScrollBar::handle:vertical {
+    background: #adb5bd; /* Handle color */
+    min-height: 20px;    /* Minimum handle height */
+    border-radius: 4px;
+}
+
+QTableWidget QScrollBar::handle:vertical:hover {
+    background: #868e96; /* Handle color on hover */
+}
+
+QTableWidget QScrollBar::add-line:vertical,
+QTableWidget QScrollBar::sub-line:vertical {
+    height: 0;           /* Hide the arrow buttons */
+    background: none;
+}
+
+
+/* --- Horizontal Scrollbar (New Matching Style) --- */
+QTableWidget QScrollBar:horizontal {
+    border: none;
+    background: #f1f3f5; /* Track color */
+    height: 8px;         /* Height of the horizontal scrollbar */
+    margin: 0px 0px 0px 0px;
+}
+
+QTableWidget QScrollBar::handle:horizontal {
+    background: #adb5bd; /* Handle color */
+    min-width: 20px;     /* Minimum handle width */
+    border-radius: 4px;
+}
+
+QTableWidget QScrollBar::handle:horizontal:hover {
+    background: #868e96; /* Handle color on hover */
+}
+
+QTableWidget QScrollBar::add-line:horizontal,
+QTableWidget QScrollBar::sub-line:horizontal {
+    width: 0;            /* Hide the arrow buttons */
+    background: none;
+}
+
+/* --- Common rules to make the track area behind the handle transparent --- */
+QTableWidget QScrollBar::add-page, QTableWidget QScrollBar::sub-page {
+    background: none;
+}
+
+
+#ComboBox:on {
+    border-color: #007bff; border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 25px;
+    border-left-width: 1px;
+    border-left-color: #ced4da;
+    border-left-style: solid;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #f8f9fa, stop: 1 #e9ecef);
+}
+QComboBox::down-arrow {
+    image: url(app/widgets/widget_icons/chevron-down.svg);
+    width: 12px;
+    height: 12px;
+}
+QComboBox::down-arrow:on { top: 1px; }
+QComboBox QAbstractItemView {
+    background-color: white;
+    color: black;
+    border-radius: 6px;                  /* Rounded corners for the dropdown itself */
+    font-size: 14px;
+    padding: 5px;
+    outline: 1px;
+    border: 1px solid #ced4da;
+}
+
+#FilterComboBox, QComboBox {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 10pt;
+}
+
+QGroupBox#SummaryBox {
+    background-color: #f8f9fa; /* A very light, modern gray background */
+    border: 1px solid #e9ecef; /* A subtle, light border */
+    border-radius: 6px;       /* Generous rounded corners for a soft look */
+
+}
+
+/* This styles the title of the GroupBox ("Visible Data Summary") */
+QGroupBox#SummaryBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 10px;
+    left: 10px;                /* Move the title in from the left edge */
+    color: #495057;            /* A professional, dark gray for the title */
+    font-size: 11pt;
+    font-weight: bold;
+}
+
+/* This styles the static labels (e.g., "Total Output Qty:") */
+QGroupBox#SummaryBox QLabel {
+    font-weight: bold;
+    color: #6c757d; /* A softer gray for the static labels */
+}
+
+/* This styles the dynamic value labels (the numbers) */
+QLabel#SummaryValueLabel {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #2c3e50; /* A strong, dark blue for the values to make them stand out */
+    padding-left: 5px;
+}
+
+
+/* ==========================================
+   PAGINATION WIDGET
+========================================== */
+QWidget#paginationWidget {
+    background: transparent;
+}
+
+QWidget#paginationWidget QPushButton {
+    padding: 4px 10px;
+    font-size: 12px;
+    border: 1px solid #cbd5e1;
+    background-color: white;
+    border-radius: 4px;
+}
+
+QWidget#paginationWidget QPushButton:hover {
+    background-color: #f8fafc;
+}
+
+QWidget#paginationWidget QLabel {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+/* Optional: Style the combo box inside the widget specifically */
+QWidget#paginationWidget QComboBox {
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px;
+}

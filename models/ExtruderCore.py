@@ -36,6 +36,7 @@ class ExtruderFormData(Base, AuditMixin):
     remarks = Column(Text)
     prepared_by = Column(String(255))
     is_completed = Column(Boolean, default=False, nullable=False)
+    completion_date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=True)
 
     # Foreign Keys
     machine_id = Column(Integer, ForeignKey("tbl_extruder_machines.id"), nullable=False)

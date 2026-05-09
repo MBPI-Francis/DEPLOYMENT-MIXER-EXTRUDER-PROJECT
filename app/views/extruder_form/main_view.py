@@ -6,6 +6,8 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QScrollArea
 from sqlalchemy.orm import sessionmaker
 from typing import Type
+
+from .for_completion.main import ForCompletionRecordsView
 from ..extruder_form.entry_form.main import ExtruderEntryFormView
 from ..extruder_form.records.main import ExtruderRecordsView
 
@@ -124,6 +126,7 @@ class ExtruderFormView(QWidget):
         # 1. Instantiate the two child widgets as before.
         self.extruder_entry_form = ExtruderEntryFormView(session_factory=self.Session)
         self.extruder_records = ExtruderRecordsView(session_factory=self.Session)
+        self.for_completion_records = ForCompletionRecordsView(session_factory=self.Session)
 
         # 2. Create a QScrollArea specifically for the Entry Form.
         entry_form_scroll_area = QScrollArea()
@@ -142,3 +145,4 @@ class ExtruderFormView(QWidget):
         #    - The scroll area (containing the entry form) is added for the second tab.
         self.tab_widget.addTab(self.extruder_records, "Extruder Records")
         self.tab_widget.addTab(entry_form_scroll_area, "Extruder Entry Form")
+        self.tab_widget.addTab(self.for_completion_records, "For Completion")
