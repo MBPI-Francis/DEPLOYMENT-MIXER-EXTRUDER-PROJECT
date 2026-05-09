@@ -68,38 +68,6 @@ class ExtruderOpsController:
         # --- NEW METHOD ---
 
 
-
-    # def get_distinct_product_codes_paginated(self, page: int = 1, page_size: int = 50, search_term: str = None,
-    #                                          limit: int = None) -> List[str]:
-    #     """
-    #     Fetches a unique, paginated, and searchable list of T_PRODCODE values.
-    #     Can be limited for an initial fast load.
-    #     """
-    #     with self.Session() as session:
-    #         query = session.query(distinct(TblProd01.T_PRODCODE)).filter(
-    #             TblProd01.T_PRODCODE.isnot(None),
-    #             TblProd01.T_PRODCODE != ''
-    #         )
-    #
-    #         if search_term:
-    #             query = query.filter(TblProd01.T_PRODCODE.ilike(f"%{search_term}%"))
-    #
-    #         # --- THIS IS THE FIX ---
-    #         # 1. Apply the ORDER BY clause first. This is always needed.
-    #         query = query.order_by(TblProd01.T_PRODCODE)
-    #
-    #         # 2. Now, conditionally apply either the limit or the pagination.
-    #         if limit:
-    #             query = query.limit(limit)
-    #         else:
-    #             query = query.offset((page - 1) * page_size).limit(page_size)
-    #
-    #         # 3. Execute the fully constructed query.
-    #         results = query.all()
-    #         # --- END FIX ---
-    #
-    #         return [code for (code,) in results]
-
     def get_distinct_product_codes_paginated(self, page: int = 1, page_size: int = 50, search_term: str = None,
                                              limit: int = None) -> List[str]:
         """
@@ -313,7 +281,9 @@ class ExtruderOpsController:
                     prepared_by=main_info.get('prepared_by_name'),
                     machine_id=main_info.get('machine_id'),
                     shift_id=main_info.get('shift_id'),
-                    remarks=form_data.get('remarks')
+                    remarks=form_data.get('remarks'),
+
+                    is_completed = main_info.get('is_completed', True)
                 )
 
                 # 2. Create the child MachineDetail object and attach it
@@ -412,6 +382,9 @@ class ExtruderOpsController:
                 record_to_update.remarks = form_data.get('remarks')
                 record_to_update.ref_no = main_info.get('ref_no')
 
+                if not main_info.get('is_completed'):
+                    record_to_update.is_completed = main_info.get('is_completed', True)
+
                 mc_info = form_data.get("machine_details", {})
                 if record_to_update.machine_details:
                     record_to_update.machine_details.feed_rate = mc_info.get('feed_rate')
@@ -508,29 +481,6 @@ class ExtruderOpsController:
             return max_ref or 0 # Return 0 if the table is empty
 
 
-
-    # def check_if_ref_no_exists(self, ref_no: int, exclude_id: int = None) -> bool:
-    #     """
-    #     Checks if a reference number already exists in the database.
-    #
-    #     Args:
-    #         ref_no: The reference number to check for.
-    #         exclude_id: An optional record ID to exclude from the search. This is
-    #                     used during an update to prevent a record from finding itself.
-    #     Returns:
-    #         True if the ref_no exists on another record, False otherwise.
-    #     """
-    #     with self.Session() as session:
-    #         query = session.query(ExtruderFormData).filter(ExtruderFormData.ref_no == ref_no)
-    #
-    #         # --- THIS IS THE FIX ---
-    #         # If an ID to exclude is provided, add another filter condition.
-    #         if exclude_id is not None:
-    #             query = query.filter(ExtruderFormData.id != exclude_id)
-    #         # --- END FIX ---
-    #
-    #         # Use exists() for an efficient check without retrieving the full object
-    #         return session.query(query.exists()).scalar()
 
     def check_if_ref_no_exists(self, ref_no: int, exclude_id: int = None) -> bool:
         """

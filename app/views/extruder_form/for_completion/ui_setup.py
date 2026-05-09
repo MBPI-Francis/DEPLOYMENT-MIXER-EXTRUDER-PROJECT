@@ -91,19 +91,14 @@ class Ui_ExtruderRecordsList(object):
         self.main_layout.addWidget(self.table_widget, 1)
 
     def _setup_table_columns(self):
-        self.table_widget.setColumnCount(14)
+        self.table_widget.setColumnCount(7)
         self.table_widget.setHorizontalHeaderLabels([
-            "ID", "Date Encoded", "Ref No","MC No.", "Product Code", "Lot Number",
-            "Time Start", "Time End", "Output/hr (kg)", "Target Output/hr",
-            "Total Output (kg)", "Purging to Code", "Purging Duration", "Operator(s)"
+            "ID", "Date Encoded", "Ref No", "MC No.", "Product Code", "Lot Number", "Prepared By"
         ])
         self.table_widget.setColumnHidden(0, True)
         header = self.table_widget.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(11, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(12, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        # Set specific resizing for the earlier columns so they don't stretch too far
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)

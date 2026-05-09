@@ -121,6 +121,51 @@ class ExtruderEntryFormView(QWidget):
 
         self.ui.purging_product_code_combo.full_search_requested.connect(self._on_product_code_search_requested)
 
+        self.ui.for_completion_checkbox.toggled.connect(self._on_for_completion_toggled)
+
+    def _on_for_completion_toggled(self, checked: bool):
+        """Enables or disables sections based on the 'For Completion' checkbox."""
+        is_enabled = not checked
+
+        # 1. Output Log
+        self.ui.output_log_table.setEnabled(is_enabled)
+        self.ui.add_output_log_btn.setEnabled(is_enabled)
+        self.ui.remove_output_log_btn.setEnabled(is_enabled)
+
+        # 2. Remarks and Personnel (excluding Prepared By)
+        self.ui.remarks_input.setEnabled(is_enabled)
+        self.ui.personnel_container_widget.setEnabled(is_enabled)
+        self.ui.add_personnel_btn.setEnabled(is_enabled)
+        self.ui.remove_personnel_btn.setEnabled(is_enabled)
+
+        # 3. Purging and Resin Details
+        self.ui.no_purging_checkbox.setEnabled(is_enabled)
+        self.ui.cma_checkbox.setEnabled(is_enabled)
+        self.ui.purging_product_code_combo.setEnabled(is_enabled)
+        self.ui.purging_resin_combo.setEnabled(is_enabled)
+        self.ui.purging_palletizer_input.setEnabled(is_enabled)
+        self.ui.purging_siever_input.setEnabled(is_enabled)
+        self.ui.water_temp_input.setEnabled(is_enabled)
+
+        # 4. Resin Consumption (Purging Table)
+        self.ui.purging_details_table.setEnabled(is_enabled)
+        self.ui.add_resin_btn.setEnabled(is_enabled)
+        self.ui.remove_resin_btn.setEnabled(is_enabled)
+
+        # Handle complex toggle state for purging times & resin group
+        if not is_enabled:
+            # Force disable if in 'For Completion' mode
+            self.ui.purging_start_time.setEnabled(False)
+            self.ui.purging_end_time.setEnabled(False)
+            self.ui.resin_group.setEnabled(False)
+        else:
+            # Re-evaluate based on No Purging and CMA checkboxes when re-enabling
+            no_purging = self.ui.no_purging_checkbox.isChecked()
+            cma_checked = self.ui.cma_checkbox.isChecked()
+            self.ui.resin_group.setEnabled(not no_purging)
+            self.ui.purging_start_time.setEnabled(not no_purging or cma_checked)
+            self.ui.purging_end_time.setEnabled(not no_purging or cma_checked)
+
     # --- NEW: Handler method for the checkbox ---
     def _on_edit_ref_no_toggled(self, checked: bool):
         """Makes the reference number field editable based on the checkbox state."""
@@ -920,6 +965,7 @@ class ExtruderEntryFormView(QWidget):
 
         self.ui.edit_ref_no_checkbox.setChecked(False)
         self.ui.edit_customer_checkbox.setChecked(False)
+        self.ui.for_completion_checkbox.setChecked(False)
         self._set_next_reference_number()
         self.original_ref_no = None # <-- ADD THIS LINE to reset the state
 
@@ -966,7 +1012,8 @@ class ExtruderEntryFormView(QWidget):
                     "qty_order": self.ui.qty_order_input.text(), "qty_produced": self.ui.qty_produced_input.text(),
                     "target_output_per_hour": self.ui.target_output_hr_input.text(),
                     "prepared_by_name": self.ui.prepared_by_combo.currentText(),
-                    "machine_id": self.ui.mc_no_combo.currentData(), "shift_id": self.ui.shift_combo.currentData()
+                    "machine_id": self.ui.mc_no_combo.currentData(), "shift_id": self.ui.shift_combo.currentData(),
+                    "is_completed": not self.ui.for_completion_checkbox.isChecked()
                 },
                 "machine_details": {
                     "screw_config_id": self.ui.screw_config_combo.currentData(),
@@ -1046,6 +1093,13 @@ class ExtruderEntryFormView(QWidget):
                 data["purging_details"] = []
             # --- END FIX ---
 
+            if self.ui.for_completion_checkbox.isChecked():
+                data["output_log"] = []
+                data["personnel"] = []
+                data["purging_header"] = None
+                data["purging_details"] = []
+                data["remarks"] = ""
+
 
             return data
         except Exception:
@@ -1062,19 +1116,32 @@ class ExtruderEntryFormView(QWidget):
         """
         # --- 1. Initialize lists for each error category ---
         error_groups = {
-            "Order Information": [],
+            "Production Details": [],
             "Machine & Configuration": [],
             "Personnel": [],
             "Purging & Resin": [],
             "Extruder Output Log": [],
             "Other Issues": []
         }
-
+        for_completion = self.ui.for_completion_checkbox.isChecked()
         # --- 2. Perform all validation checks and append errors to the lists ---
 
-        # Order Information
-        if not self.ui.lot_number_input.text().strip():
-            error_groups["Order Information"].append("Lot Number is required.")
+        # Production Details
+        details_fields = [
+            (self.ui.ref_no_input, "Reference No."),
+            (self.ui.lot_number_input, "Lot Number"),
+            (self.ui.product_code_input, "Production Code"),
+            (self.ui.customer_input, "Customer"),
+            (self.ui.qty_order_input, "Quantity Order (kg)"),
+            (self.ui.qty_produced_input, "Quantity Produced (kg)"),
+            (self.ui.target_output_hr_input, "Target Output per Hour (kg/hr)"),
+        ]
+
+        for widget, name in details_fields:
+            # --- FIX: Use .text() instead of .currentText() for QLineEdit ---
+            if not widget.text().strip():
+                error_groups["Production Details"].append(f"{name} is required.")
+
 
         # Machine & Configuration
         machine_fields = [
@@ -1101,86 +1168,87 @@ class ExtruderEntryFormView(QWidget):
         # Personnel (Unified)
         if not self.ui.prepared_by_combo.currentText().strip():
             error_groups["Personnel"].append("'Prepared By' is required.")
-        if self.ui.personnel_container_layout.count() == 0:
-            error_groups["Personnel"].append("At least one Personnel must be added.")
-        else:
-            for i in range(self.ui.personnel_container_layout.count()):
-                row_widget = self.ui.personnel_container_layout.itemAt(i).widget()
-                if row_widget:
-                    name_combo, pos_combo = row_widget.findChildren(QComboBox)
-                    if name_combo.currentIndex() <= 0:
-                        error_groups["Personnel"].append(f"Row {i + 1}: Personnel Name must be selected.")
-                    if pos_combo.currentIndex() <= 0:
-                        error_groups["Personnel"].append(f"Row {i + 1}: Personnel Position must be selected.")
-
-
-        # --- THIS IS THE FIX: Always validate these 3 purging fields ---
-        if self.ui.purging_resin_combo.currentIndex() <= 0:
-            error_groups["Purging & Resin"].append("Resin used (carrier) is required.")
-        if self.ui.purging_palletizer_input.text().strip() in ('', '0'):
-            error_groups["Purging & Resin"].append("Pelletizer used must be greater than zero.")
-        if self.ui.purging_siever_input.text().strip() in ('', '0'):
-            error_groups["Purging & Resin"].append("Siever used must be greater than zero.")
-
-
-        # --- THIS IS THE NEW FIX: Unified and Strict Product Code Validation ---
-        product_code_text = self.ui.purging_product_code_combo.currentText().strip().upper()
-
-        if not product_code_text:
-            error_groups["Purging & Resin"].append("Product Code is required.")
-        else:
-            if product_code_text.startswith("CMA"):
-                # Regex Rule: Must perfectly match 'CMA-' followed by 1 or more digits
-                if not re.fullmatch(r"^CMA-\d+$", product_code_text):
-                    error_groups["Purging & Resin"].append(
-                        f"Invalid Product Code format ('{product_code_text}'). CMA codes must be 'CMA-' followed by numbers (e.g., CMA-1234)."
-                    )
+        if not for_completion:
+            if self.ui.personnel_container_layout.count() == 0:
+                error_groups["Personnel"].append("At least one Personnel must be added.")
             else:
-                # For all other non-CMA codes, ensure they actually exist in the SmartComboBox options
-                if not self.ui.purging_product_code_combo.is_valid():
-                    error_groups["Purging & Resin"].append(
-                        f"Product Code '{product_code_text}' is not a valid option in the system."
-                    )
-        # --- END NEW FIX ---
+                for i in range(self.ui.personnel_container_layout.count()):
+                    row_widget = self.ui.personnel_container_layout.itemAt(i).widget()
+                    if row_widget:
+                        name_combo, pos_combo = row_widget.findChildren(QComboBox)
+                        if name_combo.currentIndex() <= 0:
+                            error_groups["Personnel"].append(f"Row {i + 1}: Personnel Name must be selected.")
+                        if pos_combo.currentIndex() <= 0:
+                            error_groups["Personnel"].append(f"Row {i + 1}: Personnel Position must be selected.")
+
+        if not for_completion:
+            # --- THIS IS THE FIX: Always validate these 3 purging fields ---
+            if self.ui.purging_resin_combo.currentIndex() <= 0:
+                error_groups["Purging & Resin"].append("Resin used (carrier) is required.")
+            if self.ui.purging_palletizer_input.text().strip() in ('', '0'):
+                error_groups["Purging & Resin"].append("Pelletizer used must be greater than zero.")
+            if self.ui.purging_siever_input.text().strip() in ('', '0'):
+                error_groups["Purging & Resin"].append("Siever used must be greater than zero.")
 
 
-        no_purging = self.ui.no_purging_checkbox.isChecked()
-        cma_checked = self.ui.cma_checkbox.isChecked()
+            # --- THIS IS THE NEW FIX: Unified and Strict Product Code Validation ---
+            product_code_text = self.ui.purging_product_code_combo.currentText().strip().upper()
 
-        # 1. Time Validation: Required if normal purging OR (No Purging + CMA)
-        if not no_purging or (no_purging and cma_checked):
-            if self.ui.purging_start_time.time() == QTime(0, 0) and self.ui.purging_end_time.time() == QTime(0, 0):
-                error_groups["Purging & Resin"].append("Purging Start and End Times cannot both be 00:00.")
-
-        # 2. Resin Table Validation: ONLY required if normal purging
-        if not no_purging:
-            if self.ui.purging_details_table.rowCount() == 0:
-                error_groups["Purging & Resin"].append("At least one Resin Consumption entry is required.")
+            if not product_code_text:
+                error_groups["Purging & Resin"].append("Product Code is required.")
             else:
-                for row in range(self.ui.purging_details_table.rowCount()):
-                    resin_combo = self.ui.purging_details_table.cellWidget(row, 0)
-                    qty_item = self.ui.purging_details_table.item(row, 1)
-                    if resin_combo and resin_combo.currentIndex() <= 0:
+                if product_code_text.startswith("CMA"):
+                    # Regex Rule: Must perfectly match 'CMA-' followed by 1 or more digits
+                    if not re.fullmatch(r"^CMA-\d+$", product_code_text):
                         error_groups["Purging & Resin"].append(
-                            f"Resin Consumption Row {row + 1}: A Resin must be selected.")
+                            f"Invalid Product Code format ('{product_code_text}'). CMA codes must be 'CMA-' followed by numbers (e.g., CMA-1234)."
+                        )
+                else:
+                    # For all other non-CMA codes, ensure they actually exist in the SmartComboBox options
+                    if not self.ui.purging_product_code_combo.is_valid():
+                        error_groups["Purging & Resin"].append(
+                            f"Product Code '{product_code_text}' is not a valid option in the system."
+                        )
+            # --- END NEW FIX ---
+
+
+            no_purging = self.ui.no_purging_checkbox.isChecked()
+            cma_checked = self.ui.cma_checkbox.isChecked()
+
+            # 1. Time Validation: Required if normal purging OR (No Purging + CMA)
+            if not no_purging or (no_purging and cma_checked):
+                if self.ui.purging_start_time.time() == QTime(0, 0) and self.ui.purging_end_time.time() == QTime(0, 0):
+                    error_groups["Purging & Resin"].append("Purging Start and End Times cannot both be 00:00.")
+
+            # 2. Resin Table Validation: ONLY required if normal purging
+            if not no_purging:
+                if self.ui.purging_details_table.rowCount() == 0:
+                    error_groups["Purging & Resin"].append("At least one Resin Consumption entry is required.")
+                else:
+                    for row in range(self.ui.purging_details_table.rowCount()):
+                        resin_combo = self.ui.purging_details_table.cellWidget(row, 0)
+                        qty_item = self.ui.purging_details_table.item(row, 1)
+                        if resin_combo and resin_combo.currentIndex() <= 0:
+                            error_groups["Purging & Resin"].append(
+                                f"Resin Consumption Row {row + 1}: A Resin must be selected.")
+                        if qty_item and (qty_item.text().strip() in ('', '0', '0.00')):
+                            error_groups["Purging & Resin"].append(
+                                f"Resin Consumption Row {row + 1}: Qty (Kg.) must be greater than zero.")
+
+
+
+            # Extruder Output Log
+            if self.ui.output_log_table.rowCount() == 0:
+                error_groups["Extruder Output Log"].append("At least one entry is required.")
+            else:
+                for row in range(self.ui.output_log_table.rowCount()):
+                    date_widget = self.ui.output_log_table.cellWidget(row, 0)
+                    qty_item = self.ui.output_log_table.item(row, 4)
+                    if date_widget and date_widget.date().isNull():
+                        error_groups["Extruder Output Log"].append(f"Row {row + 1}: A Date must be entered.")
                     if qty_item and (qty_item.text().strip() in ('', '0', '0.00')):
-                        error_groups["Purging & Resin"].append(
-                            f"Resin Consumption Row {row + 1}: Qty (Kg.) must be greater than zero.")
-
-
-
-        # Extruder Output Log
-        if self.ui.output_log_table.rowCount() == 0:
-            error_groups["Extruder Output Log"].append("At least one entry is required.")
-        else:
-            for row in range(self.ui.output_log_table.rowCount()):
-                date_widget = self.ui.output_log_table.cellWidget(row, 0)
-                qty_item = self.ui.output_log_table.item(row, 4)
-                if date_widget and date_widget.date().isNull():
-                    error_groups["Extruder Output Log"].append(f"Row {row + 1}: A Date must be entered.")
-                if qty_item and (qty_item.text().strip() in ('', '0', '0.00')):
-                    error_groups["Extruder Output Log"].append(
-                        f"Row {row + 1}: Output (kg) must be greater than zero.")
+                        error_groups["Extruder Output Log"].append(
+                            f"Row {row + 1}: Output (kg) must be greater than zero.")
 
         # Other Issues
         def is_zone_zero(widget: QLineEdit) -> bool:
@@ -1257,6 +1325,14 @@ class ExtruderEntryFormView(QWidget):
         self.ui.edit_ref_no_checkbox.setChecked(False)
         self.ui.edit_customer_checkbox.setChecked(False)
 
+        # --- THIS IS THE FIX ---
+        # 1. We fix the typo (changed for_cof to for_completion_checkbox)
+        is_completed = getattr(record, 'is_completed', True)
+        self.ui.for_completion_checkbox.setChecked(not is_completed)
+
+        # 2. Force the toggle logic to run so the UI fields lock/unlock correctly on load
+        self._on_for_completion_toggled(not is_completed)
+        # --- END FIX ---
 
         self.ui.ref_no_input.setText(str(record.ref_no))
 

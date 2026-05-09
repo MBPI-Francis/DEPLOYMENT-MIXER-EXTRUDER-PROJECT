@@ -31,6 +31,16 @@ class Ui_ExtruderEntryForm:
 
     def setup_ui(self, parent_widget: QWidget):
         main_layout = QVBoxLayout(parent_widget)
+
+        # --- THIS IS THE NEW FIX: Add For Completion Checkbox at the Top ---
+        top_layout = QHBoxLayout()
+        self.for_completion_checkbox = QCheckBox("For Completion (Draft Mode)")
+        self.for_completion_checkbox.setStyleSheet("font-weight: bold; color: #d9534f; font-size: 14px;")
+        top_layout.addWidget(self.for_completion_checkbox)
+        top_layout.addStretch()
+        main_layout.addLayout(top_layout)
+        # --- END NEW FIX ---
+
         grid_layout = QGridLayout()
         main_layout.addLayout(grid_layout)
 
@@ -107,14 +117,16 @@ class Ui_ExtruderEntryForm:
         personnel_form_layout.addRow("Prepared By:", self.prepared_by_combo)
 
         # 3. Create the container that will hold all the dynamic rows.
-        personnel_container_widget = QWidget()
-        self.personnel_container_layout = QVBoxLayout(personnel_container_widget)
+        # --- THIS IS THE FIX: Make the container a class instance so we can disable it ---
+        self.personnel_container_widget = QWidget()
+        self.personnel_container_layout = QVBoxLayout(self.personnel_container_widget)
         self.personnel_container_layout.setContentsMargins(0, 0, 0, 0)
-        self.personnel_container_layout.setSpacing(5)  # Spacing between dynamic rows
+        self.personnel_container_layout.setSpacing(5)
+        # --- END FIX ---
 
         # 4. Add the container to the QFormLayout. The "Personnel:" label will be on the left,
         #    and the entire container for the rows will be on the right, perfectly aligned.
-        personnel_form_layout.addRow("Personnel:", personnel_container_widget)
+        personnel_form_layout.addRow("Personnel:", self.personnel_container_widget)
 
         # Add this beautifully aligned section to the main group box layout
         main_v_layout.addLayout(personnel_form_layout)

@@ -914,7 +914,7 @@ class ExtruderEntryFormView(QWidget):
         """
         # --- 1. Initialize lists for each error category ---
         error_groups = {
-            "Order Information": [],
+            "Production Details": [],
             "Machine & Configuration": [],
             "Personnel": [],
             "Purging & Resin": [],
@@ -924,9 +924,9 @@ class ExtruderEntryFormView(QWidget):
 
         # --- 2. Perform all validation checks and append errors to the lists ---
 
-        # Order Information
+        # Production Details
         if not self.ui.lot_number_input.text().strip():
-            error_groups["Order Information"].append("Lot Number is required.")
+            error_groups["Production Details"].append("Lot Number is required.")
 
         # Machine & Configuration
         machine_fields = [

@@ -267,7 +267,7 @@ class ForCompletionRecordsView(QWidget):
         self.current_summary_stats = {}
         self.is_initial_load = True
 
-        self._inject_export_button()
+
 
 
         if self.layout() is None: self.setLayout(QVBoxLayout())
@@ -335,78 +335,9 @@ class ForCompletionRecordsView(QWidget):
             p_layout.addWidget(btn)
 
         # 4. Final Layout assembly
-        self.summary_box = self._create_summary_box()
-        self.layout().addWidget(self.summary_box)
+
         self.layout().addWidget(self.pagination_container)
 
-
-    def _inject_export_button(self):
-        """Creates the export button and adds it next to the Clear Filters button."""
-        self.export_list_button = QPushButton("Export List")
-        self.export_list_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        # Use built-in icon or custom style
-        self.export_list_button.setStyleSheet("""
-            QPushButton {
-                font-size: 10pt;
-                font-weight: bold;
-                padding: 8px 16px;
-                border-radius: 6px;
-                border: 1px solid #ced4da;
-                background-color: #ffffff;
-                color: #495057;
-            }
-            QPushButton:hover {
-                background-color: #e9ecef;
-                border-color: #adb5bd;
-            }
-        """)
-        self.export_list_button.setToolTip("Export the currently loaded list and summary to Excel")
-        self.export_list_button.clicked.connect(self.export_list_to_excel)
-
-        # Logic to place it right after "Clear All Filters"
-        if hasattr(self.ui, 'filter_layout') and hasattr(self.ui, 'clear_filters_button'):
-            layout = self.ui.filter_layout
-            # Find the position of the Clear Filters button
-            index = layout.indexOf(self.ui.clear_filters_button)
-
-            if index != -1:
-                # Insert immediately after (index + 1)
-                layout.insertWidget(index + 1, self.export_list_button)
-            else:
-                # Fallback: Just add to the end if specific button not found
-                layout.addWidget(self.export_list_button)
-
-    def _create_summary_box(self):
-        summary_box = QGroupBox()
-        summary_box.setObjectName('SummaryBox')
-        layout = QGridLayout(summary_box)
-        self.total_output_label = QLabel("0.00")
-        self.total_waste_qty_label = QLabel("0.00")
-        self.total_proc_duration_label = QLabel("0:00")
-        self.total_waste_duration_label = QLabel("0:00")
-        self.proc_excel_decimal_label = QLabel("0.00")
-        self.waste_excel_decimal_label = QLabel("0.00")
-        labels = [self.total_output_label, self.total_waste_qty_label, self.total_proc_duration_label,
-                  self.total_waste_duration_label, self.proc_excel_decimal_label, self.waste_excel_decimal_label]
-        for label in labels:
-            label.setObjectName("SummaryValueLabel")
-            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        layout.addWidget(QLabel("<b>Total Output Qty:</b>"), 0, 0)
-        layout.addWidget(self.total_output_label, 0, 1)
-        layout.addWidget(QLabel("<b>Total Processing Duration:</b>"), 0, 2)
-        layout.addWidget(self.total_proc_duration_label, 0, 3)
-        layout.addWidget(QLabel("<b>Processing Duration (Decimal):</b>"), 0, 4)
-        layout.addWidget(self.proc_excel_decimal_label, 0, 5)
-        layout.addWidget(QLabel("<b>Total Cleaning Qty:</b>"), 1, 0)
-        layout.addWidget(self.total_waste_qty_label, 1, 1)
-        layout.addWidget(QLabel("<b>Total Cleaning Duration:</b>"), 1, 2)
-        layout.addWidget(self.total_waste_duration_label, 1, 3)
-        layout.addWidget(QLabel("<b>Cleaning Duration (Decimal):</b>"), 1, 4)
-        layout.addWidget(self.waste_excel_decimal_label, 1, 5)
-        layout.setColumnStretch(1, 1);
-        layout.setColumnStretch(3, 1);
-        layout.setColumnStretch(5, 1)
-        return summary_box
 
     def _calculate_stats(self, df):
         """Helper to calculate summary stats dictionary."""
@@ -458,85 +389,6 @@ class ForCompletionRecordsView(QWidget):
             "waste_decimal": f"{waste_decimal:.2f}"
         }
 
-    def _update_summary_box(self):
-        stats = self._calculate_stats(self.full_data)
-        self.current_summary_stats = stats
-
-        self.total_output_label.setText(stats['total_output'])
-        self.total_waste_qty_label.setText(stats['total_waste'])
-        self.total_proc_duration_label.setText(stats['proc_duration_str'])
-        self.total_waste_duration_label.setText(stats['waste_duration_str'])
-        self.proc_excel_decimal_label.setText(stats['proc_decimal'])
-        self.waste_excel_decimal_label.setText(stats['waste_decimal'])
-
-
-
-    def export_list_to_excel(self):
-        # 1. Table check
-        if self.ui.table_widget.rowCount() == 0:
-            QMessageBox.warning(self, "No Data", "There is no data available to export.")
-            return
-
-        default_filename = f"Extruder_Filtered_List_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-        default_full_path = os.path.join(desktop_path, default_filename)
-
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save Filtered List", default_full_path,
-                                                   "Excel Files (*.xlsx)")
-        if not file_path:
-            return
-
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            # 2. CAPTURE CURRENT UI FILTERS (Exactly as seen on screen)
-            filters = self.advanced_filters.copy()
-            filters['search_term'] = self.ui.search_input.text().strip()
-            filters['search_field'] = self.search_scope_combo.currentText()
-            filters['date_from'] = self.ui.date_from_input.date().toPyDate()
-            filters['date_to'] = self.ui.date_to_input.date().toPyDate()
-            filters['show_only_deleted'] = self.ui.show_only_deleted_checkbox.isChecked()
-
-            # 3. FETCH DATA (Filtered Rows)
-            export_data = self.ops.get_export_data(filters)
-
-            # 4. FETCH FRESH SUMMARY (Filtered Totals)
-            # We don't use 'self.current_summary_stats' because it might be outdated.
-            # We call the DB directly for the stats matching these specific filters.
-            raw_stats = self.ops.get_extruder_summary_aggregates(filters)
-
-            # Format the DB stats for the Excel Exporter
-            def format_for_excel(s_dict):
-                def _h_m(total_sec):
-                    h, rem = divmod(int(total_sec), 3600)
-                    m, _ = divmod(rem, 60)
-                    return h, m, f"{h}:{m:02}"
-
-                ph, pm, p_str = _h_m(s_dict["proc_seconds"])
-                wh, wm, w_str = _h_m(s_dict["purge_seconds"])
-
-                return {
-                    "total_output": f"{s_dict['total_output']:,.2f}",
-                    "total_waste": f"{s_dict['total_waste']:,.2f}",
-                    "proc_duration_str": p_str,
-                    "waste_duration_str": w_str,
-                    "proc_decimal": f"{(ph + pm / 60):.2f}",
-                    "waste_decimal": f"{(wh + wm / 60):.2f}"
-                }
-
-            filtered_summary_stats = format_for_excel(raw_stats)
-
-            # 5. GENERATE EXCEL
-            exporter = ExtruderListExporter()
-            exporter.export_list(export_data, filtered_summary_stats, file_path)
-
-            QMessageBox.information(self, "Success", "Filtered list exported successfully!")
-            os.startfile(file_path)
-
-        except Exception:
-            ErrorDialog("Export Error", "Failed to export filtered list.",
-                        details=traceback.format_exc(), parent=self).exec()
-        finally:
-            QApplication.restoreOverrideCursor()
 
     def _setup_connections(self):
         # Search signals
@@ -628,6 +480,10 @@ class ForCompletionRecordsView(QWidget):
 
         filters['show_only_deleted'] = self.ui.show_only_deleted_checkbox.isChecked()
 
+
+        # --- NEW FIX: Force the query to ONLY pull Drafts ---
+        filters['is_completed'] = False
+
         # Calculate Offset for Pagination (Page 1 = Offset 0)
         offset = (self.current_page - 1) * self.records_per_page
 
@@ -663,26 +519,11 @@ class ForCompletionRecordsView(QWidget):
         self.next_page_btn.setEnabled(self.current_page < total_pages)
         self.last_page_btn.setEnabled(self.current_page < total_pages)
 
-        self._apply_summary_stats(stats)
 
         # Once the first load is successful, any future refresh uses the UI dates
         self.is_initial_load = False
 
-    def _apply_summary_stats(self, stats):
-        def fmt(s):
-            h, rem = divmod(int(s), 3600)
-            m, _ = divmod(rem, 60)
-            return f"{h}:{m:02}", f"{(h + m/60):.2f}"
 
-        p_str, p_dec = fmt(stats["proc_seconds"])
-        w_str, w_dec = fmt(stats["purge_seconds"])
-
-        self.total_output_label.setText(f"{stats['total_output']:,.2f}")
-        self.total_waste_qty_label.setText(f"{stats['total_waste']:,.2f}")
-        self.total_proc_duration_label.setText(p_str)
-        self.total_waste_duration_label.setText(w_str)
-        self.proc_excel_decimal_label.setText(p_dec)
-        self.waste_excel_decimal_label.setText(w_dec)
 
     def _get_row_dict_for_dataframe(self, record):
         """Helper to build data for Excel export cache."""
@@ -732,6 +573,7 @@ class ForCompletionRecordsView(QWidget):
         record_id, is_deleted = self._get_selected_record_info()
         if record_id is None: return
         context_menu = QMenu(self)
+
         if is_deleted:
             view_action = QAction("View Record", self)
             restore_action = QAction("Restore Record", self)
@@ -741,78 +583,20 @@ class ForCompletionRecordsView(QWidget):
             context_menu.addAction(restore_action)
         else:
             view_action = QAction("View Record", self)
-            edit_action = QAction("Edit Record", self)
+            edit_action = QAction("Edit / Finish Record", self)  # Renamed to reflect workflow
             delete_action = QAction("Delete Record", self)
-            export_action = QAction("Export to Excel", self)
+
             view_action.triggered.connect(self._view_record)
             edit_action.triggered.connect(self._edit_record)
             delete_action.triggered.connect(self._delete_record)
-            export_action.triggered.connect(self._export_record_to_excel)
+
             context_menu.addAction(view_action)
             context_menu.addAction(edit_action)
             context_menu.addSeparator()
-            context_menu.addAction(export_action)
-            record_count = self.ui.table_widget.rowCount()
-            if record_count > 1:
-                bulk_export_action = QAction(f"Bulk Export ({record_count} Records)...", self)
-                bulk_export_action.triggered.connect(self._start_bulk_export)
-                context_menu.addAction(bulk_export_action)
-            context_menu.addSeparator()
             context_menu.addAction(delete_action)
+
         context_menu.exec(self.ui.table_widget.mapToGlobal(position))
 
-    def _start_bulk_export(self):
-        if self.bulk_export_worker:
-            QMessageBox.warning(self, "Export in Progress", "A bulk export is already running.")
-            return
-        record_count = self.ui.table_widget.rowCount()
-        dialog = BulkExportDialog(record_count, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            option = dialog.get_selected_option()
-
-            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-            try:
-                record_ids = [int(self.ui.table_widget.item(row, 0).text()) for row in range(record_count)]
-                records_to_sort = [self.ops.get_full_record_by_id(rid) for rid in record_ids]
-
-                def get_min_start_time(record):
-                    start_times = [out.datetime_start for out in record.extruder_outputs if out.datetime_start]
-                    return min(start_times) if start_times else datetime.max
-
-                sorted_records = sorted(
-                    records_to_sort,
-                    key=lambda r: (getattr(r.machine, 'name', ''), get_min_start_time(r))
-                )
-            finally:
-                QApplication.restoreOverrideCursor()
-
-            desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-
-            output_path = ""
-            if option == BulkExportDialog.SEPARATE_FILES:
-                output_path = QFileDialog.getExistingDirectory(self, "Select Folder to Save Reports", desktop_path)
-            else:
-                default_filename = f"Bulk_Report_{datetime.now().strftime('%Y%m%d')}.xlsx"
-                default_full_path = os.path.join(desktop_path, default_filename)
-                output_path, _ = QFileDialog.getSaveFileName(self, "Save Bulk Report", default_full_path,
-                                                             "Excel Files (*.xlsx)")
-
-            if not output_path:
-                return
-
-            self.progress = QProgressDialog("Starting bulk export...", "Cancel", 0, 100, self)
-            self.progress.setWindowTitle("Bulk Exporting")
-            self.progress.setWindowModality(Qt.WindowModality.WindowModal)
-
-            self.bulk_export_worker = BulkExportWorker(sorted_records, option, output_path, self.ops)
-            self.bulk_export_worker.progress.connect(self._update_bulk_progress)
-            self.bulk_export_worker.finished.connect(self._on_bulk_export_finished)
-            self.bulk_export_worker.error.connect(self._on_bulk_export_error)
-
-            self.progress.canceled.connect(self.bulk_export_worker.stop)
-            self.progress.show()
-
-            self.bulk_export_worker.start()
 
     def _update_bulk_progress(self, value, text):
         self.progress.setValue(value)
@@ -892,6 +676,8 @@ class ForCompletionRecordsView(QWidget):
 
             all_filters['search_term'] = self.ui.search_input.text()
             all_filters['show_only_deleted'] = self.ui.show_only_deleted_checkbox.isChecked()
+            all_filters['is_completed'] = False
+
             if search_term := self.ui.search_input.text():
                 all_filters['ref_no_search'] = search_term
 
@@ -937,31 +723,6 @@ class ForCompletionRecordsView(QWidget):
         row_pos = self.ui.table_widget.rowCount()
         self.ui.table_widget.insertRow(row_pos)
 
-        total_output = sum(out.qty_output for out in record.extruder_outputs if out.qty_output)
-        total_production_seconds = sum(
-            (out.datetime_end - out.datetime_start).total_seconds() for out in record.extruder_outputs
-            if out.datetime_start and out.datetime_end and out.datetime_end > out.datetime_start
-        )
-        total_production_hours = total_production_seconds / 3600.0
-        output_per_hour = (total_output / decimal.Decimal(
-            total_production_hours)) if total_production_hours > 0 else decimal.Decimal(0)
-        total_purging_seconds = 0
-        for p in record.purging_headers:
-            if p.time_start and p.time_end:
-                dummy_date = datetime.now().date()
-                start_dt = datetime.combine(dummy_date, p.time_start)
-                end_dt = datetime.combine(dummy_date, p.time_end)
-                if end_dt < start_dt:
-                    end_dt += timedelta(days=1)
-                total_purging_seconds += (end_dt - start_dt).total_seconds()
-        purging_hours, rem = divmod(total_purging_seconds, 3600)
-        purging_minutes, _ = divmod(rem, 60)
-        purging_time_str = f"{int(purging_hours):02}:{int(purging_minutes):02}"
-        start_times = [out.datetime_start for out in record.extruder_outputs if out.datetime_start]
-        end_times = [out.datetime_end for out in record.extruder_outputs if out.datetime_end]
-        min_start_time = min(start_times) if start_times else None
-        max_end_time = max(end_times) if end_times else None
-
         cell_data = {
             0: (str(record.id), record.id),
             1: (record.created_at.strftime("%Y-%m-%d %H:%M") if record.created_at else "N/A",
@@ -970,17 +731,7 @@ class ForCompletionRecordsView(QWidget):
             3: (getattr(record.machine, 'name', 'N/A'), None),
             4: (record.product_code, None),
             5: (record.lot_number, None),
-            6: (min_start_time.strftime("%Y-%m-%d %H:%M") if min_start_time else "N/A",
-                min_start_time.timestamp() if min_start_time else 0),
-            7: (max_end_time.strftime("%Y-%m-%d %H:%M") if max_end_time else "N/A",
-                max_end_time.timestamp() if max_end_time else 0),
-            8: (f"{output_per_hour:.2f}", float(output_per_hour)),
-            9: (f"{record.target_output_per_hour or 0:.2f}", float(record.target_output_per_hour or 0)),
-            10: (f"{total_output or 0:.2f}", float(total_output or 0)),
-            11: (", ".join([p.product_code for p in record.purging_headers if p.product_code]) or "N/A", None),
-            12: (purging_time_str, total_purging_seconds),
-            13: (", ".join([f"{p.employee.first_name} {p.employee.last_name}" for p in record.extruder_personnels if
-                            p.employee]) or "N/A", None),
+            6: (record.prepared_by or "N/A", None),
         }
 
         is_deleted_view = self.ui.show_only_deleted_checkbox.isChecked()
