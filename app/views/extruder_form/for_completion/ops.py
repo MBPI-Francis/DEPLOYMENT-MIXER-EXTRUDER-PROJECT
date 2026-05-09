@@ -928,25 +928,33 @@ class ExtruderRecordsOperations:
         else:
             query = query.filter(ExtruderFormData.is_deleted == False)
 
+        # --- THIS IS THE BULLETPROOF FIX ---
+        if 'is_completed' in filters:
+            if filters['is_completed'] is False:
+                # If checking for 'False', we also check for 'None' (NULL)
+                # in case older records haven't been updated yet.
+                query = query.filter(
+                    or_(
+                        ExtruderFormData.is_completed == False,
+                        ExtruderFormData.is_completed.is_(None)
+                    )
+                )
+            else:
+                query = query.filter(ExtruderFormData.is_completed == True)
+        # --- END FIX ---
+
         if term := filters.get('search_term'):
             search_ilike = f"%{term}%"
             scope = filters.get('search_field', 'All Columns')
             if scope == "All Columns":
-                # We can only use .ilike() on String columns or casted Numeric columns.
-                # For relationships (Machine, Personnel), we use .has() or .any().
                 query = query.filter(or_(
                     ExtruderFormData.lot_number.ilike(search_ilike),
                     ExtruderFormData.product_code.ilike(search_ilike),
-                    ExtruderFormData.customer.ilike(search_ilike),  # Added customer search
+                    ExtruderFormData.customer.ilike(search_ilike),
                     ExtruderFormData.ref_no.cast(String).like(search_ilike),
                     ExtruderFormData.qty_produced.cast(String).like(search_ilike),
                     ExtruderFormData.target_output_per_hour.cast(String).like(search_ilike),
-
-
-                    # FIX: Search inside the related Machine table
                     ExtruderFormData.machine.has(ExtruderMachine.name.ilike(search_ilike)),
-
-                    # OPTIONAL: If you want to search by Operator name in the global search
                     ExtruderFormData.extruder_personnels.any(
                         ExtruderPersonnel.employee.has(
                             or_(
@@ -964,7 +972,7 @@ class ExtruderRecordsOperations:
             elif scope == "Ref No":
                 query = query.filter(ExtruderFormData.ref_no.cast(String).like(search_ilike))
 
-        # Date Range (Using EXISTS pattern to prevent record exclusion/duplication)
+        # Date Range
         d_from, d_to = filters.get('date_from'), filters.get('date_to')
         if d_from or d_to:
             conditions = []

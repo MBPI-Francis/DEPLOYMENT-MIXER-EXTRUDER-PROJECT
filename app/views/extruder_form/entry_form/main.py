@@ -1014,6 +1014,7 @@ class ExtruderEntryFormView(QWidget):
                     "prepared_by_name": self.ui.prepared_by_combo.currentText(),
                     "machine_id": self.ui.mc_no_combo.currentData(), "shift_id": self.ui.shift_combo.currentData(),
                     "is_completed": not self.ui.for_completion_checkbox.isChecked()
+
                 },
                 "machine_details": {
                     "screw_config_id": self.ui.screw_config_combo.currentData(),

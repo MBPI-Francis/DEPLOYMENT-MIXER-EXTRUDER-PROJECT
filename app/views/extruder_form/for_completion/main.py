@@ -484,6 +484,7 @@ class ForCompletionRecordsView(QWidget):
         # --- NEW FIX: Force the query to ONLY pull Drafts ---
         filters['is_completed'] = False
 
+
         # Calculate Offset for Pagination (Page 1 = Offset 0)
         offset = (self.current_page - 1) * self.records_per_page
 

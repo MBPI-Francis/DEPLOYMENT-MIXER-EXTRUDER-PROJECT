@@ -284,6 +284,7 @@ class ExtruderOpsController:
                     remarks=form_data.get('remarks'),
 
                     is_completed = main_info.get('is_completed', True)
+
                 )
 
                 # 2. Create the child MachineDetail object and attach it
@@ -381,6 +382,8 @@ class ExtruderOpsController:
                 record_to_update.shift_id = main_info.get('shift_id')
                 record_to_update.remarks = form_data.get('remarks')
                 record_to_update.ref_no = main_info.get('ref_no')
+
+                record_to_update.is_completed = main_info.get('is_completed', True)
 
                 if not main_info.get('is_completed'):
                     record_to_update.is_completed = main_info.get('is_completed', True)
