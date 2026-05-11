@@ -88,70 +88,7 @@ class ExtruderRecordsOperations:
         finally:
             session.close()
 
-    # def get_records_with_details(self, filters: dict = None):
-    #     """
-    #     Fetches ExtruderFormData records by applying all filters at the database level.
-    #     Includes FIX for DetachedInstanceError by eager loading PurgingDetails AND Resin.
-    #     """
-    #     if filters is None:
-    #         filters = {}
-    #
-    #     session = self.Session()
-    #     try:
-    #         # --- QUERY LOADING STRATEGY ---
-    #         # We use selectinload for collections and joinedload for single items (like Resin)
-    #         query = session.query(ExtruderFormData).options(
-    #             joinedload(ExtruderFormData.machine),
-    #             selectinload(ExtruderFormData.extruder_outputs),
-    #
-    #             # FIX IS HERE: Chain the loading to get Resin inside PurgingDetails
-    #             selectinload(ExtruderFormData.purging_headers)
-    #             .selectinload(PurgingHeader.purging_details)
-    #             .joinedload(PurgingDetail.resin),
-    #
-    #             selectinload(ExtruderFormData.extruder_personnels).joinedload(ExtruderPersonnel.employee)
-    #         )
-    #
-    #         # --- DYNAMIC FILTERING ---
-    #         if filters.get('show_only_deleted', False):
-    #             query = query.filter(ExtruderFormData.is_deleted == True)
-    #         else:
-    #             query = query.filter(ExtruderFormData.is_deleted == False)
-    #
-    #         if search_term := filters.get('search_term'):
-    #             search_ilike = f"%{search_term}%"
-    #             search_conditions = [
-    #                 ExtruderFormData.lot_number.ilike(search_ilike),
-    #                 ExtruderFormData.product_code.ilike(search_ilike),
-    #                 ExtruderFormData.customer.ilike(search_ilike)
-    #             ]
-    #             if search_term.isdigit():
-    #                 ref_no_condition = ExtruderFormData.ref_no.cast(String).like(search_ilike)
-    #                 search_conditions.append(ref_no_condition)
-    #             query = query.filter(or_(*search_conditions))
-    #
-    #         if date_from := filters.get('date_from'):
-    #             query = query.filter(func.date(ExtruderFormData.created_at) >= date_from)
-    #         if date_to := filters.get('date_to'):
-    #             query = query.filter(func.date(ExtruderFormData.created_at) <= date_to)
-    #
-    #         if machine_id := filters.get('machine_id'):
-    #             query = query.filter(ExtruderFormData.machine_id == machine_id)
-    #         if product_code := filters.get('product_code'):
-    #             query = query.filter(ExtruderFormData.product_code == product_code)
-    #         if lot_number_exact := filters.get('lot_number_exact'):
-    #             query = query.filter(ExtruderFormData.lot_number == lot_number_exact)
-    #         if operator_id := filters.get('operator_id'):
-    #             query = query.join(ExtruderPersonnel).filter(ExtruderPersonnel.employee_id == operator_id)
-    #
-    #         query = query.order_by(ExtruderFormData.created_at.desc())
-    #         results = query.all()
-    #         return results
-    #
-    #     finally:
-    #         session.close()
 
-    # --- Helper methods to populate the Filter Dialog ---
 
     def get_records_with_details(self, filters: dict = None):
         """
@@ -175,6 +112,20 @@ class ExtruderRecordsOperations:
                 query = query.filter(ExtruderFormData.is_deleted == True)
             else:
                 query = query.filter(ExtruderFormData.is_deleted == False)
+
+            # --- THIS IS THE FIX ---
+            if 'is_completed' in filters:
+                if filters['is_completed'] is False:
+                    query = query.filter(ExtruderFormData.is_completed == False)
+                else:
+                    from sqlalchemy import or_
+                    query = query.filter(
+                        or_(
+                            ExtruderFormData.is_completed == True,
+                            ExtruderFormData.is_completed.is_(None)
+                        )
+                    )
+            # --- END FIX ---
 
             if search_term := filters.get('search_term'):
                 search_ilike = f"%{search_term}%"
@@ -397,16 +348,16 @@ class ExtruderRecordsOperations:
                 'Formula No': r.formula_no,
                 'Lot Number': r.lot_number,
                 'Customer': r.customer,
-                'Total Output': float(total_output),
-                'Target Output': float(r.target_output_per_hour or 0),
-                'Date Time Start': time_start.strftime("%Y-%m-%d %H:%M") if time_start else "",
-                'Date Time End': time_end.strftime("%Y-%m-%d %H:%M") if time_end else "",
-                'Extrusion Duration': ext_duration_str,
-                'Total Output per/hr': float(f"{out_per_hr:.2f}"),
-                'Purging Duration': purge_duration_str,
+                'Extrusion Time Start': time_start.strftime("%Y-%m-%d %H:%M") if time_start else "",
+                'Extrusion Time End': time_end.strftime("%Y-%m-%d %H:%M") if time_end else "",
+                'Extrusion Duration (hh:mm)': ext_duration_str,
+                'Target Output/hr (kg)': float(r.target_output_per_hour or 0),
+                'Actual Output/hr (kg)': float(f"{out_per_hr:.2f}"),
+                'Total Output (kg)': float(total_output),
                 'Purging To Code': purge_code_str,
                 'Cleaning Material': cleaning_mat_str,
-                'Total Cleaning QTY': total_cleaning_qty,
+                'Total Cleaning QTY (kg)': total_cleaning_qty,
+                'Purging Duration (hh:mm)': purge_duration_str,
                 'Operators': operator_str
             }
             export_data.append(row)
@@ -493,6 +444,23 @@ class ExtruderRecordsOperations:
             query = query.filter(ExtruderFormData.is_deleted == True)
         else:
             query = query.filter(ExtruderFormData.is_deleted == False)
+
+        # --- THIS IS THE FIX ---
+        if 'is_completed' in filters:
+            if filters['is_completed'] is False:
+                # DRAFTS VIEW: Only show records explicitly saved as False
+                query = query.filter(ExtruderFormData.is_completed == False)
+            else:
+                # MAIN VIEW: Show True AND Null (so old completed records don't vanish)
+                from sqlalchemy import or_
+                query = query.filter(
+                    or_(
+                        ExtruderFormData.is_completed == True,
+                        ExtruderFormData.is_completed.is_(None)
+                    )
+                )
+        # --- END FIX ---
+
 
         if term := filters.get('search_term'):
             search_ilike = f"%{term}%"

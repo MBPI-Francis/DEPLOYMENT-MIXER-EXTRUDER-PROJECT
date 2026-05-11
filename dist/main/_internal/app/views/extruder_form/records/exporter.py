@@ -465,14 +465,23 @@ class ExtruderListExporter:
 
     # Updated Columns List with new fields
     COLUMNS = [
-        "Date Encoded", "Reference No", "Machine Name", "Product Code",
-        "Formula No", "Lot Number", "Customer", "Total Output",
-        "Target Output", "Date Time Start", "Date Time End",
-        "Extrusion Duration", "Total Output per/hr",
-        "Purging Duration",
+        "Date Encoded",
+        "Reference No",
+        "Machine Name",
+        "Product Code",
+        "Formula No",
+        "Lot Number",
+        "Customer",
+        "Extrusion Time Start",
+        "Extrusion Time End",
+        "Extrusion Duration (hh:mm)",
+        "Target Output/hr (kg)",
+        "Actual Output/hr (kg)",
+        "Total Output (kg)",
         "Purging To Code",
         "Cleaning Material",
-        "Total Cleaning QTY",
+        "Total Cleaning QTY (kg)",
+        "Purging Duration (hh:mm)",
         "Operators"
     ]
 

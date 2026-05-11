@@ -570,9 +570,23 @@ class MixerRecordsView(QWidget):
             session.close()
 
     def setup_table(self):
-        headers = ["Date", "Ref No", "MC #", "Product Code", "Lot Number", "Formula No", "Processing Start",
-                   "Processing End", "Processing Duration", "Processed By", "Output QTY", "Cleaning Start",
-                   "Cleaning End", "Cleaning Duration", "Cleaning RM", "Cleaning QTY", "Remarks"]
+        headers = ["Date Compounded",
+                   "Ref No",
+                   "MC #",
+                   "Product Code",
+                   "Lot Number",
+                   "Formula No",
+                   "Processing Start",
+                   "Processing End",
+                   "Processing Duration",
+                   "Output QTY (kg)",
+                   "Cleaning RM",
+                   "Cleaning QTY (kg)",
+                   "Cleaning Start",
+                   "Cleaning End",
+                   "Cleaning Duration",
+                   "Processed By",
+                   "Remarks"]
         self.table.setColumnCount(len(headers))
         self.table.setHorizontalHeaderLabels(headers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)

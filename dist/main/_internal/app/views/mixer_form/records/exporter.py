@@ -14,7 +14,7 @@ class ExcelExporter:
     def __init__(self, dataframe: pd.DataFrame):
         self.df = dataframe.copy()
         # Ensure 'Date' column is in datetime format for grouping
-        self.df['Date'] = pd.to_datetime(self.df['Date'])
+        self.df['Date Compounded'] = pd.to_datetime(self.df['Date Compounded'])
 
         # In app/views/mixer_report/exporter.py
 
@@ -33,8 +33,8 @@ class ExcelExporter:
         # 1. Convert quantity columns to numeric type before summing.
         #    errors='coerce' will turn any non-numeric text into NaN (Not a Number).
         #    .fillna(0) will then replace those NaN values with 0.
-        total_output_qty = pd.to_numeric(df_subset['Output QTY'], errors='coerce').fillna(0).sum()
-        total_cleaning_qty = pd.to_numeric(df_subset['Cleaning QTY'], errors='coerce').fillna(0).sum()
+        total_output_qty = pd.to_numeric(df_subset['Output QTY (kg)'], errors='coerce').fillna(0).sum()
+        total_cleaning_qty = pd.to_numeric(df_subset['Cleaning QTY (kg)'], errors='coerce').fillna(0).sum()
         # --- END FIX ---
 
         # 2. Compute the total timedelta for durations (this logic is correct)
@@ -152,9 +152,22 @@ class ExcelExporter:
         """Main export method to generate the complete Excel file."""
         # 1. Define the specific column order for export
         column_order = [
-            "Date", "Ref No", "MC #", "Product Code", "Lot Number", "Formula No",
-            "Processing Start", "Processing End", "Processing Duration", "Processed By", "Output QTY",
-            "Cleaning Start", "Cleaning End", "Cleaning Duration", "Cleaning RM", "Cleaning QTY",
+            "Date Compounded",
+            "Ref No",
+            "MC #",
+            "Product Code",
+            "Lot Number",
+            "Formula No",
+            "Processing Start",
+            "Processing End",
+            "Processing Duration",
+            "Output QTY (kg)",
+            "Cleaning RM",
+            "Cleaning QTY (kg)",
+            "Cleaning Start",
+            "Cleaning End",
+            "Cleaning Duration",
+            "Processed By",
             "Remarks",
         ]
         # Filter the DataFrame to only include and order these columns
@@ -168,7 +181,7 @@ class ExcelExporter:
             self._format_worksheet(ws_overall, "OVERALL MIXER REPORT", overall_totals, len(export_df.columns))
 
             # 5.1. The exported data will be categorized by month and year.
-            grouped = export_df.groupby(pd.Grouper(key='Date', freq='ME'))
+            grouped = export_df.groupby(pd.Grouper(key='Date Compounded', freq='ME'))
             for month_end_date, group_df in grouped:
                 if group_df.empty:
                     continue

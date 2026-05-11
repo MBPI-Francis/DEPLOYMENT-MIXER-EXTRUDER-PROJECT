@@ -1,4 +1,5 @@
 # app/views/extruder_form/entry_form/ops.py
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func, or_, cast, String, distinct, not_
@@ -265,6 +266,7 @@ class ExtruderOpsController:
         with self.Session() as session:
             with session.begin():  # Start a transaction
                 main_info = form_data.get("main", {})
+                is_completed_flag = main_info.get('is_completed', True)
 
                 # 1. Create the top-level ExtruderFormData object
                 new_form_entry = ExtruderFormData(
@@ -283,7 +285,8 @@ class ExtruderOpsController:
                     shift_id=main_info.get('shift_id'),
                     remarks=form_data.get('remarks'),
 
-                    is_completed = main_info.get('is_completed', True)
+                    is_completed = main_info.get('is_completed', True),
+                    completion_date = datetime.now(timezone.utc) if is_completed_flag else None
 
                 )
 
@@ -385,8 +388,19 @@ class ExtruderOpsController:
 
                 record_to_update.is_completed = main_info.get('is_completed', True)
 
-                if not main_info.get('is_completed'):
-                    record_to_update.is_completed = main_info.get('is_completed', True)
+                # --- THIS IS THE FIX ---
+                is_completed_flag = main_info.get('is_completed', True)
+                record_to_update.is_completed = is_completed_flag
+
+                if is_completed_flag:
+                    # If it's completed, but doesn't have a date yet, stamp it!
+                    # (This prevents overwriting the date if someone edits an already completed record)
+                    if not record_to_update.completion_date:
+                        record_to_update.completion_date = datetime.now(timezone.utc)
+                else:
+                    # If they changed their mind and saved it as a draft again, wipe the date.
+                    record_to_update.completion_date = None
+                # --- END FIX ---
 
                 mc_info = form_data.get("machine_details", {})
                 if record_to_update.machine_details:

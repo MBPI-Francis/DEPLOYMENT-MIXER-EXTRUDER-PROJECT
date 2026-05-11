@@ -496,6 +496,8 @@ class ExtruderRecordsView(QWidget):
             filters['date_to'] = self.ui.date_to_input.date().toPyDate()
             filters['show_only_deleted'] = self.ui.show_only_deleted_checkbox.isChecked()
 
+            filters['is_completed'] = True
+
             # 3. FETCH DATA (Filtered Rows)
             export_data = self.ops.get_export_data(filters)
 
@@ -627,6 +629,8 @@ class ExtruderRecordsView(QWidget):
             filters['date_to'] = self.ui.date_to_input.date().toPyDate()
 
         filters['show_only_deleted'] = self.ui.show_only_deleted_checkbox.isChecked()
+
+        filters['is_completed'] = True
 
         # Calculate Offset for Pagination (Page 1 = Offset 0)
         offset = (self.current_page - 1) * self.records_per_page
@@ -892,6 +896,9 @@ class ExtruderRecordsView(QWidget):
 
             all_filters['search_term'] = self.ui.search_input.text()
             all_filters['show_only_deleted'] = self.ui.show_only_deleted_checkbox.isChecked()
+
+            all_filters['is_completed'] = True
+
             if search_term := self.ui.search_input.text():
                 all_filters['ref_no_search'] = search_term
 

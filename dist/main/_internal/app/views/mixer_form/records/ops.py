@@ -122,7 +122,7 @@ def get_mixer_report_data(session: Session, filters: dict, offset: int = None, l
 
     query = (
         select(
-            mh.date.label("Date"),
+            mh.date.label("Date Compounded"),
             mh.time_start.label("Shift Time Start"),
             mh.time_end.label("Shift Time End"),
             mh.reference_no.label("Ref No"),
@@ -132,11 +132,11 @@ def get_mixer_report_data(session: Session, filters: dict, offset: int = None, l
             md.process_time_start.label("Processing Start"),
             md.process_time_end.label("Processing End"),
             md.processed_by.label("Processed By"),
-            md.output_qty.label("Output QTY"),
+            md.output_qty.label("Output QTY (kg)"),
             md.cleaning_time_start.label("Cleaning Start"),
             md.cleaning_time_end.label("Cleaning End"),
             md.cleaning_rm_code.label("Cleaning RM"),
-            md.cleaning_qty.label("Cleaning QTY"),
+            md.cleaning_qty.label("Cleaning QTY (kg)"),
             md.remarks.label("Remarks"),
             md.id.label("detail_id")
         )
@@ -197,9 +197,9 @@ def get_mixer_report_data(session: Session, filters: dict, offset: int = None, l
 
     df = pd.read_sql(query, session.bind)
 
-    final_columns = ["Date", "Shift Time Start", "Shift Time End", "Ref No", "MC #", "Product Code", "Lot Number",
+    final_columns = ["Date Compounded", "Shift Time Start", "Shift Time End", "Ref No", "MC #", "Product Code", "Lot Number",
                      "Formula No", "Processing Start", "Processing End", "Processing Duration", "Processed By",
-                     "Output QTY", "Cleaning Start", "Cleaning End", "Cleaning Duration", "Cleaning RM", "Cleaning QTY",
+                     "Output QTY (kg)", "Cleaning Start", "Cleaning End", "Cleaning Duration", "Cleaning RM", "Cleaning QTY (kg)",
                      "Remarks", "detail_id"]
     if df.empty:
         return pd.DataFrame(columns=final_columns)

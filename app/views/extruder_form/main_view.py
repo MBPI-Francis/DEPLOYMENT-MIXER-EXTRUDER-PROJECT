@@ -143,6 +143,7 @@ class ExtruderFormView(QWidget):
         # 3. Add the widgets to the tabs.
         #    - The records view is added DIRECTLY.
         #    - The scroll area (containing the entry form) is added for the second tab.
-        self.tab_widget.addTab(self.extruder_records, "Extruder Records")
-        self.tab_widget.addTab(entry_form_scroll_area, "Extruder Entry Form")
         self.tab_widget.addTab(self.for_completion_records, "For Completion")
+        self.tab_widget.addTab(entry_form_scroll_area, "Extruder Entry Form")
+        self.tab_widget.addTab(self.extruder_records, "Extruder Records")
+
