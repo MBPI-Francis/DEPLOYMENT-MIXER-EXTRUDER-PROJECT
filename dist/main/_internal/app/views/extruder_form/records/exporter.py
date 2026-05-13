@@ -466,6 +466,7 @@ class ExtruderListExporter:
     # Updated Columns List with new fields
     COLUMNS = [
         "Date Encoded",
+        "Date Completed",
         "Reference No",
         "Machine Name",
         "Product Code",

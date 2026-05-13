@@ -258,10 +258,10 @@ class ExtruderRecordsOperations:
         finally:
             session.close()
 
-    # --- UPDATED: Optimized Data Fetching for Export ---
     def get_export_data(self, filters: dict = None):
         """
         Fetches flattened data specifically for the Summary List Export.
+        Aggregates cleaning quantities by specific material for a detailed breakdown.
         """
         records = self.get_records_with_details(filters)
 
@@ -293,12 +293,13 @@ class ExtruderRecordsOperations:
             total_hours_float = total_ext_seconds / 3600.0
             out_per_hr = (float(total_output) / total_hours_float) if total_hours_float > 0 else 0.0
 
-            # 3. Purging (Time & Materials)
+            # 3. Purging (Time & Detailed Materials)
             total_purge_seconds = 0
             purge_codes = set()
-
             total_cleaning_qty = 0.0
-            cleaning_materials = set()
+
+            # --- CHANGE: Use a dictionary to track totals per specific material ---
+            material_totals = {}
 
             for p in r.purging_headers:
                 if p.product_code:
@@ -313,23 +314,24 @@ class ExtruderRecordsOperations:
 
                 # Iterate Details for Materials
                 for d in p.purging_details:
-                    if d.qty:
-                        total_cleaning_qty += float(d.qty)
+                    qty = float(d.qty or 0)
+                    total_cleaning_qty += qty
 
                     # SAFE ACCESS: Resin is now eager loaded
                     if d.resin:
                         mat_name = d.resin.abbreviation or d.resin.name
                         if mat_name:
-                            cleaning_materials.add(mat_name)
+                            # Accumulate qty for this specific material name
+                            material_totals[mat_name] = material_totals.get(mat_name, 0.0) + qty
 
-            # Format Strings
+            # Format the dictionary into a string: "Material = Qty, Material = Qty"
+            cleaning_mat_list = [f"{m} = {q:,.2f}" for m, q in sorted(material_totals.items())]
+            cleaning_mat_str = ", ".join(cleaning_mat_list)
+
+            # Format Purging Strings
             purge_total_minutes = int(total_purge_seconds // 60)
-            p_hours = purge_total_minutes // 60
-            p_minutes = purge_total_minutes % 60
-            purge_duration_str = f"{p_hours:02}:{p_minutes:02}"
-
+            purge_duration_str = f"{purge_total_minutes // 60:02}:{purge_total_minutes % 60:02}"
             purge_code_str = ", ".join(sorted(purge_codes))
-            cleaning_mat_str = ", ".join(sorted(cleaning_materials))
 
             # 4. Operators
             operators = set()
@@ -342,6 +344,7 @@ class ExtruderRecordsOperations:
             # 5. Build Row
             row = {
                 'Date Encoded': r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "",
+                'Date Completed': r.completion_date.strftime("%Y-%m-%d %H:%M") if r.completion_date else "",
                 'Reference No': r.ref_no,
                 'Machine Name': r.machine.name if r.machine else "",
                 'Product Code': r.product_code,
@@ -355,7 +358,7 @@ class ExtruderRecordsOperations:
                 'Actual Output/hr (kg)': float(f"{out_per_hr:.2f}"),
                 'Total Output (kg)': float(total_output),
                 'Purging To Code': purge_code_str,
-                'Cleaning Material': cleaning_mat_str,
+                'Cleaning Material': cleaning_mat_str,  # Detailed string "PP = 12.00, etc"
                 'Total Cleaning QTY (kg)': total_cleaning_qty,
                 'Purging Duration (hh:mm)': purge_duration_str,
                 'Operators': operator_str
