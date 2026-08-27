@@ -241,11 +241,22 @@ class SyncWorker(QObject):
         return len(headers_to_add), len(details_to_add)
 
     def _sync_prod01(self, session) -> int:
-        """Loads all non-deleted records from tbl_prod01."""
+        """Loads all non-deleted records from tbl_prod01 that are marked as PRINTED."""
         records_to_add = []
         dbf_records = dbfread.DBF(PRODUCTION01_DBF_PATH, encoding='latin1', parserclass=SafeFieldParser)._iter_records()
+
         for record in dbf_records:
-            if safe_bool(record.get('T_DELETED')): continue
+            # 1. Skip if the record is marked as deleted
+            if safe_bool(record.get('T_DELETED')):
+                continue
+
+            # --- THIS IS THE NEW FIX ---
+            # 2. Skip if T_JDONE is NOT exactly "PRINTED"
+            # .strip() removes trailing spaces common in DBF files, and .upper() ensures case insensitivity
+            t_jdone_value = str(record.get('T_JDONE', '')).strip().upper()
+            if t_jdone_value != 'PRINTED':
+                continue
+            # --- END NEW FIX ---
 
             records_to_add.append(TblProd01(
                 T_PRODID=safe_decimal(record.get('T_PRODID')), T_PRODDATE=record.get('T_PRODDATE'),
